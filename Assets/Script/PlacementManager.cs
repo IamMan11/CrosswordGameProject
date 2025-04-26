@@ -165,11 +165,14 @@
                 lastPlacedTiles.Add((tile, slot));          // ⭐ จำไว้สำหรับ Undo
             }
                 if (TurnManager.Instance != null && lastPlacedTiles.Count > 0)
-                {
-                    TurnManager.Instance.SetLastMoveInfo(
-                        lastPlacedTiles[0].slot, orient,
-                        new List<(LetterTile, BoardSlot)>(lastPlacedTiles));
-                }
+                    {
+                        TurnManager.Instance.OnTilesPlaced(
+                            lastPlacedTiles[0].slot,
+                            orient,
+                            new List<(LetterTile, BoardSlot)>(lastPlacedTiles)
+                        );
+                    }
+
 
             if(debug) Debug.Log("✓ Placement complete");
             ClearPreview();

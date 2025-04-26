@@ -10,6 +10,8 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
     public Image bg;                 // พื้นหลัง (Image หลักของ Prefab)
     public Image highlight;          // Image ลูกชื่อ “Highlight” (Raycast Target OFF)
 
+    public LetterTile GetLetterTile() => transform.GetChild(1).GetComponent<LetterTile>();
+
     [HideInInspector] public int row;
     [HideInInspector] public int col;
     [HideInInspector] public SlotType type = SlotType.Normal;
@@ -56,5 +58,14 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
         // childCount > 1  =  มี Highlight + LetterTile
         // หรือถ้าอยากตรวจละเอียดกว่านี้ loop เช็ก component LetterTile ก็ได้
         return transform.childCount > 1;
+    }
+
+    // ลบตัวอักษรออกจากช่องและคืนวัตถุ LetterTile
+    public LetterTile RemoveLetter()
+    {
+        var tile = GetLetterTile();
+        tile.transform.SetParent(null);
+    // อาจเคลียร์ตัวแปรภายใน BoardSlot ถ้ามี
+        return tile;
     }
 }

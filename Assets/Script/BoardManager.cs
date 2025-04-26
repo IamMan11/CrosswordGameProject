@@ -56,9 +56,9 @@ public class BoardManager : MonoBehaviour
         boardParent.sizeDelta = new Vector2(totalW, totalH);
         boardParent.pivot     = new Vector2(0.5f, 0.5f);
         boardParent.anchorMin = boardParent.anchorMax = new Vector2(0.5f, 0.5f);
-        boardParent.anchoredPosition = boardOffset;             // ปรับเพิ่ม/ลดได้ใน Inspector
+        boardParent.anchoredPosition = boardOffset;
 
-        // คำนวณจุดเริ่มซ้าย‑บน (Pivot อยู่กลาง จึงเลื่อนครึ่งหนึ่ง)
+        // คำนวณจุดเริ่มซ้าย-บน (Pivot อยู่กลาง จึงเลื่อนครึ่งหนึ่ง)
         float startX = -totalW / 2f;
         float startY =  totalH / 2f;
 
@@ -69,7 +69,11 @@ public class BoardManager : MonoBehaviour
                 // หา type พิเศษ
                 SlotType st = SlotType.Normal;
                 foreach (var sp in specials)
-                    if (sp.row == r && sp.col == c) { st = sp.type; break; }
+                    if (sp.row == r && sp.col == c)
+                    {
+                        st = sp.type;
+                        break;
+                    }
 
                 // Instantiate
                 var go = Instantiate(boardSlotPrefab, boardParent);
@@ -85,5 +89,16 @@ public class BoardManager : MonoBehaviour
                 grid[r, c] = slot;
             }
         }
+    }
+
+    /// <summary>
+    /// คืน BoardSlot ตามแถวและคอลัมน์ (ถ้าอยู่นอกขอบจะคืน null)
+    /// </summary>
+    public BoardSlot GetSlot(int row, int col)
+    {
+        if (row < 0 || row >= rows ||
+            col < 0 || col >= cols)
+            return null;
+        return grid[row, col];
     }
 }

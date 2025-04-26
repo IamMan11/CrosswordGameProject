@@ -1,18 +1,17 @@
+// BenchManager.cs
 using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// ใส่สคริปต์นี้ไว้บน Empty GameObject "BenchManager"
+/// ใส่สคริปต์นี้บน Empty GameObject "BenchManager"
 /// </summary>
 public class BenchManager : MonoBehaviour
 {
     [Header("Prefabs & Pool")]
-    public GameObject letterTilePrefab;   // Prefab ของ LetterTile
-    [Tooltip("**ไม่ใช้แล้ว** ให้กำหนดผ่าน TileBag")] 
-    public List<LetterData> letterPool;   // ยังไม่ลบทิ้งเผื่ออ้างอิงอื่น
+    public GameObject letterTilePrefab;
 
     [Header("Slot Positions (10)")]
-    public List<Transform> slotTransforms = new();
+    public List<Transform> slotTransforms = new List<Transform>();
 
     public static BenchManager Instance { get; private set; }
 
@@ -24,43 +23,54 @@ public class BenchManager : MonoBehaviour
 
     private void Start() => RefillEmptySlots();
 
-    // ---------- เติมช่องว่าง ---------- //
+    /// <summary>เติมทุกช่องว่าง (initial)</summary>
     public void RefillEmptySlots()
     {
         foreach (Transform slot in slotTransforms)
         {
             if (slot.childCount > 0) continue;
-
-            LetterData data = TileBag.Instance.DrawRandomTile();
-            if (data == null)        // ถุงหมดแล้ว
-            {
-                Debug.Log("[Bench] TileBag empty");
-                break;
-            }
-
-            GameObject tileGO = Instantiate(letterTilePrefab, slot);
+            var data = TileBag.Instance.DrawRandomTile();
+            if (data == null) break;
+            var tileGO = Instantiate(letterTilePrefab, slot, false);
             tileGO.transform.localPosition = Vector3.zero;
-
-            LetterTile tile = tileGO.GetComponent<LetterTile>();
-            tile.Setup(data);
+            tileGO.transform.localScale    = Vector3.one;
+            tileGO.GetComponent<LetterTile>().Setup(data);
         }
     }
 
-    /// <summary>ปุ่มทดสอบใน Inspector – เคลียร์แล้วเติมใหม่</summary>
-    [ContextMenu("Fill Bench")]
-    private void FillBench()
+    /// <summary>เติมแค่ช่องแรกที่ว่าง</summary>
+    public void RefillOneSlot()
     {
-        foreach (Transform slot in slotTransforms)
-            if (slot.childCount > 0) DestroyImmediate(slot.GetChild(0).gameObject);
+        var empty = GetFirstEmptySlot();
+        if (empty == null) return;
+        var data = TileBag.Instance.DrawRandomTile();
+        if (data == null) return;
+        var tileGO = Instantiate(letterTilePrefab, empty.transform, false);
+        tileGO.transform.localPosition = Vector3.zero;
+        tileGO.transform.localScale    = Vector3.one;
+        tileGO.GetComponent<LetterTile>().Setup(data);
+    }
 
+    /// <summary>คืน Tile ไปที่ Bench (ใส่ใน slot แรกที่ว่าง)</summary>
+    public void ReturnTile(LetterTile tile)
+    {
+        var empty = GetFirstEmptySlot();
+        if (empty != null)
+        {
+            tile.transform.SetParent(empty.transform, false);
+            tile.transform.localPosition = Vector3.zero;
+            tile.transform.localScale    = Vector3.one;
+        }
+        else Destroy(tile.gameObject);
         RefillEmptySlots();
     }
 
-    /// <summary>คืน BenchSlot แรกที่ว่าง (ใช้โดย SpaceManager)</summary>
+    /// <summary>คืน BenchSlot แรกที่ว่าง</summary>
     public BenchSlot GetFirstEmptySlot()
     {
         foreach (Transform t in slotTransforms)
-            if (t.childCount == 0) return t.GetComponent<BenchSlot>();
+            if (t.childCount == 0)
+                return t.GetComponent<BenchSlot>();
         return null;
     }
 }
