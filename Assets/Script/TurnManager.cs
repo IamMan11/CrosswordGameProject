@@ -1,4 +1,3 @@
-// TurnManager.cs
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -10,128 +9,116 @@ public class TurnManager : MonoBehaviour
     public static TurnManager Instance { get; private set; }
 
     [Header("UI")]
-    public Button confirmBtn;
+    public Button   confirmBtn;
     public TMP_Text scoreText;
     public TMP_Text bagCounterText;
+    
+    public TMP_Text messageText;          // ★ NEW – ข้อความสถานะ
 
-    // runtime game state
-    private int score = 0;
+    int score = 0;
 
-    // tracking last move
-    private BoardSlot lastStart;
-    private Orient    lastOrient;
-    private List<(LetterTile tile, BoardSlot slot)> lastPlacedTiles = new List<(LetterTile,BoardSlot)>();
-
-    // history of confirmed words to prevent double‐count
-    private struct WordInfo { public BoardSlot start; public Orient orient; public int length; }
-    private List<WordInfo> confirmedWords = new List<WordInfo>();
+    // info ของการวางครั้งล่าสุด
+    BoardSlot lastStart;
+    Orient    lastOrient;
+    List<(LetterTile tile, BoardSlot slot)> lastPlaced = new();
 
     void Awake()
     {
         Instance = this;
-        if (confirmBtn == null || scoreText == null || bagCounterText == null)
-        {
-            Debug.LogError("[TurnManager] Assign UI references in Inspector!");
-            enabled = false;
-            return;
-        }
+        confirmBtn.onClick.AddListener(OnConfirm);
         confirmBtn.interactable = false;
     }
 
-    private IEnumerator Start()
+    IEnumerator Start()
     {
-        // initial fill bench
         BenchManager.Instance.RefillEmptySlots();
         yield return null;
         UpdateBagUI();
-        confirmBtn.onClick.AddListener(OnConfirm);
+        ShowMessage("");                   // clear
     }
 
-    /// <summary>
-    /// เรียกเมื่อ PlacementManager วางตัวอักษรเสร็จ
-    /// </summary>
-    public void OnTilesPlaced(BoardSlot start, Orient orient,
-                                List<(LetterTile, BoardSlot)> placed)
+    public void SetLastMoveInfo(BoardSlot start, Orient o,
+                                List<(LetterTile,BoardSlot)> placed)
     {
-        lastStart = start;
-        lastOrient = orient;
-        lastPlacedTiles = new List<(LetterTile, BoardSlot)>(placed);
+        lastStart   = start;
+        lastOrient  = o;
+        lastPlaced  = placed;
         confirmBtn.interactable = true;
     }
 
-    private void OnConfirm()
+    // =========================================================
+    //                ยืนยัน / ตรวจคำ
+    // =========================================================
+    void OnConfirm()
     {
         confirmBtn.interactable = false;
 
-        // ถ้าไม่มีการวางใหม่ในรอบนี้ ให้ข้าม
-        if (lastPlacedTiles.Count == 0) return;
+        // 1) เอาสตริงเต็มคำจาก BoardAnalyzer
+        bool closed = BoardAnalyzer.GetWord(
+            lastStart, lastOrient,
+            out string word, out int r0, out int c0, out int r1, out int c1);   // :contentReference[oaicite:0]{index=0}&#8203;:contentReference[oaicite:1]{index=1}
 
-        // ตรวจคำตามจุดเริ่มและทิศ
-        if (BoardAnalyzer.GetWord(lastStart, lastOrient,
-                                  out string word,
-                                  out int r0, out int c0,
-                                  out int r1, out int c1)
-            && word.Length >= 2
-            && !HasBeenConfirmed(lastStart, lastOrient, word.Length))
+        // 2) เช็กคำเพียงครั้งเดียว
+        bool valid = closed && WordChecker.Instance.IsWordValid(word);
+
+        if (valid)
         {
-            // คำถูกและยังไม่เคยยืนยัน
-            int wordScore = ScoreManager.CalcWord(r0, c0, r1, c1);
-            score += wordScore;
-            scoreText.text = score.ToString();
+            int gained = ScoreManager.CalcWord(r0, c0, r1, c1);                 // :contentReference[oaicite:2]{index=2}&#8203;:contentReference[oaicite:3]{index=3}
+            score += gained;
+            scoreText.text = $"Score : {score}";
 
-            // ล็อกตัวอักษรในคำ
-            foreach (var slot in GetSlotsInWord(r0, c0, r1, c1))
-                slot.GetLetterTile().Lock();
-
-            // บันทึกประวัติ เพื่อไม่ให้คิดซ้ำ
-            confirmedWords.Add(new WordInfo { start = lastStart,
-                                              orient = lastOrient,
-                                              length = word.Length });
-
-            // เติม tile คืนมือ 1 ตัว
-            BenchManager.Instance.RefillOneSlot();
+            foreach (var (tile, _) in lastPlaced) tile.Lock();
+            ShowMessage($"✓ {word.ToUpper()}  +{gained}", Color.green);
         }
         else
         {
-            // คำผิด หรือเคยยืนยันแล้ว ให้คืนแค่ตัวที่วางในรอบนี้
-            foreach (var entry in lastPlacedTiles)
+            int letterSum = 0;
+            foreach (var (tile, _) in lastPlaced)
             {
-                entry.slot.RemoveLetter();
-                BenchManager.Instance.ReturnTile(entry.tile);
+                letterSum += tile.GetData().score;                               // :contentReference[oaicite:4]{index=4}&#8203;:contentReference[oaicite:5]{index=5}
+                SpaceManager.Instance.RemoveTile(tile);                          // :contentReference[oaicite:6]{index=6}&#8203;:contentReference[oaicite:7]{index=7}
             }
+            lastPlaced.Clear();
+
+            int penalty = Mathf.CeilToInt(letterSum * 0.5f);
+            score = Mathf.Max(0, score - penalty);
+            scoreText.text = $"Score : {score}";
+
+            ShowMessage($"✗ {word.ToUpper()}  -{penalty}", Color.red);
         }
 
-        lastPlacedTiles.Clear();
+        BenchManager.Instance.RefillEmptySlots();                                // :contentReference[oaicite:8]{index=8}&#8203;:contentReference[oaicite:9]{index=9}
         UpdateBagUI();
     }
 
-    private bool HasBeenConfirmed(BoardSlot start, Orient orient, int length)
+    // =========================================================
+    //                  Helper UI
+    // =========================================================
+    void UpdateBagUI()
     {
-        foreach (var info in confirmedWords)
-            if (info.start == start && info.orient == orient && info.length == length)
-                return true;
-        return false;
+        bagCounterText.text = $"{TileBag.Instance.Remaining}/{TileBag.Instance.TotalInitial}";   // :contentReference[oaicite:10]{index=10}&#8203;:contentReference[oaicite:11]{index=11}
     }
 
-    /// <summary>คืนรายการช่องของคำ จากพิกัด</summary>
-    private List<BoardSlot> GetSlotsInWord(int r0, int c0, int r1, int c1)
+    void ShowMessage(string msg, Color? col = null)
     {
-        List<BoardSlot> list = new List<BoardSlot>();
-        int dr = r1 > r0 ? 1 : (r1 < r0 ? -1 : 0);
-        int dc = c1 > c0 ? 1 : (c1 < c0 ? -1 : 0);
-        int steps = Mathf.Max(Mathf.Abs(r1 - r0), Mathf.Abs(c1 - c0));
-        for (int i = 0; i <= steps; i++)
+        if (messageText == null) return;
+        messageText.text  = msg;
+        messageText.color = col ?? Color.white;
+        // ดับเองใน 2 วิ
+        StopAllCoroutines();
+        if (msg != "") StartCoroutine(FadeOut());
+    }
+    IEnumerator FadeOut()
+    {
+        yield return new WaitForSeconds(2f);
+        float t = 0;
+        Color start = messageText.color;
+        while (t < 1f)
         {
-            int rr = r0 + dr * i;
-            int cc = c0 + dc * i;
-            var slot = BoardManager.Instance.GetSlot(rr, cc);
-            if (slot != null) list.Add(slot);
+            t += Time.deltaTime * 2f;
+            messageText.color = new Color(start.r, start.g, start.b, 1 - t);
+            yield return null;
         }
-        return list;
-    }
-
-    private void UpdateBagUI()
-    {
-        bagCounterText.text = $"{TileBag.Instance.Remaining}/{TileBag.Instance.TotalInitial}";
+        messageText.text = "";
     }
 }
