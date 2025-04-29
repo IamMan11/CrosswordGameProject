@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using System.Collections;
 
 public enum SlotType { Normal, DoubleLetter, TripleLetter, DoubleWord, TripleWord }
 
@@ -10,7 +11,16 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
     public Image bg;                 // พื้นหลัง (Image หลักของ Prefab)
     public Image highlight;          // Image ลูกชื่อ “Highlight” (Raycast Target OFF)
 
-    public LetterTile GetLetterTile() => transform.GetChild(1).GetComponent<LetterTile>();
+    public LetterTile GetLetterTile()
+    {
+        // look through *all* children
+        foreach (Transform child in transform)
+        {
+            var lt = child.GetComponent<LetterTile>();
+            if (lt != null) return lt;
+        }
+        return null;        // none found
+    }
 
     [HideInInspector] public int row;
     [HideInInspector] public int col;
@@ -40,6 +50,27 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
         if (PlacementManager.Instance != null)
             PlacementManager.Instance.HoverSlot(this);
     }
+    public void Flash(Color col, int times = 4, float dur = 0.15f)
+    {
+        StartCoroutine(FlashCo(col, times, dur));
+    }
+
+    IEnumerator FlashCo(Color col, int times, float dur)
+    {
+        highlight.transform.SetAsLastSibling();     // ⬅︎ ย้ายมาวาดบนสุด
+        Color c = col; c.a = 0.6f;                  // ⬅︎ ปรับความทึบ (อยากได้เท่าไรลองเล่นดู)
+
+        for (int i = 0; i < times; i++)
+        {
+            highlight.enabled = true;
+            highlight.color   = c;
+            yield return new WaitForSeconds(dur);
+
+            highlight.enabled = false;
+            yield return new WaitForSeconds(dur);
+        }
+    }
+    //:contentReference[oaicite:0]{index=0}&#8203;:contentReference[oaicite:1]{index=1}  
 
     // ---------- คลิกซ้ายวาง ----------
     public void OnPointerClick(PointerEventData eventData)
@@ -55,9 +86,8 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
 
     public bool HasLetterTile()
     {
-        // childCount > 1  =  มี Highlight + LetterTile
-        // หรือถ้าอยากตรวจละเอียดกว่านี้ loop เช็ก component LetterTile ก็ได้
-        return transform.childCount > 1;
+        if (transform.childCount > 1) return true;
+        return GetComponentInChildren<LetterTile>() != null;
     }
 
     // ลบตัวอักษรออกจากช่องและคืนวัตถุ LetterTile

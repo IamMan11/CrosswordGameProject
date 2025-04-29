@@ -153,17 +153,11 @@ public class PlacementManager : MonoBehaviour
             return;
         }
 
-        // แจ้ง TurnManager
-        if (TurnManager.Instance != null && lastPlacedTiles.Count > 0)
-        {
-            TurnManager.Instance.SetLastMoveInfo(
-                lastPlacedTiles[0].slot, orient,
-                new List<(LetterTile, BoardSlot)>(lastPlacedTiles));
-        }
-
         if (debug) Debug.Log("✓ Placement complete");
         ClearPreview();
         startSlot = null;
+        
+        TurnManager.Instance.EnableConfirm();
     }
 
     // ---------------- helper ----------------

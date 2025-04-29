@@ -15,7 +15,17 @@ public static class ScoreManager
         int r = r0, c = c0;
         while (true)
         {
-            var tile   = g[r, c].transform.GetChild(1).GetComponent<LetterTile>();
+            /* ---------- จุดที่ต้องแก้ ---------- */
+            // เดิม:  var tile = g[r, c].transform.GetChild(1).GetComponent<LetterTile>();
+            // ใหม่: ใช้ helper ปลอดภัย ไม่ยึด index
+            var tile = g[r, c].GetLetterTile();      // <-- แก้แค่บรรทัดนี้
+            if (tile == null)                        // ถ้าไม่เจอให้กันตก null
+            {
+                Debug.LogError($"[Score] ไม่มี LetterTile ที่ช่อง {r},{c}");
+                return 0;
+            }
+            /* ------------------------------------ */
+
             int letter = tile.GetData().score;
 
             switch (g[r, c].type)
@@ -27,9 +37,7 @@ public static class ScoreManager
             }
             total += letter;
 
-            // ถึงตัวสุดท้ายแล้ว → ออกจากลูป
-            if (r == r1 && c == c1) break;
-
+            if (r == r1 && c == c1) break;   // ถึงตัวสุดท้ายแล้ว → ออกจากลูป
             r += dr;
             c += dc;
         }
