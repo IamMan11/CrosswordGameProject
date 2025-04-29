@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Linq;
 
 public class TurnManager : MonoBehaviour
 {
@@ -53,43 +54,43 @@ public class TurnManager : MonoBehaviour
     {
         confirmBtn.interactable = false;
 
-        // 1) เอาสตริงเต็มคำจาก BoardAnalyzer
-        bool closed = BoardAnalyzer.GetWord(
-            lastStart, lastOrient,
-            out string word, out int r0, out int c0, out int r1, out int c1);   // :contentReference[oaicite:0]{index=0}&#8203;:contentReference[oaicite:1]{index=1}
-
-        // 2) เช็กคำเพียงครั้งเดียว
-        bool valid = closed && WordChecker.Instance.IsWordValid(word);
-
-        if (valid)
-        {
-            int gained = ScoreManager.CalcWord(r0, c0, r1, c1);                 // :contentReference[oaicite:2]{index=2}&#8203;:contentReference[oaicite:3]{index=3}
-            score += gained;
-            scoreText.text = $"Score : {score}";
-
-            foreach (var (tile, _) in lastPlaced) tile.Lock();
-            ShowMessage($"✓ {word.ToUpper()}  +{gained}", Color.green);
-        }
-        else
-        {
-            int letterSum = 0;
-            foreach (var (tile, _) in lastPlaced)
+        // --- รวบรวม tile “ใหม่” บนบอร์ด ---
+        var placed = new List<(LetterTile t, BoardSlot s)>();
+        foreach (var sl in BoardManager.Instance.grid)
+            if (sl.HasLetterTile())
             {
-                letterSum += tile.GetData().score;                               // :contentReference[oaicite:4]{index=4}&#8203;:contentReference[oaicite:5]{index=5}
-                SpaceManager.Instance.RemoveTile(tile);                          // :contentReference[oaicite:6]{index=6}&#8203;:contentReference[oaicite:7]{index=7}
+                var lt = sl.transform.GetChild(1).GetComponent<LetterTile>();
+                if (!lt.isLocked) placed.Add((lt,sl));
             }
-            lastPlaced.Clear();
+        if (placed.Count==0) return;
 
-            int penalty = Mathf.CeilToInt(letterSum * 0.5f);
-            score = Mathf.Max(0, score - penalty);
-            scoreText.text = $"Score : {score}";
-
-            ShowMessage($"✗ {word.ToUpper()}  -{penalty}", Color.red);
+        // --- ตรวจตามกฎทั้งหมด ---
+        if (!MoveValidator.ValidateMove(placed, out var words, out string err))
+        {
+            RejectMove(placed, err);   // เด้ง + -50 %
+            return;
         }
 
-        BenchManager.Instance.RefillEmptySlots();                                // :contentReference[oaicite:8]{index=8}&#8203;:contentReference[oaicite:9]{index=9}
+        // --- เช็กดิก & คิดคะแนนคำทั้งหมด ---
+        int moveScore=0;
+        foreach (var w in words)
+        {
+            if (!WordChecker.Instance.IsWordValid(w.word))
+            { RejectMove(placed, $"'{w.word}' not found"); return; }
+
+            moveScore += ScoreManager.CalcWord(w.r0,w.c0,w.r1,w.c1);    // :contentReference[oaicite:2]{index=2}&#8203;:contentReference[oaicite:3]{index=3}
+        }
+
+        // --- ผ่านทุกคำ → อัปเดตคะแนน & ล็อก tile ใหม่ ---
+        score += moveScore;
+        scoreText.text = $"Score : {score}";
+        foreach(var (t,_) in placed) t.Lock();
+
+        ShowMessage($"✓ +{moveScore}", Color.green);
+        BenchManager.Instance.RefillEmptySlots();                          // :contentReference[oaicite:4]{index=4}&#8203;:contentReference[oaicite:5]{index=5}
         UpdateBagUI();
     }
+
 
     // =========================================================
     //                  Helper UI
@@ -120,5 +121,21 @@ public class TurnManager : MonoBehaviour
             yield return null;
         }
         messageText.text = "";
+    }
+    void RejectMove(List<(LetterTile t, BoardSlot s)> tiles, string reason)
+    {
+        int sum = 0;
+        foreach (var (t,_) in tiles)
+        {
+            sum += t.GetData().score;                            // :contentReference[oaicite:8]{index=8}&#8203;:contentReference[oaicite:9]{index=9}
+            SpaceManager.Instance.RemoveTile(t);                 // คืนเข้า Bench :contentReference[oaicite:10]{index=10}&#8203;:contentReference[oaicite:11]{index=11}
+        }
+        int penalty = Mathf.CeilToInt(sum * 0.5f);
+        score = Mathf.Max(0, score - penalty);
+        scoreText.text = $"Score : {score}";
+        ShowMessage($"✗ {reason}  -{penalty}", Color.red);
+
+        BenchManager.Instance.RefillEmptySlots();
+        UpdateBagUI();
     }
 }
