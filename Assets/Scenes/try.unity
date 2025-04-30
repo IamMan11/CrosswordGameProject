@@ -1716,8 +1716,8 @@ MonoBehaviour:
   boardParent: {fileID: 2146283255}
   specials:
   - row: 14
-    col: 0
-    type: 1
+    col: 1
+    type: 2
   - row: 13
     col: 1
     type: 1

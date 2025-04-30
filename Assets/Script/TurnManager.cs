@@ -5,6 +5,11 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
+/// <summary>
+/// TurnManager – ตรวจคำใหม่ก่อนคำเชื่อม   (V2)
+/// • คำผิด (invalid)  → กระพริบแดง + เด้งตัว + หัก 50 % คะแนนตัวอักษรที่วาง
+/// • คำซ้ำ (duplicate) → กระพริบเหลือง + เด้งตัว   (ไม่หักคะแนน)
+/// </summary>
 public class TurnManager : MonoBehaviour
 {
     public static TurnManager Instance { get; private set; }
@@ -17,9 +22,8 @@ public class TurnManager : MonoBehaviour
 
     Coroutine fadeCo;
 
-    // ---------- runtime ----------
     int score = 0;
-    HashSet<string> boardWords = new();           // ★ เก็บคำทั้งหมดบนกระดาน
+    readonly HashSet<string> boardWords = new();
 
     void Awake()
     {
@@ -32,75 +36,81 @@ public class TurnManager : MonoBehaviour
     {
         confirmBtn.interactable = false;
 
-        // ถ้า Board ยังไม่พร้อม อย่าดำเนินต่อ
-        if (BoardManager.Instance == null || BoardManager.Instance.grid == null)
-        {
-            Debug.LogError("[TurnManager] BoardManager ยังไม่พร้อม");
-            EnableConfirm();
-            return;
-        }
-
-        // 1) เก็บ LetterTile “ใหม่” บนบอร์ด
+        // 1) เก็บ tile ที่เพิ่งวาง
         var placed = new List<(LetterTile t, BoardSlot s)>();
         foreach (var sl in BoardManager.Instance.grid)
         {
-            if (sl == null) continue;            // กัน null slot
-            if (!sl.HasLetterTile()) continue;
-
+            if (sl == null || !sl.HasLetterTile()) continue;
             var lt = sl.GetLetterTile();
-            if (lt != null && !lt.isLocked)
-                placed.Add((lt, sl));
+            if (!lt.isLocked) placed.Add((lt, sl));
         }
         if (placed.Count == 0) { EnableConfirm(); return; }
 
-        // 2) ตรวจตามกฎทั้งหมด
+        // 2) ตรวจ pattern
         if (!MoveValidator.ValidateMove(placed, out var words, out string err))
         {
-            RejectMove(placed, err);
+            RejectMove(placed, err, true); // always apply penalty (pattern ผิด)
             return;
         }
 
-        // === FLASH wrong / duplicate words =====================
-        List<MoveValidator.WordInfo> wrongWords = new();
-        List<MoveValidator.WordInfo> dupWords   = new();
+        // 3) แยก new / link
+        var newCoords = placed.Select(p => (p.s.row, p.s.col)).ToHashSet();
+        var newWords  = new List<MoveValidator.WordInfo>();
+        var linkWords = new List<MoveValidator.WordInfo>();
 
         foreach (var w in words)
+        {
+            int newCnt = CountNewInWord(w, newCoords);
+            if (newCnt >= 2) newWords.Add(w);
+            else             linkWords.Add(w);
+        }
+        if (newWords.Count == 0 && linkWords.Count > 0)
+        {
+            newWords.Add(linkWords[0]);
+            linkWords.RemoveAt(0);
+        }
+
+        // 4) เช็กคำใหม่ก่อน
+        var wrongNew = new List<MoveValidator.WordInfo>();
+        var dupNew   = new List<MoveValidator.WordInfo>();
+        foreach (var w in newWords)
         {
             bool valid = WordChecker.Instance.IsWordValid(w.word);
             bool dup   = boardWords.Contains(w.word);
-
-            if      (!valid) wrongWords.Add(w);
-            else if (dup)    dupWords  .Add(w);
+            if      (!valid) wrongNew.Add(w);
+            else if (dup)    dupNew.Add(w);
         }
-
-        if (wrongWords.Count > 0) StartCoroutine(BlinkWords(wrongWords, Color.red));
-        if (dupWords  .Count > 0) StartCoroutine(BlinkWords(dupWords  , Color.yellow));
-
-        // 3) เช็กดิก + คิดคะแนนทุกคำ
-        bool hasValid = false;
-        int  moveScore = 0;
-
-        foreach (var w in words)
+        if (wrongNew.Count > 0 || dupNew.Count > 0)
         {
-            if (!WordChecker.Instance.IsWordValid(w.word)) continue;   // คำผิด → ข้าม
-
-            hasValid = true;
-            // ★ คิดคะแนนเฉพาะคำ “ใหม่” (ยังไม่อยู่บนกระดาน)
-            if (!boardWords.Contains(w.word))
+            if (wrongNew.Count > 0)
             {
-                moveScore += ScoreManager.CalcWord(w.r0, w.c0, w.r1, w.c1);
-                boardWords.Add(w.word);          // บันทึกว่าเกิดขึ้นแล้ว
+                StartCoroutine(BlinkWords(wrongNew, Color.red));
+                RejectMove(placed, "invalid word", false); // ‼️ หัก 50 %
             }
-        }
-
-        if (!hasValid)                   // ไม่มีคำถูกเลย → ไม่ทำอะไร
-        {
-            ShowMessage("✗ no valid word", Color.yellow);
-            EnableConfirm();             // เปิดปุ่มให้ลองใหม่
+            else
+            {
+                StartCoroutine(BlinkWords(dupNew, Color.yellow));
+                RejectMove(placed, "duplicate word", false); // ไม่หักแต้ม
+            }
             return;
         }
 
-        // 4) ล็อก tile ใหม่ + update score
+        // 5) เช็กคำเชื่อม (ถ้าผิดกระพริบแดงเฉย ๆ)
+        var wrongLink = linkWords.Where(w => !WordChecker.Instance.IsWordValid(w.word)).ToList();
+        if (wrongLink.Count > 0) StartCoroutine(BlinkWords(wrongLink, Color.red));
+
+        // 6) คำนวณคะแนนคำใหม่
+        int moveScore = 0;
+        foreach (var w in newWords)
+        {
+            if (!boardWords.Contains(w.word))
+            {
+                moveScore += ScoreManager.CalcWord(w.r0, w.c0, w.r1, w.c1);
+                boardWords.Add(w.word);
+            }
+        }
+
+        // 7) ล็อก + UI
         score += moveScore;
         scoreText.text = $"Score : {score}";
         foreach (var (t, _) in placed) t.Lock();
@@ -108,31 +118,27 @@ public class TurnManager : MonoBehaviour
         ShowMessage($"✓ +{moveScore}", Color.green);
         BenchManager.Instance.RefillEmptySlots();
         UpdateBagUI();
-
-        // เปิดปุ่มให้กดตาถัดไปหลังเติมเบนช์เสร็จ
         EnableConfirm();
     }
 
     // =========================================================
-    void RejectMove(List<(LetterTile t, BoardSlot s)> tiles, string reason)
+    #region Helper
+
+    int CountNewInWord(MoveValidator.WordInfo w, HashSet<(int r,int c)> coords)
     {
-        int sum = 0;
-        foreach (var (t, _) in tiles)
+        int cnt = 0;
+        int dr = w.r0 == w.r1 ? 0 : (w.r1 > w.r0 ? 1 : -1);
+        int dc = w.c0 == w.c1 ? 0 : (w.c1 > w.c0 ? 1 : -1);
+        int r = w.r0, c = w.c0;
+        while (true)
         {
-            sum += t.GetData().score;
-            SpaceManager.Instance.RemoveTile(t);
+            if (coords.Contains((r,c))) cnt++;
+            if (r == w.r1 && c == w.c1) break;
+            r += dr; c += dc;
         }
-        int penalty = Mathf.CeilToInt(sum * 0.5f);
-        score = Mathf.Max(0, score - penalty);
-        scoreText.text = $"Score : {score}";
-        ShowMessage($"✗ {reason}  -{penalty}", Color.red);
-
-        BenchManager.Instance.RefillEmptySlots();
-        UpdateBagUI();
-        EnableConfirm();
+        return cnt;
     }
 
-    // =========================================================
     IEnumerator BlinkWords(IEnumerable<MoveValidator.WordInfo> list, Color col)
     {
         foreach (var w in list)
@@ -140,11 +146,10 @@ public class TurnManager : MonoBehaviour
             int dr = w.r0 == w.r1 ? 0 : (w.r1 > w.r0 ? 1 : -1);
             int dc = w.c0 == w.c1 ? 0 : (w.c1 > w.c0 ? 1 : -1);
             int r = w.r0, c = w.c0;
-
             while (true)
             {
                 var slot = BoardManager.Instance.GetSlot(r, c);
-                if (slot != null) slot.Flash(col);
+                slot?.Flash(col);
                 if (r == w.r1 && c == w.c1) break;
                 r += dr; c += dc;
             }
@@ -152,27 +157,41 @@ public class TurnManager : MonoBehaviour
         yield return null;
     }
 
-    // =========================================================
-    void UpdateBagUI() =>
-        bagCounterText.text =
-            $"{TileBag.Instance.Remaining}/{TileBag.Instance.TotalInitial}";
+    void RejectMove(List<(LetterTile t, BoardSlot s)> tiles, string reason, bool applyPenalty)
+    {
+        int penalty = 0;
+        if (applyPenalty)
+        {
+            int sum = tiles.Sum(p => p.t.GetData().score);
+            penalty = Mathf.CeilToInt(sum * 0.5f);
+            score = Mathf.Max(0, score - penalty);
+            scoreText.text = $"Score : {score}";
+        }
+
+        foreach (var (t, _) in tiles) SpaceManager.Instance.RemoveTile(t);
+
+        string msg = applyPenalty ? $"✗ {reason}  -{penalty}" : $"✗ {reason}";
+        ShowMessage(msg, Color.red);
+        BenchManager.Instance.RefillEmptySlots();
+        UpdateBagUI();
+        EnableConfirm();
+    }
+
+    void UpdateBagUI() => bagCounterText.text = $"{TileBag.Instance.Remaining}/{TileBag.Instance.TotalInitial}";
 
     void ShowMessage(string msg, Color? col = null)
     {
         if (messageText == null) return;
-
-        if (fadeCo != null) StopCoroutine(fadeCo);   // หยุด fade เดิม
-        messageText.text  = msg;
+        if (fadeCo != null) StopCoroutine(fadeCo);
+        messageText.text = msg;
         messageText.color = col ?? Color.white;
-
-        if (msg != "")
-            fadeCo = StartCoroutine(FadeOut());
+        if (!string.IsNullOrEmpty(msg)) fadeCo = StartCoroutine(FadeOut());
     }
 
     IEnumerator FadeOut()
     {
         yield return new WaitForSeconds(2f);
-        float t = 0;
+        float t = 0f;
         Color start = messageText.color;
         while (t < 1f)
         {
@@ -180,8 +199,10 @@ public class TurnManager : MonoBehaviour
             messageText.color = new Color(start.r, start.g, start.b, 1 - t);
             yield return null;
         }
-        messageText.text = "";
+        messageText.text = string.Empty;
     }
 
     public void EnableConfirm() => confirmBtn.interactable = true;
+
+    #endregion
 }
