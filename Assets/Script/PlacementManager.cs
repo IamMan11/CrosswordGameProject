@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using System.Linq;
 
 public enum Orient { Horizontal, Vertical }
 
@@ -175,5 +176,14 @@ public class PlacementManager : MonoBehaviour
         rtTile.pivot     = new Vector2(0.5f, 0.5f);
         rtTile.sizeDelta = rtSlot.sizeDelta;
         rtTile.localScale = Vector3.one;
+
+        if (tile.GetData().letter == "BLANK")
+        {
+            var letters = Enumerable.Range('A',26).Select(c=>(char)c+"").ToArray();
+            string newL = letters[Random.Range(0,letters.Length)];
+            tile.GetData().letter = newL;
+            tile.letterText.text  = newL;
+            tile.scoreText.text   = "0";  // คะแนน 0 
+        }
     }
 }

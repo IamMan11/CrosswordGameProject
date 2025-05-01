@@ -7,8 +7,9 @@ using TMPro;
 
 /// <summary>
 /// TurnManager – ตรวจคำใหม่ก่อนคำเชื่อม   (V2)
-/// • คำผิด (invalid)  → กระพริบแดง + เด้งตัว + หัก 50 % คะแนนตัวอักษรที่วาง
-/// • คำซ้ำ (duplicate) → กระพริบเหลือง + เด้งตัว   (ไม่หักคะแนน)
+/// • คำผิด (invalid)  → กระพริบแดง + เด้งตัว + หัก 50 % คะแนนตัวอักษรที่วาง  
+/// • คำซ้ำ (duplicate) → กระพริบเหลือง + เด้งตัว   (ไม่หักคะแนน)  
+/// • Auto-remove ทุก interval วินาที ถ้ายังไม่กด Confirm  
 /// </summary>
 public class TurnManager : MonoBehaviour
 {
@@ -20,9 +21,11 @@ public class TurnManager : MonoBehaviour
     public TMP_Text bagCounterText;
     public TMP_Text messageText;
 
-    Coroutine fadeCo;
+    public int Score { get; private set; }
+    public int CheckedWordCount { get; private set; }
 
-    int score = 0;
+    Coroutine fadeCo;
+    Coroutine autoRemoveCo;
     readonly HashSet<string> boardWords = new();
 
     void Awake()
@@ -31,38 +34,131 @@ public class TurnManager : MonoBehaviour
         confirmBtn.onClick.AddListener(OnConfirm);
     }
 
-    // =========================================================
+    void Start()
+    {
+        UpdateScoreUI();
+    }
+
+    /// <summary>รีเซ็ตสถานะเมื่อตั้งด่านใหม่</summary>
+    public void ResetForNewLevel()
+    {
+        Score = 0;
+        CheckedWordCount = 0;
+        boardWords.Clear();
+        confirmBtn.interactable = true;
+        StopAutoRemove();
+        UpdateScoreUI();
+    }
+
+    public void AddScore(int delta)
+    {
+        Score += delta;
+        UpdateScoreUI();
+    }
+
+    public void OnWordChecked(bool isCorrect)
+    {
+        if (isCorrect) CheckedWordCount++;
+    }
+
+    void UpdateScoreUI()
+    {
+        scoreText.text = $"Score : {Score}";
+    }
+
+    /// <summary>สั่งเริ่มลบตัวอักษรอัตโนมัติทุก interval วินาที</summary>
+    public void StartAutoRemove(float interval)
+    {
+        StopAutoRemove();
+        autoRemoveCo = StartCoroutine(AutoRemoveLetterCoroutine(interval));
+    }
+
+    /// <summary>หยุดลบตัวอักษรอัตโนมัติ</summary>
+    public void StopAutoRemove()
+    {
+        if (autoRemoveCo != null)
+        {
+            StopCoroutine(autoRemoveCo);
+            autoRemoveCo = null;
+        }
+    }
+
+    IEnumerator AutoRemoveLetterCoroutine(float interval)
+    {
+        while (true)
+        {
+            yield return new WaitForSeconds(interval);
+            if (confirmBtn.interactable)
+                RemoveOneLetter();
+            else
+                yield break;
+        }
+    }
+
+    /// <summary>ลบตัวอักษรสุ่มจากตารางแล้วหักคะแนน</summary>
+    void RemoveOneLetter()
+    {
+        // Flatten 2D grid → List แล้วกรองเฉพาะช่องที่มีอักษร :contentReference[oaicite:0]{index=0}&#8203;:contentReference[oaicite:1]{index=1}
+        var slots = BoardManager.Instance.grid
+                        .Cast<BoardSlot>()
+                        .Where(s => s.HasLetterTile())
+                        .ToList();
+        if (slots.Count == 0) return;
+
+        var slot = slots[Random.Range(0, slots.Count)];
+        var tile = slot.RemoveLetter();
+        if (tile != null)
+        {
+            Destroy(tile.gameObject);
+            int penalty = tile.GetData().score;
+            Score = Mathf.Max(0, Score - penalty);
+            UpdateScoreUI();
+            ShowMessage($"✗ Auto remove '{tile.GetData().letter}' -{penalty}", Color.red);
+        }
+    }
+
+    public void AutoRemoveNow()
+    {
+        RemoveOneLetter();
+    }
+
     void OnConfirm()
     {
+        LevelManager.Instance.OnFirstConfirm();
+
+        StopAutoRemove();
         confirmBtn.interactable = false;
 
-        // 1) เก็บ tile ที่เพิ่งวาง
+        // 1) รวบ LetterTile ที่เพิ่งวาง
         var placed = new List<(LetterTile t, BoardSlot s)>();
-        foreach (var sl in BoardManager.Instance.grid)
+        foreach (BoardSlot sl in BoardManager.Instance.grid.Cast<BoardSlot>())
         {
-            if (sl == null || !sl.HasLetterTile()) continue;
+            if (!sl.HasLetterTile()) continue;
             var lt = sl.GetLetterTile();
             if (!lt.isLocked) placed.Add((lt, sl));
         }
-        if (placed.Count == 0) { EnableConfirm(); return; }
-
-        // 2) ตรวจ pattern
-        if (!MoveValidator.ValidateMove(placed, out var words, out string err))
+        if (placed.Count == 0)
         {
-            RejectMove(placed, err, true); // always apply penalty (pattern ผิด)
+            EnableConfirm();
             return;
         }
 
-        // 3) แยก new / link
+        // 2) Validate pattern
+        if (!MoveValidator.ValidateMove(placed, out var words, out string err))
+        {
+            RejectMove(placed, err, true);
+            return;
+        }
+
+        // 3) แยกคำใหม่/คำเชื่อม
         var newCoords = placed.Select(p => (p.s.row, p.s.col)).ToHashSet();
         var newWords  = new List<MoveValidator.WordInfo>();
         var linkWords = new List<MoveValidator.WordInfo>();
-
         foreach (var w in words)
         {
-            int newCnt = CountNewInWord(w, newCoords);
-            if (newCnt >= 2) newWords.Add(w);
-            else             linkWords.Add(w);
+            int cnt = CountNewInWord(w, newCoords);
+            if (cnt >= 2) newWords.Add(w);
+            else          linkWords.Add(w);
         }
         if (newWords.Count == 0 && linkWords.Count > 0)
         {
@@ -70,34 +166,29 @@ public class TurnManager : MonoBehaviour
             linkWords.RemoveAt(0);
         }
 
-        // 4) เช็กคำใหม่ก่อน
-        var wrongNew = new List<MoveValidator.WordInfo>();
-        var dupNew   = new List<MoveValidator.WordInfo>();
-        foreach (var w in newWords)
-        {
-            bool valid = WordChecker.Instance.IsWordValid(w.word);
-            bool dup   = boardWords.Contains(w.word);
-            if      (!valid) wrongNew.Add(w);
-            else if (dup)    dupNew.Add(w);
-        }
+        // 4) ตรวจคำใหม่ (invalid vs duplicate)
+        var wrongNew = newWords.Where(w => !WordChecker.Instance.IsWordValid(w.word)).ToList();
+        var dupNew   = newWords.Where(w => boardWords.Contains(w.word)).ToList();
         if (wrongNew.Count > 0 || dupNew.Count > 0)
         {
             if (wrongNew.Count > 0)
             {
                 StartCoroutine(BlinkWords(wrongNew, Color.red));
-                RejectMove(placed, "invalid word", false); // ‼️ หัก 50 %
+                RejectMove(placed, "invalid word", true);
             }
             else
             {
                 StartCoroutine(BlinkWords(dupNew, Color.yellow));
-                RejectMove(placed, "duplicate word", false); // ไม่หักแต้ม
+                RejectMove(placed, "duplicate word", false);
             }
             return;
         }
 
-        // 5) เช็กคำเชื่อม (ถ้าผิดกระพริบแดงเฉย ๆ)
+        // 5) ตรวจคำเชื่อม (ไม่หักคะแนน ถ้าผิดแค่กระพริบแดง)
         var wrongLink = linkWords.Where(w => !WordChecker.Instance.IsWordValid(w.word)).ToList();
-        if (wrongLink.Count > 0) StartCoroutine(BlinkWords(wrongLink, Color.red));
+        if (wrongLink.Count > 0)
+            StartCoroutine(BlinkWords(wrongLink, Color.red));
+
 
         // 6) คำนวณคะแนนคำใหม่
         int moveScore = 0;
@@ -109,20 +200,21 @@ public class TurnManager : MonoBehaviour
                 boardWords.Add(w.word);
             }
         }
+        AddScore(moveScore);
 
-        // 7) ล็อก + UI
-        score += moveScore;
-        scoreText.text = $"Score : {score}";
+        // 7) ล็อกตัวอักษร + อัพ UI
+        AddScore(moveScore);
         foreach (var (t, _) in placed) t.Lock();
-
         ShowMessage($"✓ +{moveScore}", Color.green);
         BenchManager.Instance.RefillEmptySlots();
         UpdateBagUI();
         EnableConfirm();
+
+        if (moveScore > 0)
+            LevelManager.Instance.ResetTimer();
     }
 
-    // =========================================================
-    #region Helper
+    #region Helpers
 
     int CountNewInWord(MoveValidator.WordInfo w, HashSet<(int r,int c)> coords)
     {
@@ -164,28 +256,33 @@ public class TurnManager : MonoBehaviour
         {
             int sum = tiles.Sum(p => p.t.GetData().score);
             penalty = Mathf.CeilToInt(sum * 0.5f);
-            score = Mathf.Max(0, score - penalty);
-            scoreText.text = $"Score : {score}";
+            Score = Mathf.Max(0, Score - penalty);
+            UpdateScoreUI();
         }
 
-        foreach (var (t, _) in tiles) SpaceManager.Instance.RemoveTile(t);
+        foreach (var (t, _) in tiles)
+            SpaceManager.Instance.RemoveTile(t);
 
-        string msg = applyPenalty ? $"✗ {reason}  -{penalty}" : $"✗ {reason}";
+        string msg = applyPenalty
+            ? $"✗ {reason}  -{penalty}"
+            : $"✗ {reason}";
         ShowMessage(msg, Color.red);
         BenchManager.Instance.RefillEmptySlots();
         UpdateBagUI();
         EnableConfirm();
     }
 
-    void UpdateBagUI() => bagCounterText.text = $"{TileBag.Instance.Remaining}/{TileBag.Instance.TotalInitial}";
+    void UpdateBagUI()
+        => bagCounterText.text = $"{TileBag.Instance.Remaining}/{TileBag.Instance.TotalInitial}";
 
     void ShowMessage(string msg, Color? col = null)
     {
         if (messageText == null) return;
         if (fadeCo != null) StopCoroutine(fadeCo);
-        messageText.text = msg;
+        messageText.text  = msg;
         messageText.color = col ?? Color.white;
-        if (!string.IsNullOrEmpty(msg)) fadeCo = StartCoroutine(FadeOut());
+        if (!string.IsNullOrEmpty(msg))
+            fadeCo = StartCoroutine(FadeOut());
     }
 
     IEnumerator FadeOut()
