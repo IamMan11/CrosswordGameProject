@@ -67,4 +67,11 @@ void LoadDict()
 [System.Serializable] private class WordItem  { public string Word; }
     // ---------- API ----------
     public bool IsWordValid(string w) => dict.Contains(w.ToUpper());
+    /// <summary>คืนลิสต์คำทั้งหมดเรียง A‑Z (ใช้โชว์ DictionaryUI)</summary>
+    public List<string> GetAllWordsSorted()
+    {
+        var list = new List<string>(dict);
+        list.Sort();
+        return list;
+    }
 }

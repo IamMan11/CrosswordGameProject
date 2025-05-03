@@ -18,10 +18,12 @@ public class TurnManager : MonoBehaviour
     [Header("UI")]
     public Button   confirmBtn;
     public TMP_Text scoreText;
+
     public TMP_Text bagCounterText;
     public TMP_Text messageText;
 
     public int Score { get; private set; }
+    bool usedDictionaryThisTurn = false;
     public int CheckedWordCount { get; private set; }
 
     Coroutine fadeCo;
@@ -71,6 +73,10 @@ public class TurnManager : MonoBehaviour
     {
         StopAutoRemove();
         autoRemoveCo = StartCoroutine(AutoRemoveLetterCoroutine(interval));
+    }
+    public void SetDictionaryUsed()
+    {
+        usedDictionaryThisTurn = true;
     }
 
     /// <summary>หยุดลบตัวอักษรอัตโนมัติ</summary>
@@ -200,7 +206,13 @@ public class TurnManager : MonoBehaviour
                 boardWords.Add(w.word);
             }
         }
+        if (usedDictionaryThisTurn)
+        {
+            moveScore = Mathf.CeilToInt(moveScore * 0.5f);  // ลด 50%
+            usedDictionaryThisTurn = false;           // รีเซ็ตสำหรับเทิร์นถัดไป
+        }
         AddScore(moveScore);
+        
 
         // 7) ล็อกตัวอักษร + อัพ UI
         AddScore(moveScore);
@@ -300,6 +312,15 @@ public class TurnManager : MonoBehaviour
     }
 
     public void EnableConfirm() => confirmBtn.interactable = true;
+
+        public void OnClickDictionaryButton()
+        {
+            UIConfirmPopup.Show(
+                "การเปิดพจนานุกรมจะ\nลดคะแนนคำในเทิร์นนี้ 50%\nยังต้องการเปิดหรือไม่?",
+                () => DictionaryUI.Instance.Open(),   // ✅ กด Yes
+                null                                   // ❌ กด No
+            );
+        }
 
     #endregion
 }
