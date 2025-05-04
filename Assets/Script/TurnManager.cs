@@ -316,7 +316,7 @@ public class TurnManager : MonoBehaviour
         public void OnClickDictionaryButton()
         {
             UIConfirmPopup.Show(
-                "การเปิดพจนานุกรมจะ\nลดคะแนนคำในเทิร์นนี้ 50%\nยังต้องการเปิดหรือไม่?",
+                "การเปิดพจนานุกรมจะลดคะแนนคำในเทิร์นนี้ 50%\nยังต้องการเปิดหรือไม่?",
                 () => DictionaryUI.Instance.Open(),   // ✅ กด Yes
                 null                                   // ❌ กด No
             );
