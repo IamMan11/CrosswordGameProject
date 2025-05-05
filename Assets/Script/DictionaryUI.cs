@@ -18,13 +18,15 @@ public class DictionaryUI : MonoBehaviour
     [SerializeField]  Transform colTrans;     // คอลัมน์ขวา
 
     [Header("Text Prefabs")]
-    [SerializeField]  TMP_Text prefabWord;    // ใช้ฟอนต์/สีต่างกันได้
+    [SerializeField]  Button prefabWordButton;
     [SerializeField]  TMP_Text prefabType;
     [SerializeField]  TMP_Text prefabTrans;
 
     [Header("Navigation")]
     [SerializeField]  Button btnPrev;
     [SerializeField]  Button btnNext;
+    [SerializeField]  Button btnClear; 
+    [SerializeField]  TMP_Text pageLabel;    // TextMeshProUGUI แสดง "Page X"
 
     [Header("Create‑Word Buttons (1‑10)")]
     [SerializeField]  Button[] btnLen;        // index 0 = 1, …, 9 = 10
@@ -32,9 +34,9 @@ public class DictionaryUI : MonoBehaviour
     /* ---------- Data ---------- */
     const int PAGE_SIZE = 10;
     int  pageIdx = 0;
+    List<WordChecker.Entry> viewEntries;
 
     List<WordChecker.Entry> allEntries  = new();   // จาก WordChecker
-    List<WordChecker.Entry> viewEntries = new();   // หลังกรอง
 
     /* ---------- Awake ---------- */
     void Awake()
@@ -118,7 +120,6 @@ public class DictionaryUI : MonoBehaviour
         return true;
     }
 
-    /* ---------- Render ---------- */
     void RenderPage()
     {
         ClearColumn(colWord);
@@ -133,14 +134,86 @@ public class DictionaryUI : MonoBehaviour
 
             var e = viewEntries[idx];
 
-            Instantiate(prefabWord , colWord ,  false).text = e.Word;
+            // สร้างปุ่มคำ
+            var btn = Instantiate(prefabWordButton, colWord, false);
+            btn.GetComponentInChildren<TMP_Text>().text = e.Word;
+            string word = e.Word; // เก็บไว้ให้ Listener
+            btn.onClick.AddListener(() => OnWordButtonClicked(word));
+
+            // สร้างคอลัมน์อื่นตามปกติ (ไม่ต้องคลิก)
             Instantiate(prefabType , colType ,  false).text = e.Type;
             Instantiate(prefabTrans, colTrans, false).text = e.Translation;
         }
 
         btnPrev.interactable = pageIdx > 0;
         btnNext.interactable = (pageIdx + 1) * PAGE_SIZE < viewEntries.Count;
+
+        // แสดงเลขหน้า (human‑friendly)
+        pageLabel.text = $"Page {pageIdx + 1}";
     }
+    void OnPrevPage()
+    {
+        if (pageIdx > 0)
+        {
+            pageIdx--;
+            RenderPage();
+        }
+    }
+
+    void OnNextPage()
+    {
+        if ((pageIdx + 1) * PAGE_SIZE < viewEntries.Count)
+        {
+            pageIdx++;
+            RenderPage();
+        }
+    }
+
+    /// <summary>
+    /// เรียกเมื่อผู้ใช้คลิกคำใน Dictionary
+    /// </summary>
+    void OnWordButtonClicked(string word)
+    {
+        // เคลียร์ของเดิม
+        foreach (var tile in SpaceManager.Instance.GetPreparedTiles().ToArray())
+            SpaceManager.Instance.RemoveTile(tile);
+
+        int needed = word.Length;
+        int placed = 0;
+
+        // วนตัวอักษร
+        foreach (char ch in word.ToUpper())
+        {
+            var benchTiles = SpaceManager.Instance.GetAllBenchTiles();
+            LetterTile found = benchTiles.Find(t => t.GetData().letter.ToUpper() == ch.ToString());
+            if (found != null)
+            {
+                SpaceManager.Instance.AddTile(found);
+                placed++;
+            }
+        }
+
+        // แสดง Popup
+        if (placed == needed)
+            UIManager.Instance.ShowMessage("Done!");
+        else
+            UIManager.Instance.ShowMessage("Letter Not Enough!");
+
+        // พรีวิวการวางลงกระดาน
+        PlacementManager.Instance.TryPlace();
+    }
+    public void OnClear()
+    {
+        // 1. รีเซ็ต filter ให้เป็นทั้งรายการ
+        ResetFilter();
+
+        // 2. กลับไปหน้าแรก
+        pageIdx = 0;
+
+        // 3. แสดงผลใหม่
+        RenderPage();
+    }
+
 
     void ClearColumn(Transform parent)
     {

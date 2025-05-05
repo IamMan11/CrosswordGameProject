@@ -14,14 +14,20 @@ public class UIManager : MonoBehaviour
     public GameObject gameWinPanel;
     public GameObject levelFailPanel;
 
-    [Header("Message UI")]
-    public TMP_Text messageText;           // ลาก TextMeshProUGUI สำหรับโชว์ข้อความ
-    public float messageDuration = 2f;     // เวลาคงข้อความก่อนหาย
+    [Header("References")]
+    [SerializeField] private GameObject popupPanel;       // MessagePopup Panel
+    [SerializeField] private TMP_Text messageText;        // MessageText
+
+    [Header("Settings")]
+    [SerializeField] private float displayTime = 2f;      // เวลาแสดง popup (วินาที)
+    private Coroutine hideRoutine;
 
     void Awake()
     {
         if (Instance == null) Instance = this;
         else { Destroy(gameObject); return; }
+
+        popupPanel.SetActive(false);
     }
 
     /// <summary>แสดงหน้าชนะเกม</summary>
@@ -39,24 +45,24 @@ public class UIManager : MonoBehaviour
     }
 
     /// <summary>
-    /// แสดงข้อความสถานะบนจอชั่วคราว
+    /// แสดงข้อความเป็น Popup
     /// </summary>
-    /// <param name="msg">ข้อความที่จะโชว์</param>
-    /// <param name="col">สีข้อความ (ถ้าไม่กำหนดเป็นขาว)</param>
-    public void ShowMessage(string msg, Color? col = null)
+    public void ShowMessage(string message)
     {
-        if (messageText == null) return;
-        messageText.text  = msg;
-        messageText.color = col ?? Color.white;
+        // ถ้ามี Coroutine กำลังรอซ่อนอยู่ ให้หยุดก่อน
+        if (hideRoutine != null) StopCoroutine(hideRoutine);
 
-        StopAllCoroutines();
-        StartCoroutine(HideMessageAfterDelay());
+        // ตั้งข้อความ
+        messageText.text = message;
+        // แสดง Panel
+        popupPanel.SetActive(true);
+        // สั่งให้ซ่อนเมื่อครบเวลา
+        hideRoutine = StartCoroutine(HideAfterDelay());
     }
 
-    IEnumerator HideMessageAfterDelay()
+    private IEnumerator HideAfterDelay()
     {
-        yield return new WaitForSeconds(messageDuration);
-        if (messageText != null)
-            messageText.text = string.Empty;
+        yield return new WaitForSeconds(displayTime);
+        popupPanel.SetActive(false);
     }
 }
