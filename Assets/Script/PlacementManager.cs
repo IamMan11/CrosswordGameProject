@@ -110,7 +110,7 @@ public class PlacementManager : MonoBehaviour
     }
 
 
-    void ClearPreview()
+    public void ClearPreview()
     {
         foreach (var s in currentPreview) s.HidePreview();
         currentPreview.Clear();
@@ -123,7 +123,7 @@ public class PlacementManager : MonoBehaviour
     // =========================================================
     //                       PLACE LOGIC
     // =========================================================
-    void TryPlace()
+    public void TryPlace()
     {
         if (!previewIsValid)                     { if(debug) Debug.Log("❌ preview invalid"); return; }
 

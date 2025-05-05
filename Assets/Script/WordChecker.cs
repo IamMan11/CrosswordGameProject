@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class WordChecker : MonoBehaviour
@@ -6,65 +8,113 @@ public class WordChecker : MonoBehaviour
     public static WordChecker Instance { get; private set; }
 
     [Header("Dictionary (json)")]
-    public TextAsset wordJson;     // ลากไฟล์ wordlist.json มาวางตรงนี้ใน Inspector
+    public TextAsset wordJson;          // ลาก wordlist_20k_with_translation.json
 
-    private readonly HashSet<string> dict = new();
+    /* ---------- โครงสร้างข้อมูล ---------- */
+    [Serializable] public class Entry
+    {
+        public string Word;
+        public string Type;
+        public string Translation;
+    }
+
+    /* ---------- เก็บข้อมูล ---------- */
+    readonly HashSet<string> dict = new();     // ไว้เช็กเร็ว ๆ
+    List<Entry> entries = new();               // ไว้โชว์ Dictionary
 
     void Awake()
     {
         if (Instance == null) Instance = this;
         else { Destroy(gameObject); return; }
 
-        LoadDict();
+        LoadEntries();
     }
 
-    // ---------- LOAD ----------
-void LoadDict()
-{
-    if (wordJson == null) { Debug.LogError("[WordChecker] assign wordJson"); return; }
-
-    string txt = wordJson.text.TrimStart();
-
-    // --------------------------------------------
-    //  A) JSON = array of objects  [{ "Word": "...", ... }, ... ]
-    // --------------------------------------------
-    if (txt.StartsWith("[") && txt.Contains("\"Word\""))
+    /* ---------- LOAD ---------- */
+    void LoadEntries()
     {
-        // ทำ wrapper ให้ JsonUtility อ่านได้
-        string json = "{\"items\":" + wordJson.text + "}";
-        ObjWrapper wrap = JsonUtility.FromJson<ObjWrapper>(json);
-
-        foreach (var item in wrap.items)
-            if (!string.IsNullOrEmpty(item.Word))
-                dict.Add(item.Word.ToUpper());
-    }
-    // --------------------------------------------
-    //  B) JSON = array of plain strings  ["APPLE", ...]
-    // --------------------------------------------
-    else if (txt.StartsWith("["))
-    {
-        string json = "{\"arr\":" + wordJson.text + "}";
-        StrWrapper w = JsonUtility.FromJson<StrWrapper>(json);
-        foreach (string s in w.arr) dict.Add(s.ToUpper());
-    }
-    // --------------------------------------------
-    //  C) ไฟล์ .txt / .json แบบบรรทัดละคำ
-    // --------------------------------------------
-    else
-    {
-        foreach (string ln in wordJson.text.Split('\n', '\r'))
+        if (wordJson == null)
         {
-            string w = ln.Trim();
-            if (w != "") dict.Add(w.ToUpper());
+            Debug.LogError("[WordChecker] Assign wordJson"); return;
         }
+
+        string txt = wordJson.text.TrimStart();
+
+        // -----------------------------------------------------------------
+        // เคส A) Json = [{ "Word":"that", "Type":"adj", "Translation":"" }, ...]
+        // -----------------------------------------------------------------
+        if (txt.StartsWith("[") && txt.Contains("\"Word\""))
+        {
+            string json = "{\"items\":" + wordJson.text + "}";
+            var wrap = JsonUtility.FromJson<ObjWrapper>(json);
+
+            foreach (var it in wrap.items)
+            {
+                if (string.IsNullOrEmpty(it.Word)) continue;
+
+                var e = new Entry
+                {
+                    Word        = it.Word.ToUpper(),
+                    Type        = it.Type,
+                    Translation = it.Translation
+                };
+                entries.Add(e);
+                dict.Add(e.Word);
+            }
+        }
+        // -----------------------------------------------------------------
+        // เคส B) Json = ["APPLE", "DOG", ...]  (ไม่มีฟิลด์ Type/Trans)
+        // -----------------------------------------------------------------
+        else if (txt.StartsWith("["))
+        {
+            string json = "{\"arr\":" + wordJson.text + "}";
+            var wrap = JsonUtility.FromJson<StrWrapper>(json);
+
+            foreach (string w in wrap.arr.Where(s => !string.IsNullOrEmpty(s)))
+            {
+                var up = w.ToUpper();
+                entries.Add(new Entry { Word = up, Type = "", Translation = "" });
+                dict.Add(up);
+            }
+        }
+        // -----------------------------------------------------------------
+        // เคส C) .txt / .json บรรทัดละคำ
+        // -----------------------------------------------------------------
+        else
+        {
+            foreach (string ln in wordJson.text.Split('\n', '\r'))
+            {
+                string w = ln.Trim();
+                if (w == "") continue;
+
+                var up = w.ToUpper();
+                entries.Add(new Entry { Word = up, Type = "", Translation = "" });
+                dict.Add(up);
+            }
+        }
+
+        // เรียงตามตัวอักษร A‑Z
+        entries = entries.OrderBy(e => e.Word).ToList();
+
+        Debug.Log($"[WordChecker] loaded {entries.Count} words");
     }
 
-    Debug.Log($"[WordChecker] loaded {dict.Count} words");
-}
-
-[System.Serializable] private class StrWrapper { public string[] arr; }
-[System.Serializable] private class ObjWrapper { public WordItem[] items; }
-[System.Serializable] private class WordItem  { public string Word; }
-    // ---------- API ----------
+    /* ---------- API ---------- */
     public bool IsWordValid(string w) => dict.Contains(w.ToUpper());
+
+    /// <summary>คืนลิสต์คำ (Word / Type / Translation) เรียง A‑Z สำหรับ DictionaryUI</summary>
+    public List<Entry> GetAllEntries() => entries;
+
+    /// <summary>คืนแค่รายการคำ (string) ตามที่โค้ดเก่าของคุณใช้</summary>
+    public List<string> GetAllWordsSorted() => entries.Select(e => e.Word).ToList();
+
+    /* ---------- helper wrapper ---------- */
+    [Serializable] private class StrWrapper { public string[] arr; }
+    [Serializable] private class ObjWrapper { public RawItem[] items; }
+    [Serializable] private class RawItem   // ตรงกับฟิลด์ในไฟล์ json ที่คุณใช้
+    {
+        public string Word;
+        public string Type;
+        public string Translation;
+    }
 }
