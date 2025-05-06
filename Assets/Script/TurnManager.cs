@@ -218,7 +218,7 @@ public class TurnManager : MonoBehaviour
         AddScore(moveScore);
         foreach (var (t, _) in placed) t.Lock();
         ShowMessage($"✓ +{moveScore}", Color.green);
-        BenchManager.Instance.RefillEmptySlots();
+        BenchManager.Instance.RefillOneSlot();
         UpdateBagUI();
         EnableConfirm();
 
@@ -279,7 +279,6 @@ public class TurnManager : MonoBehaviour
             ? $"✗ {reason}  -{penalty}"
             : $"✗ {reason}";
         ShowMessage(msg, Color.red);
-        BenchManager.Instance.RefillEmptySlots();
         UpdateBagUI();
         EnableConfirm();
     }
