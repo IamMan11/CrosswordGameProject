@@ -21,6 +21,7 @@ public class UIManager : MonoBehaviour
     [Header("Settings")]
     [SerializeField] private float displayTime = 2f;      // เวลาแสดง popup (วินาที)
     private Coroutine hideRoutine;
+    [SerializeField] float defaultDisplayTime = 2f;
 
     void Awake()
     {
@@ -47,7 +48,7 @@ public class UIManager : MonoBehaviour
     /// <summary>
     /// แสดงข้อความเป็น Popup
     /// </summary>
-    public void ShowMessage(string message)
+    public void ShowMessageDictionary(string message)
     {
         // ถ้ามี Coroutine กำลังรอซ่อนอยู่ ให้หยุดก่อน
         if (hideRoutine != null) StopCoroutine(hideRoutine);
@@ -58,6 +59,25 @@ public class UIManager : MonoBehaviour
         popupPanel.SetActive(true);
         // สั่งให้ซ่อนเมื่อครบเวลา
         hideRoutine = StartCoroutine(HideAfterDelay());
+    }
+    /// ---------- เมธอดแสดงข้อความ ----------
+
+    /// แสดงข้อความตามเวลามาตรฐาน (field displayTime)
+    public void ShowMessage(string message)
+    {
+        // ถ้ามี coroutine ซ่อนอยู่ ให้หยุดก่อน
+        if (hideRoutine != null) StopCoroutine(hideRoutine);
+
+        messageText.text = message;
+        popupPanel.SetActive(true);
+        hideRoutine = StartCoroutine(HideAfterDelay());
+    }
+
+    /// แสดงข้อความนานตาม seconds ที่กำหนด
+    public void ShowMessage(string message, float seconds)
+    {
+        displayTime = seconds;   // ใช้ field เดิมใน Inspector
+        ShowMessage(message);    // เรียกเมธอดด้านบน
     }
 
     private IEnumerator HideAfterDelay()

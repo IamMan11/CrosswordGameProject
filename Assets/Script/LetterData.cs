@@ -7,4 +7,5 @@ public class LetterData
     public string letter;       // ใช้ string เพื่อใส่ใน Inspector ได้ง่าย
     public Sprite sprite;       // รูปภาพของตัวอักษร
     public int score;           // คะแนน
+    [HideInInspector] public bool isSpecial = false;
 }

@@ -29,6 +29,7 @@ public class TurnManager : MonoBehaviour
     Coroutine fadeCo;
     Coroutine autoRemoveCo;
     readonly HashSet<string> boardWords = new();
+    int nextWordMul = 1; 
 
     void Awake()
     {
@@ -57,7 +58,10 @@ public class TurnManager : MonoBehaviour
         Score += delta;
         UpdateScoreUI();
     }
-
+    public void SetScoreMultiplier(int mul)   // เรียกจาก CardManager
+    {
+        nextWordMul = Mathf.Max(1, mul);
+    }
     public void OnWordChecked(bool isCorrect)
     {
         if (isCorrect) CheckedWordCount++;
@@ -195,6 +199,12 @@ public class TurnManager : MonoBehaviour
         if (wrongLink.Count > 0)
             StartCoroutine(BlinkWords(wrongLink, Color.red));
 
+        bool placedSpecial = placed.Any(p => p.t.IsSpecial);
+        if (placedSpecial)
+        {
+            CardManager.Instance.GiveRandomCard();
+            Debug.Log("[TurnManager] พบตัวพิเศษในเทิร์นนี้ → สั่งเปิด CardPanel");
+        }
 
         // 6) คำนวณคะแนนคำใหม่
         int moveScore = 0;
@@ -215,10 +225,9 @@ public class TurnManager : MonoBehaviour
         
 
         // 7) ล็อกตัวอักษร + อัพ UI
-        AddScore(moveScore);
         foreach (var (t, _) in placed) t.Lock();
         ShowMessage($"✓ +{moveScore}", Color.green);
-        BenchManager.Instance.RefillOneSlot();
+        BenchManager.Instance.RefillEmptySlots();
         UpdateBagUI();
         EnableConfirm();
 
