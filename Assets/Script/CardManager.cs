@@ -7,11 +7,16 @@ public class CardManager : MonoBehaviour
 
     [Header("Card Pool")]
     public List<CardData> allCards;            // ใส่ใน Inspector
+    public int maxHeldCards = 2;
+    public List<CardData> heldCards = new List<CardData>();
+    private List<CardData> lastOptions;
+    private CardData pendingReplacementCard;
+    private bool isReplaceMode = false;
 
     [Header("UI")]
     public UICardSelect uiSelect;              // panel เลือกการ์ด (สร้างแยก)
 
-    void Awake() { if (Instance==null) Instance=this; else Destroy(gameObject); }
+    void Awake() { if (Instance == null) Instance = this; else Destroy(gameObject); }
 
     /* -------- API -------- */
 
@@ -25,16 +30,69 @@ public class CardManager : MonoBehaviour
             var cd = allCards[Random.Range(0, allCards.Count)];
             if (!opts.Contains(cd)) opts.Add(cd);
         }
+        lastOptions = opts;
         uiSelect.Open(opts, OnCardPicked);
     }
 
+    /* -------- Effect -------- */
     void OnCardPicked(CardData picked)
     {
-        ApplyEffect(picked);
-        // ถ้าเก็บไว้ใช้ทีหลังให้เพิ่มเข้ามือผู้เล่นแทน
+        if (!isReplaceMode)
+        {
+            if (heldCards.Count < maxHeldCards)
+            {
+                heldCards.Add(picked);
+            }
+            else
+            {
+                // เริ่มโหมดแทนการ์ด
+                pendingReplacementCard = picked;
+                isReplaceMode = true;
+                UIManager.Instance.ShowMessage("เลือกการ์ดที่จะแทน", 0f);
+                UIManager.Instance.UpdateCardSlots(heldCards, true);
+                return;
+            }
+        }
+        UIManager.Instance.UpdateCardSlots(heldCards);
     }
 
-    /* -------- Effect -------- */
+    public void UseCard(int index)
+    {
+        if (index >= heldCards.Count) return;
+        var card = heldCards[index];
+        UIConfirmPopup.Show($"ใช้การ์ด \"{card.displayName}\"?", () =>
+        {
+            ApplyEffect(card);
+            heldCards.RemoveAt(index);
+            UIManager.Instance.UpdateCardSlots(heldCards);
+        });
+    }
+    /// <summary>แทนการ์ดใน heldCards[index] ด้วย pendingReplacementCard</summary>
+    public void CancelReplacement()
+    {
+        if (!isReplaceMode) return;
+
+        // ยกเลิกโหมดแทน
+        pendingReplacementCard = null;
+        isReplaceMode = false;
+        UIManager.Instance.HideMessage();
+        UIManager.Instance.UpdateCardSlots(heldCards);
+
+        // ← 3. เปิด Popup เลือกการ์ดชุดเดิมซ้ำอีกครั้ง
+        uiSelect.Open(lastOptions, OnCardPicked);
+    }
+
+    public void ReplaceSlot(int index)
+    {
+        if (!isReplaceMode || pendingReplacementCard == null) return;
+
+        heldCards[index] = pendingReplacementCard;
+        pendingReplacementCard = null;
+        isReplaceMode = false;
+
+        UIManager.Instance.HideMessage();
+        UIManager.Instance.UpdateCardSlots(heldCards);
+    }
     void ApplyEffect(CardData card)
     {
         switch (card.effectType)
@@ -50,7 +108,8 @@ public class CardManager : MonoBehaviour
                 UIManager.Instance.ShowMessage($"Next word x{card.value}", 2);
                 break;
 
-            // … เพิ่มตามต้องการ …
+                // … เพิ่มตามต้องการ …
         }
     }
+    
 }
