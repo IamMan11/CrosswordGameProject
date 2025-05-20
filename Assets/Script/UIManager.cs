@@ -28,6 +28,9 @@ public class UIManager : MonoBehaviour
     [Header("Replace Mode")]
     [SerializeField] private Button cancelReplacementButton; // ปุ่มยกเลิกโหมดแทนการ์ด
 
+    [Header("Replace Mode Prompt")]
+    [SerializeField] private TMP_Text replaceModePromptText;
+
     void Awake()
     {
         if (Instance == null) Instance = this;
@@ -40,11 +43,13 @@ public class UIManager : MonoBehaviour
         if (cancelReplacementButton != null)
         {
             cancelReplacementButton.onClick.RemoveAllListeners();
-            cancelReplacementButton.onClick.AddListener(() => {
+            cancelReplacementButton.onClick.AddListener(() =>
+            {
                 CardManager.Instance.CancelReplacement();
             });
             cancelReplacementButton.gameObject.SetActive(false);
         }
+        replaceModePromptText.gameObject.SetActive(false);
     }
 
     /// <summary>แสดงหน้าชนะเกม</summary>
@@ -98,9 +103,13 @@ public class UIManager : MonoBehaviour
         if (cancelReplacementButton != null)
             cancelReplacementButton.gameObject.SetActive(replaceMode);
 
+        replaceModePromptText.gameObject.SetActive(replaceMode);
+        if (replaceMode)
+            replaceModePromptText.text = "เลือกการ์ดที่จะแทน";
+            
         for (int i = 0; i < cardSlotButtons.Count; i++)
         {
-            var btn  = cardSlotButtons[i];
+            var btn = cardSlotButtons[i];
             var icon = cardSlotIcons[i];
 
             if (i < cards.Count)
