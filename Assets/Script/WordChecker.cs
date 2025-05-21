@@ -1,120 +1,104 @@
 using System;
-using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Collections.Generic;
 using UnityEngine;
+using SQLite4Unity3d;
 
 public class WordChecker : MonoBehaviour
 {
     public static WordChecker Instance { get; private set; }
 
-    [Header("Dictionary (json)")]
-    public TextAsset wordJson;          // ลาก wordlist_20k_with_translation.json
+    [Header("SQLite4Unity3d Settings")]
+    [Tooltip("ชื่อไฟล์ฐานข้อมูล .db ให้วางใน StreamingAssets")]
+    public string databaseFileName = "data.db";
 
-    /* ---------- โครงสร้างข้อมูล ---------- */
-    [Serializable] public class Entry
+    [Table("Dictionary")]
+    public class Entry
     {
-        public string Word;
-        public string Type;
-        public string Translation;
+        [PrimaryKey, Column("Word")]
+        public string Word { get; set; }
+
+        [Column("Type")]
+        public string Type { get; set; }
+
+        [Column("Translation")]
+        public string Translation { get; set; }
     }
 
-    /* ---------- เก็บข้อมูล ---------- */
-    readonly HashSet<string> dict = new();     // ไว้เช็กเร็ว ๆ
-    List<Entry> entries = new();               // ไว้โชว์ Dictionary
+    private SQLiteConnection dbConnection;
+    private List<Entry> entries = new();
+    private HashSet<string> dict = new();
 
     void Awake()
     {
-        if (Instance == null) Instance = this;
-        else { Destroy(gameObject); return; }
-
-        LoadEntries();
-    }
-
-    /* ---------- LOAD ---------- */
-    void LoadEntries()
-    {
-        if (wordJson == null)
+        if (Instance == null)
         {
-            Debug.LogError("[WordChecker] Assign wordJson"); return;
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+            InitDatabase();
         }
-
-        string txt = wordJson.text.TrimStart();
-
-        // -----------------------------------------------------------------
-        // เคส A) Json = [{ "Word":"that", "Type":"adj", "Translation":"" }, ...]
-        // -----------------------------------------------------------------
-        if (txt.StartsWith("[") && txt.Contains("\"Word\""))
-        {
-            string json = "{\"items\":" + wordJson.text + "}";
-            var wrap = JsonUtility.FromJson<ObjWrapper>(json);
-
-            foreach (var it in wrap.items)
-            {
-                if (string.IsNullOrEmpty(it.Word)) continue;
-
-                var e = new Entry
-                {
-                    Word        = it.Word.ToUpper(),
-                    Type        = it.Type,
-                    Translation = it.Translation
-                };
-                entries.Add(e);
-                dict.Add(e.Word);
-            }
-        }
-        // -----------------------------------------------------------------
-        // เคส B) Json = ["APPLE", "DOG", ...]  (ไม่มีฟิลด์ Type/Trans)
-        // -----------------------------------------------------------------
-        else if (txt.StartsWith("["))
-        {
-            string json = "{\"arr\":" + wordJson.text + "}";
-            var wrap = JsonUtility.FromJson<StrWrapper>(json);
-
-            foreach (string w in wrap.arr.Where(s => !string.IsNullOrEmpty(s)))
-            {
-                var up = w.ToUpper();
-                entries.Add(new Entry { Word = up, Type = "", Translation = "" });
-                dict.Add(up);
-            }
-        }
-        // -----------------------------------------------------------------
-        // เคส C) .txt / .json บรรทัดละคำ
-        // -----------------------------------------------------------------
         else
         {
-            foreach (string ln in wordJson.text.Split('\n', '\r'))
-            {
-                string w = ln.Trim();
-                if (w == "") continue;
-
-                var up = w.ToUpper();
-                entries.Add(new Entry { Word = up, Type = "", Translation = "" });
-                dict.Add(up);
-            }
+            Destroy(gameObject);
         }
-
-        // เรียงตามตัวอักษร A‑Z
-        entries = entries.OrderBy(e => e.Word).ToList();
-
-        Debug.Log($"[WordChecker] loaded {entries.Count} words");
     }
 
-    /* ---------- API ---------- */
-    public bool IsWordValid(string w) => dict.Contains(w.ToUpper());
-
-    /// <summary>คืนลิสต์คำ (Word / Type / Translation) เรียง A‑Z สำหรับ DictionaryUI</summary>
-    public List<Entry> GetAllEntries() => entries;
-
-    /// <summary>คืนแค่รายการคำ (string) ตามที่โค้ดเก่าของคุณใช้</summary>
-    public List<string> GetAllWordsSorted() => entries.Select(e => e.Word).ToList();
-
-    /* ---------- helper wrapper ---------- */
-    [Serializable] private class StrWrapper { public string[] arr; }
-    [Serializable] private class ObjWrapper { public RawItem[] items; }
-    [Serializable] private class RawItem   // ตรงกับฟิลด์ในไฟล์ json ที่คุณใช้
+    void InitDatabase()
     {
-        public string Word;
-        public string Type;
-        public string Translation;
+        string dbPath = Path.Combine(Application.streamingAssetsPath, databaseFileName);
+        Debug.Log($"[WordChecker] DB Path: {dbPath}");
+
+        if (!File.Exists(dbPath))
+        {
+            Debug.LogError("[WordChecker] ❌ File not found at path: " + dbPath);
+            return;
+        }
+
+        try
+        {
+            dbConnection = new SQLiteConnection(dbPath, SQLiteOpenFlags.ReadOnly);
+            entries = dbConnection.Table<Entry>().ToList();
+
+            dict = new HashSet<string>(
+                entries.Where(e => !string.IsNullOrWhiteSpace(e.Word))
+                       .Select(e => e.Word.Trim().ToUpper())
+            );
+
+            Debug.Log($"[WordChecker] ✅ Loaded {entries.Count} entries. Unique words in dict: {dict.Count}");
+            Debug.Log($"[WordChecker] ตัวอย่างคำใน dict: {string.Join(", ", dict.Take(10))}");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[WordChecker] ❌ Failed to load database: {ex.Message}");
+        }
+    }
+
+    // ========== API ==========
+
+    public bool IsWordValid(string w)
+    {
+        if (string.IsNullOrWhiteSpace(w)) return false;
+
+        string key = w.Trim().ToUpper();
+        bool found = dict.Contains(key);
+
+        Debug.Log($"[WordChecker] ตรวจคำ: '{w}' → '{key}' → {(found ? "✅" : "❌")}");
+        return found;
+    }
+
+    public List<string> GetAllWordsSorted()
+    {
+        return entries.Select(e => e.Word).OrderBy(w => w).ToList();
+    }
+
+    public List<Entry> GetAllEntries()
+    {
+        return entries;
+    }
+
+    void OnDestroy()
+    {
+        dbConnection?.Close();
     }
 }
