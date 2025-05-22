@@ -199,11 +199,13 @@ public class TurnManager : MonoBehaviour
         if (wrongLink.Count > 0)
             StartCoroutine(BlinkWords(wrongLink, Color.red));
 
-        bool placedSpecial = placed.Any(p => p.t.IsSpecial);
-        if (placedSpecial)
+        foreach (var (tile, slot) in placed)
         {
-            CardManager.Instance.GiveRandomCard();
-            Debug.Log("[TurnManager] พบตัวพิเศษในเทิร์นนี้ → สั่งเปิด CardPanel");
+            if (tile.IsSpecial)
+            {
+                Debug.Log($"[Placement] พบตัวพิเศษ {tile.GetData().letter} – เรียก GiveRandomCard()");
+                CardManager.Instance.GiveRandomCard();
+            }
         }
 
         // 6) คำนวณคะแนนคำใหม่

@@ -105,7 +105,7 @@ public class UIManager : MonoBehaviour
 
         replaceModePromptText.gameObject.SetActive(replaceMode);
         if (replaceMode)
-            replaceModePromptText.text = "เลือกการ์ดที่จะแทน";
+            replaceModePromptText.text = "Chose card";
             
         for (int i = 0; i < cardSlotButtons.Count; i++)
         {

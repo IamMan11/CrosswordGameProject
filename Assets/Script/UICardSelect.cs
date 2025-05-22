@@ -37,6 +37,7 @@ public class UICardSelect : MonoBehaviour
             });
         }
     }
+    public bool IsOpen => panel.activeSelf;
 
     /// <summary>เปิด popup พร้อมตัวเลือก</summary>
     public void Open(List<CardData> options, Action<CardData> _onPicked)
