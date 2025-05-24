@@ -195,9 +195,9 @@ public class DictionaryUI : MonoBehaviour
 
         // แสดง Popup
         if (placed == needed)
-            UIManager.Instance.ShowMessage("Done!");
+            UIManager.Instance.ShowMessageDictionary("Done!");
         else
-            UIManager.Instance.ShowMessage("Letter Not Enough!");
+            UIManager.Instance.ShowMessageDictionary("Letter Not Enough!");
 
         // พรีวิวการวางลงกระดาน
         PlacementManager.Instance.TryPlace();

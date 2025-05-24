@@ -20,6 +20,7 @@ public class TileBag : MonoBehaviour
 
     public int TotalInitial { get; private set; }      // 100
     public int Remaining   => pool.Count;              // เหลือในถุง
+    int drawsSinceSpecial = 0; 
 
     void Awake()
     {
@@ -37,12 +38,34 @@ public class TileBag : MonoBehaviour
     }
 
     /// <summary>ดึงสุ่ม 1 ตัว (ถ้าหมดคืน null)</summary>
+    
     public LetterData DrawRandomTile()
     {
         if (pool.Count == 0) return null;
-        int idx = Random.Range(0, pool.Count);
-        LetterData data = pool[idx];
+
+        // 1) หยิบ template
+        int idx      = Random.Range(0, pool.Count);
+        var template = pool[idx];
         pool.RemoveAt(idx);
+
+        // 2) สร้างสำเนาใหม่ (ไม่แชร์ obj)
+        LetterData data = new LetterData
+        {
+            letter = template.letter,
+            sprite = template.sprite,
+            score  = template.score,
+            isSpecial = false
+        };
+
+        // 3) ทำให้พิเศษทุก ๆ 6 draw
+        drawsSinceSpecial++;
+        if (drawsSinceSpecial >= 6)
+        {
+            data.isSpecial = true;
+            drawsSinceSpecial = 0;
+            
+            Debug.Log($"[TileBag] สร้างตัวอักษรพิเศษ: '{data.letter}'");
+        }
         return data;
     }
 
