@@ -114,12 +114,23 @@ public class CardManager : MonoBehaviour
     {
         if (index >= heldCards.Count) return;
         var card = heldCards[index];
-        UIConfirmPopup.Show($"ใช้การ์ด '{card.displayName}'?", () =>
+        int cost = card.value;  // คิดว่าเก็บค่าใช้มานาไว้ที่ value
+
+        // ถ้ามานาไม่พอ ให้แสดงข้อความเตือนแล้ว return
+        if (!TurnManager.Instance.UseMana(cost))
+        {
+            UIManager.Instance.ShowMessage($"Mana ไม่พอ (ต้องใช้ {cost})", 2f);
+            return;
+        }
+
+        UIConfirmPopup.Show($"ใช้การ์ด '{card.displayName}' ({cost} Mana)?", () =>
         {
             ApplyEffect(card);
             heldCards.RemoveAt(index);
             UIManager.Instance.UpdateCardSlots(heldCards);
-        });
+        },
+        // ถ้ายกเลิก ก็คืนมานากลับ
+        () => { TurnManager.Instance.AddMana(cost); });
     }
 
     private void ApplyEffect(CardData card)

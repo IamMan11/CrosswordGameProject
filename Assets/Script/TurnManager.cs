@@ -31,15 +31,40 @@ public class TurnManager : MonoBehaviour
     readonly HashSet<string> boardWords = new();
     int nextWordMul = 1; 
 
+    [Header("Mana System")]
+    public int maxMana       = 10;
+    public int currentMana;            // ค่ามานาปัจจุบัน
+    [SerializeField] private TMP_Text manaText;   // ผูก UI Text ใน Inspector
+
     void Awake()
     {
         Instance = this;
         confirmBtn.onClick.AddListener(OnConfirm);
+        currentMana = 0;               // เริ่มต้นมานา
     }
 
     void Start()
     {
         UpdateScoreUI();
+        UpdateManaUI(); 
+    }
+    public void AddMana(int amount)
+    {
+        currentMana = Mathf.Min(maxMana, currentMana + amount);
+        UpdateManaUI();
+        ShowMessage($"+{amount} Mana", Color.cyan);
+    }
+    public bool UseMana(int cost)
+    {
+        if (currentMana < cost) return false;
+        currentMana -= cost;
+        UpdateManaUI();
+        return true;
+    }
+    void UpdateManaUI()
+    {
+        if (manaText != null)
+            manaText.text = $"Mana: {currentMana}/{maxMana}";
     }
 
     /// <summary>รีเซ็ตสถานะเมื่อตั้งด่านใหม่</summary>
@@ -206,6 +231,8 @@ public class TurnManager : MonoBehaviour
                 Debug.Log($"[Placement] พบตัวพิเศษ {tile.GetData().letter} – เรียก GiveRandomCard()");
                 CardManager.Instance.GiveRandomCard();
             }
+            if (slot.manaGain > 0)
+                AddMana(slot.manaGain);
         }
 
         // 6) คำนวณคะแนนคำใหม่

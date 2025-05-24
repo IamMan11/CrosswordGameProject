@@ -19,7 +19,7 @@ public class BoardManager : MonoBehaviour
 
     [Header("Slot Visual")]
     public float slotSize = 64f;      // ขนาดช่อง
-    public float slotGap  = 4f;       // ระยะห่างช่อง (0 = ชิดกัน)
+    public float slotGap = 4f;       // ระยะห่างช่อง (0 = ชิดกัน)
 
     [Header("Board Position (เพิ่ม)")]
     public Vector2 boardOffset = Vector2.zero; // เลื่อนบอร์ด (x=ขวา, y=ขึ้น)
@@ -27,9 +27,21 @@ public class BoardManager : MonoBehaviour
     [Header("Prefabs / Parents")]
     public GameObject boardSlotPrefab;
     public RectTransform boardParent;          // RectTransform เท่านั้น
-
+    
     [Header("Special Slots")]
-    public List<SpecialSlotData> specials = new();
+    public List<SpecialSlotData> specials = new List<SpecialSlotData>();  // ← เพิ่มตรงนี้
+
+
+    [System.Serializable]
+    public class SpecialSlotData
+    {
+        public int row;
+        public int col;
+        public SlotType type;
+        [Tooltip("จำนวนมานาที่จะได้เมื่อวางตัวอักษรที่นี่")]
+        public int manaGain = 0;
+    }
+    [HideInInspector] public int manaGain;
 
     [HideInInspector] public BoardSlot[,] grid;
 
@@ -54,24 +66,26 @@ public class BoardManager : MonoBehaviour
 
         // ตั้งขนาด parent ให้พอดี และจัดกึ่งกลาง
         boardParent.sizeDelta = new Vector2(totalW, totalH);
-        boardParent.pivot     = new Vector2(0.5f, 0.5f);
+        boardParent.pivot = new Vector2(0.5f, 0.5f);
         boardParent.anchorMin = boardParent.anchorMax = new Vector2(0.5f, 0.5f);
         boardParent.anchoredPosition = boardOffset;
 
         // คำนวณจุดเริ่มซ้าย-บน (Pivot อยู่กลาง จึงเลื่อนครึ่งหนึ่ง)
         float startX = -totalW / 2f;
-        float startY =  totalH / 2f;
+        float startY = totalH / 2f;
 
         for (int r = 0; r < rows; r++)
         {
             for (int c = 0; c < cols; c++)
             {
                 // หา type พิเศษ
-                SlotType st = SlotType.Normal;
+                SlotType st       = SlotType.Normal;
+                int      manaGain = 0;
                 foreach (var sp in specials)
                     if (sp.row == r && sp.col == c)
                     {
-                        st = sp.type;
+                        st       = sp.type;
+                        manaGain = sp.manaGain;      // ← รับค่า manaGain
                         break;
                     }
 
@@ -81,11 +95,11 @@ public class BoardManager : MonoBehaviour
 
                 float posX = startX + c * (slotSize + slotGap) + slotSize / 2f;
                 float posY = startY - r * (slotSize + slotGap) - slotSize / 2f;
-                rt.sizeDelta        = new Vector2(slotSize, slotSize);
+                rt.sizeDelta = new Vector2(slotSize, slotSize);
                 rt.anchoredPosition = new Vector2(posX, posY);
 
                 var slot = go.GetComponent<BoardSlot>();
-                slot.Setup(r, c, st);
+                slot.Setup(r, c, st, manaGain);
                 grid[r, c] = slot;
             }
         }
