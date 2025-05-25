@@ -33,7 +33,7 @@ public class BenchManager : MonoBehaviour
             if (data == null) break;
             var tileGO = Instantiate(letterTilePrefab, slot, false);
             tileGO.transform.localPosition = Vector3.zero;
-            tileGO.transform.localScale    = Vector3.one;
+            tileGO.transform.localScale = Vector3.one;
             tileGO.GetComponent<LetterTile>().Setup(data);
         }
     }
@@ -42,14 +42,28 @@ public class BenchManager : MonoBehaviour
     public void RefillOneSlot()
     {
         var empty = GetFirstEmptySlot();
-        if (empty == null) return;
+        if (empty == null)
+        {
+            Debug.LogWarning("[BenchManager] ไม่มีช่อง Bench ว่าง");
+            return;
+        }
+
         var data = TileBag.Instance.DrawRandomTile();
-        if (data == null) return;
+        if (data == null)
+        {
+            Debug.LogWarning("[BenchManager] ไม่มีตัวอักษรให้ดึงจาก TileBag");
+            return;
+        }
+
         var tileGO = Instantiate(letterTilePrefab, empty.transform, false);
         tileGO.transform.localPosition = Vector3.zero;
-        tileGO.transform.localScale    = Vector3.one;
-        tileGO.GetComponent<LetterTile>().Setup(data);
+        tileGO.transform.localScale = Vector3.one;
+
+        var tile = tileGO.GetComponent<LetterTile>();
+        tile.Setup(data);
+        tile.AdjustSizeToParent();
     }
+
 
     /// <summary>คืน Tile ไปที่ Bench (ใส่ใน slot แรกที่ว่าง)</summary>
     public void ReturnTile(LetterTile tile)
@@ -59,7 +73,7 @@ public class BenchManager : MonoBehaviour
         {
             tile.transform.SetParent(empty.transform, false);
             tile.transform.localPosition = Vector3.zero;
-            tile.transform.localScale    = Vector3.one;
+            tile.transform.localScale = Vector3.one;
         }
         else Destroy(tile.gameObject);
         RefillEmptySlots();
@@ -69,8 +83,15 @@ public class BenchManager : MonoBehaviour
     public BenchSlot GetFirstEmptySlot()
     {
         foreach (Transform t in slotTransforms)
+        {
             if (t.childCount == 0)
-                return t.GetComponent<BenchSlot>();
+            {
+                var slot = t.GetComponent<BenchSlot>();
+                if (slot != null)
+                    return slot;
+            }
+        }
         return null;
     }
+
 }

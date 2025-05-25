@@ -4,7 +4,7 @@ using UnityEngine;
 public class LetterData
 {
     [Tooltip("ตัวอักษร 1 ตัว เช่น A, B, C หรือ BLANK")]
-    public string letter;       // ใช้ string เพื่อใส่ใน Inspector ได้ง่าย
-    public Sprite sprite;       // รูปภาพของตัวอักษร
-    public int score;           // คะแนน
+    public string letter;
+    public Sprite sprite;
+    public int score;
 }
