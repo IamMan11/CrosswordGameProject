@@ -1,6 +1,7 @@
 using System;
-using SQLite4Unity3d;
 using UnityEngine;
+using SQLite4Unity3d;
+using System.IO;
 
 public class GameHistoryManager : MonoBehaviour
 {
@@ -15,18 +16,26 @@ public class GameHistoryManager : MonoBehaviour
         if (Instance == null) Instance = this;
         else { Destroy(gameObject); return; }
 
-        string path = System.IO.Path.Combine(Application.persistentDataPath, "data.db");
+        string path = Path.Combine(Application.persistentDataPath, "data.db");
         db = new SQLiteConnection(path, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create);
     }
 
     public void StartNewGame(string playerName)
     {
-        // ตรวจสอบว่าผู้เล่นมีอยู่หรือยัง
-        var existing = db.Table<PlayerRecord>().FirstOrDefault(p => p.player_name == playerName);
+        PlayerRecord existing = null;
+        foreach (var p in db.Table<PlayerRecord>())
+        {
+            if (p.player_name == playerName)
+            {
+                existing = p;
+                break;
+            }
+        }
+
         if (existing == null)
         {
             db.Insert(new PlayerRecord { player_name = playerName });
-            existing = db.Table<PlayerRecord>().First(p => p.player_name == playerName);
+            existing = db.Table<PlayerRecord>().Where(p => p.player_name == playerName).First();
         }
 
         currentPlayerId = existing.player_id;
@@ -45,7 +54,7 @@ public class GameHistoryManager : MonoBehaviour
 
     public void EndGame(int score, string feedback = "")
     {
-        var game = db.Table<GameRecord>().First(g => g.game_id == currentGameId);
+        var game = db.Table<GameRecord>().Where(g => g.game_id == currentGameId).First();
         game.end_time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         game.total_score = score;
         game.feedback = feedback;
