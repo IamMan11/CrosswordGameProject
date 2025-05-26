@@ -3,29 +3,35 @@ using UnityEngine.EventSystems;
 
 public class BenchSlot : MonoBehaviour, IDropHandler
 {
-    // ถูกเรียกโดย EventSystem เมื่อมี LetterTile ปล่อยลง Slot
     public void OnDrop(PointerEventData eventData)
     {
         GameObject draggedGO = eventData.pointerDrag;
         if (draggedGO == null) return;
 
-        // ตรวจว่าเป็น LetterTile จริงไหม
         LetterTile draggedTile = draggedGO.GetComponent<LetterTile>();
         if (draggedTile == null) return;
 
-        // ถ้า Slot นี้มีลูกอยู่แล้ว → สลับตำแหน่งกัน
+        // ถ้า drag ใส่ช่องเดิมตัวเอง → ไม่ต้องทำอะไร
+        if (draggedTile.OriginalParent == transform)
+            return;
+
+        // ถ้ามีตัวอักษรอยู่แล้ว → สลับกับตัวที่ลากมา
         if (transform.childCount > 0)
         {
             Transform existingTile = transform.GetChild(0);
 
-            // ย้าย Tile เดิมกลับไปยังช่องต้นทางของตัวที่ลากมา
             existingTile.SetParent(draggedTile.OriginalParent);
             existingTile.localPosition = Vector3.zero;
+
+            var existingLT = existingTile.GetComponent<LetterTile>();
+            if (existingLT != null)
+                existingLT.OriginalParent = draggedTile.OriginalParent;
         }
 
-        // ย้ายตัวที่ลากมาลง Slot ปลายทาง
-        draggedTile.OriginalParent = transform;  // อัปเดต parent ใหม่เพื่อสลับครั้งถัดไป
+        // ย้ายตัวที่ลากมาลง slot นี้
+        draggedTile.OriginalParent = transform;
         draggedGO.transform.SetParent(transform);
         draggedGO.transform.localPosition = Vector3.zero;
+        draggedTile.AdjustSizeToParent();  // ปรับขนาดให้พอดีช่อง
     }
 }
