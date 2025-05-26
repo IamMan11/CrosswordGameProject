@@ -24,16 +24,42 @@ public class TurnManager : MonoBehaviour
     Coroutine fadeCo;
     Coroutine autoRemoveCo;
     readonly HashSet<string> boardWords = new();
+    int nextWordMul = 1; 
+
+    [Header("Mana System")]
+    public int maxMana       = 10;
+    public int currentMana;            // ค่ามานาปัจจุบัน
+    [SerializeField] private TMP_Text manaText;   // ผูก UI Text ใน Inspector
 
     void Awake()
     {
         Instance = this;
         confirmBtn.onClick.AddListener(OnConfirm);
+        currentMana = 0;               // เริ่มต้นมานา
     }
 
     void Start()
     {
         UpdateScoreUI();
+        UpdateManaUI(); 
+    }
+    public void AddMana(int amount)
+    {
+        currentMana = Mathf.Min(maxMana, currentMana + amount);
+        UpdateManaUI();
+        ShowMessage($"+{amount} Mana", Color.cyan);
+    }
+    public bool UseMana(int cost)
+    {
+        if (currentMana < cost) return false;
+        currentMana -= cost;
+        UpdateManaUI();
+        return true;
+    }
+    void UpdateManaUI()
+    {
+        if (manaText != null)
+            manaText.text = $"Mana: {currentMana}/{maxMana}";
     }
 
     public void ResetForNewLevel()
@@ -54,7 +80,15 @@ public class TurnManager : MonoBehaviour
     }
 
     public void SetDictionaryUsed() => usedDictionaryThisTurn = true;
-    public void OnWordChecked(bool isCorrect) { if (isCorrect) CheckedWordCount++; }
+    
+    public void SetScoreMultiplier(int mul)   // เรียกจาก CardManager
+    {
+        nextWordMul = Mathf.Max(1, mul);
+    }
+    public void OnWordChecked(bool isCorrect)
+    {
+        if (isCorrect) CheckedWordCount++;
+    }
 
     void UpdateScoreUI()
     {
@@ -182,6 +216,18 @@ public class TurnManager : MonoBehaviour
         if (wrongLink.Count > 0)
             StartCoroutine(BlinkWords(wrongLink, Color.red));
 
+        foreach (var (tile, slot) in placed)
+        {
+            if (tile.IsSpecial)
+            {
+                Debug.Log($"[Placement] พบตัวพิเศษ {tile.GetData().letter} – เรียก GiveRandomCard()");
+                CardManager.Instance.GiveRandomCard();
+            }
+            if (slot.manaGain > 0)
+                AddMana(slot.manaGain);
+        }
+
+        // 6) คำนวณคะแนนคำใหม่
         int moveScore = 0;
         foreach (var w in newWords)
         {
@@ -205,9 +251,10 @@ public class TurnManager : MonoBehaviour
             LevelManager.Instance.OnFirstConfirm(); // ✅ เริ่มจับเวลาเมื่อวางคำแรกได้สำเร็จ
         }
 
+        // 7) ล็อกตัวอักษร + อัพ UI
         foreach (var (t, _) in placed) t.Lock();
         ShowMessage($"✓ +{moveScore}", Color.green);
-        BenchManager.Instance.RefillOneSlot();
+        BenchManager.Instance.RefillEmptySlots();
         UpdateBagUI();
         EnableConfirm();
 

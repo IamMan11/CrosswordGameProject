@@ -7,4 +7,5 @@ public class LetterData
     public string letter;
     public Sprite sprite;
     public int score;
+    [HideInInspector] public bool isSpecial = false;
 }

@@ -21,14 +21,18 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
         }
         return null;        // none found
     }
+    [HideInInspector] public int manaGain;   // ← เพิ่มบรรทัดนี้
 
     [HideInInspector] public int row;
     [HideInInspector] public int col;
     [HideInInspector] public SlotType type = SlotType.Normal;
 
-    public void Setup(int r, int c, SlotType t)
+    public void Setup(int r, int c, SlotType t, int _manaGain)
     {
-        row = r; col = c; type = t;
+        row      = r;
+        col      = c;
+        type     = t;
+        manaGain = _manaGain;              // ← เก็บค่าเข้า slot
         ApplyVisual();
     }
 
@@ -36,11 +40,11 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
     {
         bg.color = type switch
         {
-            SlotType.DoubleLetter => new Color32( 88,184,255,255),
-            SlotType.TripleLetter => new Color32(  0,120,255,255),
-            SlotType.DoubleWord   => new Color32(255,136,136,255),
-            SlotType.TripleWord   => new Color32(255, 64, 64,255),
-            _                     => Color.white
+            SlotType.DoubleLetter => new Color32(88, 184, 255, 255),
+            SlotType.TripleLetter => new Color32(0, 120, 255, 255),
+            SlotType.DoubleWord => new Color32(255, 136, 136, 255),
+            SlotType.TripleWord => new Color32(255, 64, 64, 255),
+            _ => Color.white
         };
     }
 
@@ -63,7 +67,7 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
         for (int i = 0; i < times; i++)
         {
             highlight.enabled = true;
-            highlight.color   = c;
+            highlight.color = c;
             yield return new WaitForSeconds(dur);
 
             highlight.enabled = false;
@@ -81,8 +85,8 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
     }
 
     // ---------- ให้ PlacementManager เรียก ----------
-    public void ShowPreview(Color color)  { highlight.enabled = true;  highlight.color = color; }
-    public void HidePreview()             { highlight.enabled = false; }
+    public void ShowPreview(Color color) { highlight.enabled = true; highlight.color = color; }
+    public void HidePreview() { highlight.enabled = false; }
 
     public bool HasLetterTile()
     {
@@ -95,7 +99,7 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
     {
         var tile = GetLetterTile();
         tile.transform.SetParent(null);
-    // อาจเคลียร์ตัวแปรภายใน BoardSlot ถ้ามี
+        // อาจเคลียร์ตัวแปรภายใน BoardSlot ถ้ามี
         return tile;
     }
 }

@@ -11,10 +11,12 @@ public class LetterTile : MonoBehaviour,
     public Image icon;
     public TMP_Text letterText;
     public TMP_Text scoreText;
+    public Image specialMark;
 
     private Canvas canvas;           // หา Canvas หลัก (สำหรับคำนวณตำแหน่ง)
     private CanvasGroup canvasGroup; // ใช้ปิด Raycast ระหว่างลาก
     private RectTransform rectTf;
+    private bool isSpecialTile;
 
     [HideInInspector]
     public Transform OriginalParent; // ให้ BenchSlot.cs เข้าถึงตอนสลับ
@@ -31,7 +33,7 @@ public class LetterTile : MonoBehaviour,
     // ---------- Click ---------- //
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (isLocked) return; 
+        if (isLocked) return;
         Debug.Log($"[Tile] click {data.letter}  IsInSpace={IsInSpace}");
 
         if (!IsInSpace)
@@ -65,7 +67,7 @@ public class LetterTile : MonoBehaviour,
 
     public void OnDrag(PointerEventData eventData)
     {
-        if (isLocked) return; 
+        if (isLocked) return;
         Vector2 pos;
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             canvas.transform as RectTransform,
@@ -77,7 +79,7 @@ public class LetterTile : MonoBehaviour,
 
     public void OnEndDrag(PointerEventData eventData)
     {
-        if (isLocked) return; 
+        if (isLocked) return;
         canvasGroup.blocksRaycasts = true;
 
         // ถ้าไม่ได้ Drop ลง BenchSlot ใดเลย → กลับที่เดิม
@@ -93,9 +95,15 @@ public class LetterTile : MonoBehaviour,
     public void Setup(LetterData _data)
     {
         data = _data;
+        isSpecialTile = data.isSpecial;
+
         icon.sprite = data.sprite;
         letterText.text = data.letter;
         scoreText.text = data.score.ToString();
+
+        specialMark.enabled = isSpecialTile;   // เปิด/ปิดกรอบ
+        if (isSpecialTile)
+        Debug.Log($"[LetterTile] Instantiate ตัวพิเศษ '{data.letter}' ที่ตำแหน่ง {transform.parent.name}");
     }
     public LetterData GetData() => data;
 
@@ -105,10 +113,11 @@ public class LetterTile : MonoBehaviour,
         RectTransform rtParent = transform.parent.GetComponent<RectTransform>();
 
         rtTile.anchorMin = rtTile.anchorMax = new Vector2(0.5f, 0.5f);
-        rtTile.pivot     = new Vector2(0.5f, 0.5f);
+        rtTile.pivot = new Vector2(0.5f, 0.5f);
         rtTile.sizeDelta = rtParent.sizeDelta;          // เท่าช่องเป๊ะ
         rtTile.localScale = Vector3.one;
     }
 
-    public void Lock() => isLocked = true;  
+    public void Lock() => isLocked = true;
+    public bool IsSpecial => isSpecialTile;
 }
