@@ -1,0 +1,18 @@
+// PlayerProgressSO.cs
+using UnityEngine;
+
+public class PlayerProgressSO : MonoBehaviour
+{
+    public static PlayerProgressSO Instance { get; private set; }
+    public PlayerProgress data;               // อ้างถึง asset
+
+    void Awake()
+    {
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+
+        if (data == null)
+            data = Resources.Load<PlayerProgress>("PlayerProgress");
+    }
+}

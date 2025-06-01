@@ -40,6 +40,9 @@ public class TurnManager : MonoBehaviour
 
     void Start()
     {
+        var prog = PlayerProgressSO.Instance.data;
+        maxMana      = prog.maxMana;
+        currentMana  = maxMana;
         UpdateScoreUI();
         UpdateManaUI(); 
     }
@@ -49,12 +52,18 @@ public class TurnManager : MonoBehaviour
         UpdateManaUI();
         ShowMessage($"+{amount} Mana", Color.cyan);
     }
-    public bool UseMana(int cost)
+    public bool UseMana(int amount)
     {
-        if (currentMana < cost) return false;
-        currentMana -= cost;
+        if (currentMana < amount) return false;
+        currentMana -= amount;
         UpdateManaUI();
         return true;
+    }
+    public void UpgradeMaxMana(int newMax)
+    {
+        maxMana = newMax;
+        currentMana = Mathf.Min(currentMana, maxMana);
+        UpdateManaUI();
     }
     void UpdateManaUI()
     {

@@ -10,7 +10,7 @@ public class MainMenuManager : MonoBehaviour
     public void OnPlayButtonClicked()
     {
         // สมมติว่าชื่อ Scene เกมหลักคือ "GameScene"
-        SceneManager.LoadScene("try");
+        SceneManager.LoadScene("Shop");
     }
 
     // เรียกตอนกดปุ่ม Options

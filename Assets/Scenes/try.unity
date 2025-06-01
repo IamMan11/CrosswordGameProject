@@ -3920,7 +3920,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c6fb4bf51de773544b0e92fc83c30156, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  wordJson: {fileID: 4900000, guid: 16b6e4bd37dd3bb429509befbf6da339, type: 3}
+  databaseFileName: data.db
 --- !u!4 &597842957
 Transform:
   m_ObjectHideFlags: 0
@@ -4424,7 +4424,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: ddea66008ca070147a65bf5f1f8d6d3a, type: 2}
   - {fileID: 11400000, guid: 0be4cc3fd2d6ea341a356fb93989df21, type: 2}
   - {fileID: 11400000, guid: 61c084fe707090a4e9d1c1695b8f3063, type: 2}
-  maxHeldCards: 4
+  maxHeldCards: 2
   heldCards: []
   uiSelect: {fileID: 1068498660}
 --- !u!4 &727725853

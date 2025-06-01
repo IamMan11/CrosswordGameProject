@@ -25,8 +25,9 @@ public class CardManager : MonoBehaviour
 
     void Awake()
     {
-        if (Instance == null) Instance = this;
-        else Destroy(gameObject);
+        if (Instance == null) Instance = this; else { Destroy(gameObject); return; }
+
+        maxHeldCards = PlayerProgressSO.Instance.data.maxCardSlots;   // ✨
     }
 
     private List<CardData> BuildThreeRandom()
@@ -47,6 +48,11 @@ public class CardManager : MonoBehaviour
         totalQueuedCount++;
         Debug.Log($"[CardManager] Enqueued options. Queue size: {optionsQueue.Count}, Total queued: {totalQueuedCount}");
         TryOpenNextSelection();
+    }
+    public void UpgradeMaxHeldCards(int newMax)
+    {
+        maxHeldCards = Mathf.Clamp(newMax, 2, 6);   // อยากจำกัดไม่เกิน 6 ช่อง
+        UIManager.Instance.UpdateCardSlots(heldCards);
     }
 
     private void TryOpenNextSelection()

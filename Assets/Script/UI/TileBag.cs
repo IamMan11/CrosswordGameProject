@@ -33,11 +33,27 @@ public class TileBag : MonoBehaviour
             for (int i = 0; i < lc.count; i++) pool.Add(lc.data);
         }
 
-        if (TotalInitial != 100)
-            Debug.LogWarning($"[TileBag] คุณตั้งรวม {TotalInitial} ตัว (ควร = 100)");
+        int extra = PlayerProgressSO.Instance.data.extraTiles;        // ✨
+        for (int i = 0; i < extra; i++)
+        {
+            var template = initialLetters[Random.Range(0, initialLetters.Count)].data;
+            pool.Add(template);
+        }
+        TotalInitial += extra; 
     }
 
     /// <summary>ดึงสุ่ม 1 ตัว (ถ้าหมดคืน null)</summary>
+    public void AddExtraLetters(int extra)
+    {
+        for (int i = 0; i < extra; i++)
+        {
+            // ดึง template สักตัวจาก initialLetters (สุ่ม)
+            var template = initialLetters[Random.Range(0, initialLetters.Count)].data;
+            pool.Add(template);
+        }
+        TotalInitial += extra;         // ให้ตัวนับรวมเพิ่มด้วย
+        Debug.Log($"[TileBag] เพิ่ม {extra} tiles → รวม {TotalInitial}");
+    }
     
     public LetterData DrawRandomTile()
     {
