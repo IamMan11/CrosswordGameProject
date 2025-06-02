@@ -30,6 +30,7 @@ public class TurnManager : MonoBehaviour
     public int maxMana       = 10;
     public int currentMana;            // ค่ามานาปัจจุบัน
     [SerializeField] private TMP_Text manaText;   // ผูก UI Text ใน Inspector
+    private Dictionary<string, int> usageCountThisTurn = new Dictionary<string, int>();
 
     void Awake()
     {
@@ -43,6 +44,7 @@ public class TurnManager : MonoBehaviour
         var prog = PlayerProgressSO.Instance.data;
         maxMana      = prog.maxMana;
         currentMana  = maxMana;
+        usageCountThisTurn.Clear();
         UpdateScoreUI();
         UpdateManaUI(); 
     }
@@ -155,6 +157,55 @@ public class TurnManager : MonoBehaviour
     {
         RemoveOneLetter();
     }
+    /// <summary>
+    /// เช็คว่า การ์ดใบนี้ (card.id) ยังใช้ได้ในเทิร์นนั้นหรือไม่
+    /// </summary>
+    /// <param name="card">CardData ที่กำลังจะใช้</param>
+    /// <returns>True ถ้ายังใช้ได้ (ไม่เกิน maxUsagePerTurn), False ถ้ามากกว่า</returns>
+    public bool CanUseCard(CardData card)
+    {
+        if (card == null) return false;
+
+        // ดูว่ามี key อยู่ใน dictionary แล้วหรือไม่
+        if (!usageCountThisTurn.ContainsKey(card.id))
+        {
+            // ยังไม่เคยใช้เลย → ยังใช้ได้
+            return true;
+        }
+
+        // ถ้าซ้ำ ให้ดูจำนวนครั้งที่ใช้ไปแล้ว
+        int used = usageCountThisTurn[card.id];
+        return used < card.maxUsagePerTurn;
+    }
+
+    /// <summary>
+    /// เรียกเมื่อมีการใช้การ์ดจริง ๆ แล้ว (ผ่านเงื่อนไข CanUseCard() แล้ว)
+    /// เพื่อบันทึกจำนวนครั้งที่ใช้ในเทิร์นนั้น
+    /// </summary>
+    public void OnCardUsed(CardData card)
+    {
+        if (card == null) return;
+
+        if (!usageCountThisTurn.ContainsKey(card.id))
+        {
+            usageCountThisTurn[card.id] = 1;
+        }
+        else
+        {
+            usageCountThisTurn[card.id]++;
+        }
+    }
+
+    /// <summary>
+    /// (ทางเลือก) ถ้าอยากตรวจจำนวนครั้งที่ใช้แล้ว ก็เรียกเมธอดนี้
+    /// </summary>
+    public int GetUsageCount(CardData card)
+    {
+        if (card == null) return 0;
+        if (!usageCountThisTurn.ContainsKey(card.id)) return 0;
+        return usageCountThisTurn[card.id];
+    }
+
 
     void OnConfirm()
     {

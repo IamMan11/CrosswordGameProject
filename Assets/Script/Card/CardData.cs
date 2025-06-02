@@ -1,6 +1,6 @@
 using UnityEngine;
 
-[CreateAssetMenu(menuName="CrossClash/Card")]
+[CreateAssetMenu(menuName = "CrossClash/Card")]
 public class CardData : ScriptableObject
 {
     public string id;
@@ -9,13 +9,36 @@ public class CardData : ScriptableObject
     public Sprite icon;
 
     public CardEffectType effectType;
-    public int value;              // ใช้เป็นพารามิเตอร์ generic
+    public int Mana;              // ใช้เป็นพารามิเตอร์ generic
+    [Tooltip("จำนวนครั้งสูงสุดที่ใช้การ์ดใบนี้ได้ในหนึ่งเทิร์น")]
+    public int maxUsagePerTurn = 1;
 }
 
 public enum CardEffectType
 {
     ExtraDraw,          // เติม Bench x ตัว
     DoubleNextScore,    // คูณคะแนนคำถัดไป
-    SwapBench,          // สลับตัวใน Bench สองตำแหน่ง
-    DestroyOpponent,    // ลบตัวอักษรคู่แข่ง 1 ตัว ฯลฯ
+    FillBenchAll,       // เติม Bench ว่างทั้งหมด  (#6)
+    BonusCardChoice,
+    LetterQuadSurge,
+    WordQuadSurge,
+    LetterHexSurge,
+    WordHexSurge,
+    EchoBurst,
+    TwinDraw,
+    QuadSupply,
+    BenchBlitz,
+    DoubleRecast,
+    FullRerack,
+    GlyphSpark,
+    TwinSparks,
+    FreePass,
+    MinorInfusion,
+    MajorInfusion,
+    ManaOverflow,
+    WildBloom,
+    ChaosBloom,
+    TargetedFlux,
+    CleanSlate
+    
 }

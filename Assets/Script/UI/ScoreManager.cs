@@ -2,9 +2,21 @@ using UnityEngine;
 
 public static class ScoreManager
 {
+    // ตัวแปร
+    private static int doubleLetterOverride = 0;
+    private static int doubleWordOverride = 0;
+    // methon
+    public static void SetDoubleLetterOverride(int multiplier)
+    {
+        doubleLetterOverride = Mathf.Max(multiplier, 0);
+    }
+    public static void SetDoubleWordOverride(int multiplier)
+    {
+        doubleLetterOverride = Mathf.Max(multiplier, 0);
+    }
     public static int CalcWord(int r0, int c0, int r1, int c1)
     {
-        int total   = 0;
+        int total = 0;
         int wordMul = 1;
         var g = BoardManager.Instance.grid;
 
@@ -30,10 +42,18 @@ public static class ScoreManager
 
             switch (g[r, c].type)
             {
-                case SlotType.DoubleLetter: letter *= 2; break;
-                case SlotType.TripleLetter: letter *= 3; break;
-                case SlotType.DoubleWord:   wordMul *= 2; break;
-                case SlotType.TripleWord:   wordMul *= 3; break;
+                case SlotType.DoubleLetter:
+                    letter *= doubleLetterOverride > 0 ? doubleLetterOverride : 2;
+                    break;
+                case SlotType.TripleLetter:
+                    letter *= doubleLetterOverride > 0 ? doubleLetterOverride : 3;
+                    break;
+                case SlotType.DoubleWord:
+                    wordMul *= doubleWordOverride > 0 ? doubleWordOverride : 2;
+                    break;
+                case SlotType.TripleWord:
+                    wordMul *= doubleWordOverride > 0 ? doubleWordOverride : 3;
+                    break;
             }
             total += letter;
 
@@ -41,6 +61,8 @@ public static class ScoreManager
             r += dr;
             c += dc;
         }
+        doubleLetterOverride = 0;
+        doubleWordOverride = 0;
         return total * wordMul;
     }
 }

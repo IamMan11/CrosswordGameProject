@@ -109,16 +109,23 @@ public class UIManager : MonoBehaviour
             
         for (int i = 0; i < cardSlotButtons.Count; i++)
         {
-            var btn = cardSlotButtons[i];
-            var icon = cardSlotIcons[i];
+            var btn   = cardSlotButtons[i];
+            var icon  = cardSlotIcons[i];
+            var hover = btn.GetComponent<CardSlotUI>();     // ← 🆕 ดึง Hover-Script
 
             if (i < cards.Count)
             {
                 var data = cards[i];
-                icon.sprite = data.icon;
+
+                    // --- กำหนดกราฟิก ---
+                icon.sprite  = data.icon;
                 icon.enabled = true;
                 btn.gameObject.SetActive(true);
 
+                    // --- ใส่ข้อมูลให้ Hover ---
+                if (hover != null) hover.cardInSlot = data; // ← 🆕 สำคัญมาก!
+
+                    // --- คลิกใช้ / แทนที่ ---
                 btn.onClick.RemoveAllListeners();
                 int index = i;
                 if (replaceMode)
@@ -126,10 +133,12 @@ public class UIManager : MonoBehaviour
                 else
                     btn.onClick.AddListener(() => CardManager.Instance.UseCard(index));
             }
-            else
-            {
+                else
+                {
+                    // ช่องว่าง
                 btn.gameObject.SetActive(false);
-            }
+                if (hover != null) hover.cardInSlot = null; // ← 🆕 เคลียร์ข้อมูล
+                }
         }
     }
 }
