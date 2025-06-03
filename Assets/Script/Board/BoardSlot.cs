@@ -36,7 +36,7 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
         ApplyVisual();
     }
 
-    void ApplyVisual()
+    public void ApplyVisual()
     {
         bg.color = type switch
         {
@@ -79,9 +79,18 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
     // ---------- คลิกซ้ายวาง ----------
     public void OnPointerClick(PointerEventData eventData)
     {
-        // เฉพาะปุ่มซ้าย
-        if (eventData.button == PointerEventData.InputButton.Left)
-            PlacementManager.Instance.TryPlaceFromSlot(this);
+        if (eventData.button != PointerEventData.InputButton.Left) return;
+
+        // ─── ถ้าอยู่ในโหมด Targeted Flux ให้เรียก Handler ก่อน ───
+        if (BoardManager.Instance != null && BoardManager.Instance.targetedFluxRemaining > 0)
+        {
+            BoardManager.Instance.HandleTargetedFluxClick(row, col);
+            return; 
+        }
+        // ───────────────────────────────────────────────────────────────
+
+        // ปุ่มซ้ายปกติ → วางตัวอักษร
+        PlacementManager.Instance.TryPlaceFromSlot(this);
     }
 
     // ---------- ให้ PlacementManager เรียก ----------

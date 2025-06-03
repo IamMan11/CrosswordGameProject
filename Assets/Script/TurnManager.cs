@@ -20,6 +20,7 @@ public class TurnManager : MonoBehaviour
 
     bool usedDictionaryThisTurn = false;
     bool isFirstWord = true;
+    private bool freePassActiveThisTurn = false;
 
     Coroutine fadeCo;
     Coroutine autoRemoveCo;
@@ -91,6 +92,13 @@ public class TurnManager : MonoBehaviour
     }
 
     public void SetDictionaryUsed() => usedDictionaryThisTurn = true;
+    
+    //เรียกเมื่อใช้การ์ด Free Pass เพื่อยกเลิก penalty จากการเปิดพจนานุกรมในเทิร์นนี้
+    public void ApplyFreePass()
+    {
+        freePassActiveThisTurn = true;
+        ShowMessage("Free Pass – ยกเลิกโทษการเปิดพจนานุกรมในเทิร์นนี้!", Color.cyan);
+    }
     
     public void SetScoreMultiplier(int mul)   // เรียกจาก CardManager
     {
@@ -299,7 +307,13 @@ public class TurnManager : MonoBehaviour
         }
         if (usedDictionaryThisTurn)
         {
-            moveScore = Mathf.CeilToInt(moveScore * 0.5f);
+            if (!freePassActiveThisTurn)
+            {
+                // ถ้าไม่ได้ใช้ Free Pass → ลดคะแนนครึ่งนึง
+                moveScore = Mathf.CeilToInt(moveScore * 0.5f);
+                ShowMessage("Penalty: ลดคะแนน 50% จากการเปิดพจนานุกรม", Color.red);
+            }
+            // regardless of freePass, รีเซ็ต usedDictionary flag
             usedDictionaryThisTurn = false;
         }
 

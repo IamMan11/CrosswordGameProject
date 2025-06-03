@@ -44,6 +44,7 @@ public class BoardManager : MonoBehaviour
     [HideInInspector] public int manaGain;
 
     [HideInInspector] public BoardSlot[,] grid;
+    public int targetedFluxRemaining = 0;
 
     void Awake()
     {
@@ -103,6 +104,111 @@ public class BoardManager : MonoBehaviour
                 grid[r, c] = slot;
             }
         }
+    }
+    public void AddRandomSpecialSlots(int count)
+    {
+        // สร้างลิสต์เก็บพิกัด slot ปกติที่ยังไม่เป็น special
+        List<(int r, int c)> normals = new List<(int, int)>();
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                var slot = grid[r, c];
+                if (slot.type == SlotType.Normal)
+                    normals.Add((r, c));
+            }
+        }
+
+        // ถ้าช่องปกติน้อยกว่าที่จะสุ่ม ให้ลด count ลง
+        count = Mathf.Min(count, normals.Count);
+        for (int i = 0; i < count; i++)
+        {
+            // เลือก index สุ่มใน normals
+            int idx = Random.Range(0, normals.Count);
+            var (rr, cc) = normals[idx];
+            normals.RemoveAt(idx);
+
+            // กำหนด special type แบบสุ่ม (ตัวอย่าง: DL, TL, DW, TW)
+            SlotType newType;
+            int roll = Random.Range(0, 4);
+            switch (roll)
+            {
+                case 0: newType = SlotType.DoubleLetter; break;
+                case 1: newType = SlotType.TripleLetter; break;
+                case 2: newType = SlotType.DoubleWord;   break;
+                default: newType = SlotType.TripleWord;  break;
+            }
+
+            // เปลี่ยน type ใน data และอัพเดตสี
+            var slot = grid[rr, cc];
+            slot.type = newType;
+            slot.ApplyVisual();
+
+            // ถ้าอยากเก็บข้อมูลใน specials list ด้วย ให้เพิ่มโค้ดนี้:
+            specials.Add(new SpecialSlotData { row = rr, col = cc, type = newType, manaGain = 0 });
+        }
+    }
+    public void StartTargetedFlux(int count)
+    {
+        // กำหนดจำนวนช่องที่ต้องเลือก
+        targetedFluxRemaining = count;
+        // แสดงข้อความแจ้งให้ผู้เล่นคลิก (UIManager ใช้ ShowMessage ธรรมดาได้)
+        UIManager.Instance.ShowMessage($"Targeted Flux: เลือก {count} ช่องบนบอร์ด", 2f);
+    }
+    public void HandleTargetedFluxClick(int row, int col)
+    {
+        if (targetedFluxRemaining <= 0) return;
+
+        var slot = grid[row, col];
+        // ถ้าช่องนี้ยังเป็น Normal (ไม่ใช่ special)
+        if (slot.type == SlotType.Normal && !slot.HasLetterTile())
+        {
+            // เลือก special type แบบสุ่ม
+            SlotType newType;
+            int roll = Random.Range(0, 4);
+            switch (roll)
+            {
+                case 0: newType = SlotType.DoubleLetter; break;
+                case 1: newType = SlotType.TripleLetter; break;
+                case 2: newType = SlotType.DoubleWord;   break;
+                default: newType = SlotType.TripleWord;  break;
+            }
+
+            slot.type = newType;
+            slot.ApplyVisual();
+
+            // ถ้าอยากเก็บใน specials list ด้วยก็เพิ่ม data ลงไป
+            specials.Add(new SpecialSlotData { row = row, col = col, type = newType, manaGain = 0 });
+
+            targetedFluxRemaining--;
+            UIManager.Instance.ShowMessage($"เลือกช่อง ({row},{col}) เป็น {newType}", 1.5f);
+
+            // ถ้าครบแล้ว ปิดโหมด
+            if (targetedFluxRemaining == 0)
+            {
+                UIManager.Instance.ShowMessage("Targeted Flux: เสร็จสิ้นการเลือกช่อง!", 2f);
+            }
+        }
+        else
+        {
+            UIManager.Instance.ShowMessage("ช่องนี้ไม่สามารถเปลี่ยนเป็น special ได้", 1.5f);
+        }
+    }
+    public void CleanSlate()
+    {
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                var slot = grid[r, c];
+                if (slot.HasLetterTile())
+                {
+                    var tile = slot.RemoveLetter();
+                    Destroy(tile.gameObject);
+                }
+            }
+        }
+        UIManager.Instance.ShowMessage("BOARD CLEARED!", 1.5f);
     }
 
     /// <summary>

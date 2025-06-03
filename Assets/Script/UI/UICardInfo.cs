@@ -11,6 +11,7 @@ public class UICardInfo : MonoBehaviour
     [SerializeField] private TMP_Text   nameText;
     [SerializeField] private TMP_Text   descText;
     [SerializeField] private TMP_Text   ManaText;
+    [SerializeField] private TMP_Text   UseText;
 
     public static UICardInfo Instance { get; private set; }
 
@@ -29,6 +30,19 @@ public class UICardInfo : MonoBehaviour
         nameText.text   = data.displayName;
         descText.text   = data.description;
         ManaText.text   = $"Cost : {data.Mana} Mana";
+
+        int used = TurnManager.Instance.GetUsageCount(data);
+        int max  = data.maxUsagePerTurn;
+
+        if (max <= 0)
+        {
+            // ถ้า maxUsagePerTurn <= 0 แปลว่าไม่จำกัด
+            UseText.text = $"Use : {used}/∞";
+        }
+        else
+        {
+            UseText.text = $"Use : {used}/{max}";
+        }
         root.SetActive(true);
     }
 

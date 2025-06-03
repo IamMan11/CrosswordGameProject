@@ -16,5 +16,6 @@ MonoBehaviour:
   displayName: x2
   description: asd
   icon: {fileID: 21300000, guid: 69d6ac52d5876a44aba4566e7f77ee98, type: 3}
-  effectType: 15
+  effectType: 21
   Mana: 1
+  maxUsagePerTurn: 1

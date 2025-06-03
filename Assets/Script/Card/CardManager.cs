@@ -235,6 +235,48 @@ public class CardManager : MonoBehaviour
                 BenchManager.Instance.ReplaceRandomWithSpecial(2);
                 UIManager.Instance.ShowMessage("Twin Sparks — สองตัวใน Bench เป็นตัวพิเศษ!", 2);
                 break;
+            // Card 13. Free Pass – ยกเลิก penalty การเปิดพจนานุกรมในเทิร์นนี้
+            case CardEffectType.FreePass:
+                TurnManager.Instance.ApplyFreePass();
+                break;
+
+            // Card 14. Minor Infusion – เพิ่ม Mana 2 หน่วย
+            case CardEffectType.MinorInfusion:
+                TurnManager.Instance.AddMana(2);
+                break;
+
+            // Card 15. Major Infusion – เพิ่ม Mana 5 หน่วย
+            case CardEffectType.MajorInfusion:
+                TurnManager.Instance.AddMana(5);
+                break;
+
+            // Card 16. Mana Overflow – เติม Mana จนเต็ม (maxMana)
+            case CardEffectType.ManaOverflow:
+                TurnManager.Instance.AddMana(TurnManager.Instance.maxMana);
+                break;
+            // 17. Wild Bloom – สุ่มให้มีช่องพิเศษใน Board เพิ่มขึ้น 10 ช่อง
+            case CardEffectType.WildBloom:
+                BoardManager.Instance.AddRandomSpecialSlots(10);
+                UIManager.Instance.ShowMessage("Wild Bloom — เพิ่มช่องพิเศษแบบสุ่ม 10 ช่อง!", 2f);
+                break;
+
+            // 18. Chaos Bloom – สุ่มให้มีช่องพิเศษใน Board เพิ่มขึ้น 25 ช่อง
+            case CardEffectType.ChaosBloom:
+                BoardManager.Instance.AddRandomSpecialSlots(25);
+                UIManager.Instance.ShowMessage("Chaos Bloom — เพิ่มช่องพิเศษแบบสุ่ม 25 ช่อง!", 2f);
+                break;
+
+            // 19. Targeted Flux – เลือกช่อง 5 ช่องโดยการคลิก เพื่อเปลี่ยนเป็นช่องพิเศษ
+            case CardEffectType.TargetedFlux:
+                BoardManager.Instance.StartTargetedFlux(5);
+                UIManager.Instance.ShowMessage("Targeted Flux — คลิกเลือก 5 ช่องเพื่อเป็นช่องพิเศษ!", 2f);
+                break;
+
+            // 20. Clean Slate – ล้างตัวอักษรทั้งหมดใน Board
+            case CardEffectType.CleanSlate:
+                BoardManager.Instance.CleanSlate();
+                UIManager.Instance.ShowMessage("Clean Slate — ล้างตัวอักษรทั้งหมดบนกระดาน!", 2f);
+                break;
             }
     }
 }
