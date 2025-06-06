@@ -20,6 +20,7 @@ public class TurnManager : MonoBehaviour
 
     bool usedDictionaryThisTurn = false;
     bool isFirstWord = true;
+    private bool freePassActiveThisTurn = false;
 
     Coroutine fadeCo;
     Coroutine autoRemoveCo;
@@ -30,6 +31,9 @@ public class TurnManager : MonoBehaviour
     public int maxMana       = 10;
     public int currentMana;            // ค่ามานาปัจจุบัน
     [SerializeField] private TMP_Text manaText;   // ผูก UI Text ใน Inspector
+    private bool infiniteManaMode = false;
+    private Coroutine manaInfiniteCoroutine = null;
+    private Dictionary<string, int> usageCountThisTurn = new Dictionary<string, int>();
 
     void Awake()
     {
@@ -40,26 +44,71 @@ public class TurnManager : MonoBehaviour
 
     void Start()
     {
+        var prog = PlayerProgressSO.Instance.data;
+        maxMana      = prog.maxMana;
+        currentMana  = maxMana;
+        usageCountThisTurn.Clear();
         UpdateScoreUI();
         UpdateManaUI(); 
     }
+    public void ActivateInfiniteMana(float duration)
+    {
+        if (manaInfiniteCoroutine != null)
+            StopCoroutine(manaInfiniteCoroutine);
+
+        infiniteManaMode = true;
+        UpdateManaUI();  // แสดงเป็น "Mana: ∞"
+        ShowMessage("Mana Infinity – ใช้มานาไม่จำกัด 1 นาที!", Color.cyan);
+
+        manaInfiniteCoroutine = StartCoroutine(DeactivateInfiniteManaAfter(duration));
+    }
+
+    /// <summary>
+    /// Coroutine รอแล้วปิดโหมด ManaInfinity อัตโนมัติ
+    /// </summary>
+    private IEnumerator DeactivateInfiniteManaAfter(float duration)
+    {
+        yield return new WaitForSeconds(duration);
+        infiniteManaMode = false;
+        manaInfiniteCoroutine = null;
+        UpdateManaUI();
+        ShowMessage("Mana Infinity หมดเวลาแล้ว", Color.cyan);
+    }
     public void AddMana(int amount)
     {
+        if (infiniteManaMode)
+        {
+            // ถ้าเป็นโหมด Infinity → ไม่ต้องบวกเพราะไม่จำกัดเสมอ
+            return;
+        }
         currentMana = Mathf.Min(maxMana, currentMana + amount);
         UpdateManaUI();
         ShowMessage($"+{amount} Mana", Color.cyan);
     }
-    public bool UseMana(int cost)
+    public bool UseMana(int amount)
     {
-        if (currentMana < cost) return false;
-        currentMana -= cost;
+        if (infiniteManaMode)
+        {
+            // ถ้าเป็นโหมด Infinity → ไม่ต้องบวกเพราะไม่จำกัดเสมอ
+            return true;
+        }
+        if (currentMana < amount) return false;
+        currentMana -= amount;
         UpdateManaUI();
         return true;
+    }
+    public void UpgradeMaxMana(int newMax)
+    {
+        maxMana = newMax;
+        currentMana = Mathf.Min(currentMana, maxMana);
+        UpdateManaUI();
     }
     void UpdateManaUI()
     {
         if (manaText != null)
-            manaText.text = $"Mana: {currentMana}/{maxMana}";
+            manaText.text = infiniteManaMode
+                ? $"Mana: ∞"
+                : $"Mana: {currentMana}/{maxMana}";
     }
 
     public void ResetForNewLevel()
@@ -80,6 +129,13 @@ public class TurnManager : MonoBehaviour
     }
 
     public void SetDictionaryUsed() => usedDictionaryThisTurn = true;
+    
+    //เรียกเมื่อใช้การ์ด Free Pass เพื่อยกเลิก penalty จากการเปิดพจนานุกรมในเทิร์นนี้
+    public void ApplyFreePass()
+    {
+        freePassActiveThisTurn = true;
+        ShowMessage("Free Pass – ยกเลิกโทษการเปิดพจนานุกรมในเทิร์นนี้!", Color.cyan);
+    }
     
     public void SetScoreMultiplier(int mul)   // เรียกจาก CardManager
     {
@@ -146,6 +202,61 @@ public class TurnManager : MonoBehaviour
     {
         RemoveOneLetter();
     }
+    /// <summary>
+    /// เช็คว่า การ์ดใบนี้ (card.id) ยังใช้ได้ในเทิร์นนั้นหรือไม่
+    /// </summary>
+    /// <param name="card">CardData ที่กำลังจะใช้</param>
+    /// <returns>True ถ้ายังใช้ได้ (ไม่เกิน maxUsagePerTurn), False ถ้ามากกว่า</returns>
+    public void ResetCardUsage()
+    {
+        usageCountThisTurn.Clear();
+        ShowMessage("Reset Card Usage – รีเซ็ตการใช้การ์ดในเทิร์นนี้แล้ว", Color.cyan);
+    }
+    public bool CanUseCard(CardData card)
+    {
+        if (card == null) return false;
+
+        // ดูว่ามี key อยู่ใน dictionary แล้วหรือไม่
+        if (!usageCountThisTurn.ContainsKey(card.id))
+        {
+            // ยังไม่เคยใช้เลย → ยังใช้ได้
+            return true;
+        }
+
+        // ถ้าซ้ำ ให้ดูจำนวนครั้งที่ใช้ไปแล้ว
+        int used = usageCountThisTurn[card.id];
+        return used < card.maxUsagePerTurn;
+    }
+    
+
+    /// <summary>
+    /// เรียกเมื่อมีการใช้การ์ดจริง ๆ แล้ว (ผ่านเงื่อนไข CanUseCard() แล้ว)
+    /// เพื่อบันทึกจำนวนครั้งที่ใช้ในเทิร์นนั้น
+    /// </summary>
+    public void OnCardUsed(CardData card)
+    {
+        if (card == null) return;
+
+        if (!usageCountThisTurn.ContainsKey(card.id))
+        {
+            usageCountThisTurn[card.id] = 1;
+        }
+        else
+        {
+            usageCountThisTurn[card.id]++;
+        }
+    }
+
+    /// <summary>
+    /// (ทางเลือก) ถ้าอยากตรวจจำนวนครั้งที่ใช้แล้ว ก็เรียกเมธอดนี้
+    /// </summary>
+    public int GetUsageCount(CardData card)
+    {
+        if (card == null) return 0;
+        if (!usageCountThisTurn.ContainsKey(card.id)) return 0;
+        return usageCountThisTurn[card.id];
+    }
+
 
     void OnConfirm()
     {
@@ -239,7 +350,13 @@ public class TurnManager : MonoBehaviour
         }
         if (usedDictionaryThisTurn)
         {
-            moveScore = Mathf.CeilToInt(moveScore * 0.5f);
+            if (!freePassActiveThisTurn)
+            {
+                // ถ้าไม่ได้ใช้ Free Pass → ลดคะแนนครึ่งนึง
+                moveScore = Mathf.CeilToInt(moveScore * 0.5f);
+                ShowMessage("Penalty: ลดคะแนน 50% จากการเปิดพจนานุกรม", Color.red);
+            }
+            // regardless of freePass, รีเซ็ต usedDictionary flag
             usedDictionaryThisTurn = false;
         }
 
