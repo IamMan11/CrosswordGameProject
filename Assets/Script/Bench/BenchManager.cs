@@ -158,6 +158,30 @@ public class BenchManager : MonoBehaviour
             filledSlots.RemoveAt(idx);
         }
     }
+    public void OmniSpark()
+    {
+        bool anyConverted = false;
+        foreach (Transform slot in slotTransforms)
+        {
+            if (slot.childCount == 0) continue;
+            var lt = slot.GetChild(0).GetComponent<LetterTile>();
+            if (lt != null)
+            {
+                // ดึง LetterData ของ tile ปัจจุบันมาแก้ไข isSpecial = true
+                var data = lt.GetData();
+                data.isSpecial = true;
+
+                // อัปเดต UI บน LetterTile ให้เห็นกรอบ special (หากมี)
+                lt.Setup(data);
+                anyConverted = true;
+            }
+        }
+        if (anyConverted)
+            Debug.Log("[BenchManager] OmniSpark: ทุกตัวใน Bench กลายเป็น special แล้ว");
+        else
+            Debug.Log("[BenchManager] OmniSpark: ไม่มีตัวอักษรใน Bench ให้แปลง");
+    }
+    
 
     // ================================================================================
 }

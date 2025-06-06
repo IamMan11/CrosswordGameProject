@@ -5,6 +5,8 @@ public static class ScoreManager
     // ตัวแปร
     private static int doubleLetterOverride = 0;
     private static int doubleWordOverride = 0;
+    private static int globalLetterMultiplier = 1;
+    private static float globalLetterMultiplierEndTime = 0f;
     // methon
     public static void SetDoubleLetterOverride(int multiplier)
     {
@@ -13,6 +15,12 @@ public static class ScoreManager
     public static void SetDoubleWordOverride(int multiplier)
     {
         doubleLetterOverride = Mathf.Max(multiplier, 0);
+    }
+    // ── เพิ่มเมธอดเพื่อเปิดใช้ “ตัวอักษรทั้งหมด ×2” เป็นเวลา duration วินาที ──
+    public static void ActivateGlobalLetterMultiplier(int multiplier, float duration)
+    {
+        globalLetterMultiplier = Mathf.Max(multiplier, 1);                  // ปกติ multiplier=2
+        globalLetterMultiplierEndTime = Time.time + duration;               // เก็บเวลาที่จะสิ้นสุด efek
     }
     public static int CalcWord(int r0, int c0, int r1, int c1)
     {
@@ -39,6 +47,10 @@ public static class ScoreManager
             /* ------------------------------------ */
 
             int letter = tile.GetData().score;
+            if (Time.time < globalLetterMultiplierEndTime)
+            {
+                letter *= globalLetterMultiplier;   // คูณตัวอักษรตาม multiplier (ปกติ=2)
+            }
 
             switch (g[r, c].type)
             {

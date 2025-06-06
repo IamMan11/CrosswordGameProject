@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -27,7 +28,7 @@ public class BoardManager : MonoBehaviour
     [Header("Prefabs / Parents")]
     public GameObject boardSlotPrefab;
     public RectTransform boardParent;          // RectTransform เท่านั้น
-    
+
     [Header("Special Slots")]
     public List<SpecialSlotData> specials = new List<SpecialSlotData>();  // ← เพิ่มตรงนี้
 
@@ -45,6 +46,9 @@ public class BoardManager : MonoBehaviour
 
     [HideInInspector] public BoardSlot[,] grid;
     public int targetedFluxRemaining = 0;
+    // ── เพิ่ม fields สำหรับเก็บ backup ก่อนเปลี่ยนเป็น all-random-special ──
+    private List<BackupSlot> backupSlots = new List<BackupSlot>();
+    private bool isAllRandomActive = false;
 
     void Awake()
     {
@@ -80,12 +84,12 @@ public class BoardManager : MonoBehaviour
             for (int c = 0; c < cols; c++)
             {
                 // หา type พิเศษ
-                SlotType st       = SlotType.Normal;
-                int      manaGain = 0;
+                SlotType st = SlotType.Normal;
+                int manaGain = 0;
                 foreach (var sp in specials)
                     if (sp.row == r && sp.col == c)
                     {
-                        st       = sp.type;
+                        st = sp.type;
                         manaGain = sp.manaGain;      // ← รับค่า manaGain
                         break;
                     }
@@ -135,8 +139,8 @@ public class BoardManager : MonoBehaviour
             {
                 case 0: newType = SlotType.DoubleLetter; break;
                 case 1: newType = SlotType.TripleLetter; break;
-                case 2: newType = SlotType.DoubleWord;   break;
-                default: newType = SlotType.TripleWord;  break;
+                case 2: newType = SlotType.DoubleWord; break;
+                default: newType = SlotType.TripleWord; break;
             }
 
             // เปลี่ยน type ใน data และอัพเดตสี
@@ -170,8 +174,8 @@ public class BoardManager : MonoBehaviour
             {
                 case 0: newType = SlotType.DoubleLetter; break;
                 case 1: newType = SlotType.TripleLetter; break;
-                case 2: newType = SlotType.DoubleWord;   break;
-                default: newType = SlotType.TripleWord;  break;
+                case 2: newType = SlotType.DoubleWord; break;
+                default: newType = SlotType.TripleWord; break;
             }
 
             slot.type = newType;
@@ -210,6 +214,79 @@ public class BoardManager : MonoBehaviour
         }
         UIManager.Instance.ShowMessage("BOARD CLEARED!", 1.5f);
     }
+    public void ActivateAllRandomSpecial(float duration)
+    {
+        if (isAllRandomActive) return;
+
+        // เก็บ backup ของทุกช่องปัจจุบัน (row, col, type, manaGain)
+        backupSlots.Clear();
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                var slot = grid[r, c];
+                backupSlots.Add(new BackupSlot
+                {
+                    row = r,
+                    col = c,
+                    type = slot.type,
+                    manaGain = slot.manaGain
+                });
+            }
+        }
+
+        // สุ่มเปลี่ยนทุกช่องใน board เป็น special type ใหม่แบบสุ่ม
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                var slot = grid[r, c];
+                // สุ่ม special type (DoubleLetter / TripleLetter / DoubleWord / TripleWord)
+                SlotType newType;
+                int roll = Random.Range(0, 4);
+                switch (roll)
+                {
+                    case 0: newType = SlotType.DoubleLetter; break;
+                    case 1: newType = SlotType.TripleLetter; break;
+                    case 2: newType = SlotType.DoubleWord; break;
+                    default: newType = SlotType.TripleWord; break;
+                }
+                slot.type = newType;
+                slot.ApplyVisual();
+                slot.manaGain = 0; // สมมติช่องพิเศษชั่วคราวไม่ให้มานาเพิ่ม
+            }
+        }
+
+        isAllRandomActive = true;
+        // เริ่ม Coroutine เพื่อ revert หลังผ่านไป duration วินาที
+        StartCoroutine(RevertAllRandomSpecialAfter(duration));
+        UIManager.Instance.ShowMessage("All Random Special – ทุกช่องกลายเป็นพิเศษชั่วคราว!", 2f);
+    }
+    private IEnumerator RevertAllRandomSpecialAfter(float duration)
+    {
+        yield return new WaitForSeconds(duration);
+
+        // คืนค่าทุกช่องกลับตาม backup
+        foreach (var b in backupSlots)
+        {
+            var slot = grid[b.row, b.col];
+            slot.type = b.type;
+            slot.manaGain = b.manaGain;
+            slot.ApplyVisual();
+        }
+        backupSlots.Clear();
+        isAllRandomActive = false;
+        UIManager.Instance.ShowMessage("All Random Special หมดเวลา – คืนสภาพเดิมแล้ว", 2f);
+    }
+
+    // ── struct ช่วยเก็บ backup แต่ละช่อง ──
+    private struct BackupSlot
+    {
+        public int row;
+        public int col;
+        public SlotType type;
+        public int manaGain;
+    }
 
     /// <summary>
     /// คืน BoardSlot ตามแถวและคอลัมน์ (ถ้าอยู่นอกขอบจะคืน null)
@@ -221,4 +298,5 @@ public class BoardManager : MonoBehaviour
             return null;
         return grid[row, col];
     }
+    
 }

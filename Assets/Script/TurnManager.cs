@@ -31,6 +31,8 @@ public class TurnManager : MonoBehaviour
     public int maxMana       = 10;
     public int currentMana;            // ค่ามานาปัจจุบัน
     [SerializeField] private TMP_Text manaText;   // ผูก UI Text ใน Inspector
+    private bool infiniteManaMode = false;
+    private Coroutine manaInfiniteCoroutine = null;
     private Dictionary<string, int> usageCountThisTurn = new Dictionary<string, int>();
 
     void Awake()
@@ -49,14 +51,47 @@ public class TurnManager : MonoBehaviour
         UpdateScoreUI();
         UpdateManaUI(); 
     }
+    public void ActivateInfiniteMana(float duration)
+    {
+        if (manaInfiniteCoroutine != null)
+            StopCoroutine(manaInfiniteCoroutine);
+
+        infiniteManaMode = true;
+        UpdateManaUI();  // แสดงเป็น "Mana: ∞"
+        ShowMessage("Mana Infinity – ใช้มานาไม่จำกัด 1 นาที!", Color.cyan);
+
+        manaInfiniteCoroutine = StartCoroutine(DeactivateInfiniteManaAfter(duration));
+    }
+
+    /// <summary>
+    /// Coroutine รอแล้วปิดโหมด ManaInfinity อัตโนมัติ
+    /// </summary>
+    private IEnumerator DeactivateInfiniteManaAfter(float duration)
+    {
+        yield return new WaitForSeconds(duration);
+        infiniteManaMode = false;
+        manaInfiniteCoroutine = null;
+        UpdateManaUI();
+        ShowMessage("Mana Infinity หมดเวลาแล้ว", Color.cyan);
+    }
     public void AddMana(int amount)
     {
+        if (infiniteManaMode)
+        {
+            // ถ้าเป็นโหมด Infinity → ไม่ต้องบวกเพราะไม่จำกัดเสมอ
+            return;
+        }
         currentMana = Mathf.Min(maxMana, currentMana + amount);
         UpdateManaUI();
         ShowMessage($"+{amount} Mana", Color.cyan);
     }
     public bool UseMana(int amount)
     {
+        if (infiniteManaMode)
+        {
+            // ถ้าเป็นโหมด Infinity → ไม่ต้องบวกเพราะไม่จำกัดเสมอ
+            return true;
+        }
         if (currentMana < amount) return false;
         currentMana -= amount;
         UpdateManaUI();
@@ -71,7 +106,9 @@ public class TurnManager : MonoBehaviour
     void UpdateManaUI()
     {
         if (manaText != null)
-            manaText.text = $"Mana: {currentMana}/{maxMana}";
+            manaText.text = infiniteManaMode
+                ? $"Mana: ∞"
+                : $"Mana: {currentMana}/{maxMana}";
     }
 
     public void ResetForNewLevel()
@@ -170,6 +207,11 @@ public class TurnManager : MonoBehaviour
     /// </summary>
     /// <param name="card">CardData ที่กำลังจะใช้</param>
     /// <returns>True ถ้ายังใช้ได้ (ไม่เกิน maxUsagePerTurn), False ถ้ามากกว่า</returns>
+    public void ResetCardUsage()
+    {
+        usageCountThisTurn.Clear();
+        ShowMessage("Reset Card Usage – รีเซ็ตการใช้การ์ดในเทิร์นนี้แล้ว", Color.cyan);
+    }
     public bool CanUseCard(CardData card)
     {
         if (card == null) return false;
@@ -185,6 +227,7 @@ public class TurnManager : MonoBehaviour
         int used = usageCountThisTurn[card.id];
         return used < card.maxUsagePerTurn;
     }
+    
 
     /// <summary>
     /// เรียกเมื่อมีการใช้การ์ดจริง ๆ แล้ว (ผ่านเงื่อนไข CanUseCard() แล้ว)

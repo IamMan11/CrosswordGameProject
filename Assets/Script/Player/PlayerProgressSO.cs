@@ -15,4 +15,10 @@ public class PlayerProgressSO : MonoBehaviour
         if (data == null)
             data = Resources.Load<PlayerProgress>("PlayerProgress");
     }
+    public bool HasCard(string id) => data.ownedCardIds.Contains(id);
+    public void AddCard(string id)
+    {
+        if (!data.ownedCardIds.Contains(id))
+            data.ownedCardIds.Add(id);
+    }
 }

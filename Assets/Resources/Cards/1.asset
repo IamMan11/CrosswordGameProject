@@ -10,12 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b93f30633ee9c0a478ba730363e01632, type: 3}
-  m_Name: x2
+  m_Name: 1
   m_EditorClassIdentifier: 
-  id: 
-  displayName: x2
-  description: asd
+  id: 1
+  displayName: Glyph Spark
+  description: wwwwww
   icon: {fileID: 21300000, guid: 69d6ac52d5876a44aba4566e7f77ee98, type: 3}
-  effectType: 21
-  Mana: 1
+  effectType: 14
+  Mana: 5
   maxUsagePerTurn: 1
+  category: 0
+  weight: 1
+  requirePurchase: 1
+  price: 30

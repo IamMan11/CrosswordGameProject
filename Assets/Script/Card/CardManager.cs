@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
+using UnityEngine.SceneManagement;
 
 public class CardManager : MonoBehaviour
 {
@@ -9,6 +11,22 @@ public class CardManager : MonoBehaviour
     public List<CardData> allCards;
     public int maxHeldCards = 2;
     public List<CardData> heldCards = new List<CardData>();
+
+    [Header("Category Weights (ปรับ % ออกได้)")]
+    [Tooltip("น้ำหนักการสุ่ม Category แต่ละประเภท (ค่ารวมแล้ว = 100 หรืออะไรก็ได้ แต่จะถูก Normalized อัตโนมัติ)")]
+    public List<CategoryWeight> categoryWeights = new List<CategoryWeight>()
+    {
+        new CategoryWeight { category = CardCategory.Buff, weight = 40 },
+        new CategoryWeight { category = CardCategory.Dispell, weight = 30 },
+        new CategoryWeight { category = CardCategory.Neutral, weight = 20 },
+        new CategoryWeight { category = CardCategory.Wildcard, weight = 10 }
+    };
+    [System.Serializable]
+    public struct CategoryWeight
+    {
+        public CardCategory category;
+        public int weight;
+    }
 
     // คิวเก็บแต่ละชุดตัวเลือกการ์ด
     private Queue<List<CardData>> optionsQueue = new Queue<List<CardData>>();
@@ -28,22 +46,146 @@ public class CardManager : MonoBehaviour
         if (Instance == null) Instance = this; else { Destroy(gameObject); return; }
 
         maxHeldCards = PlayerProgressSO.Instance.data.maxCardSlots;   // ✨
+        DontDestroyOnLoad(gameObject);       // 🟢 ต้องมี เพื่ออยู่ข้าม Scene
+        LoadAllCards();                      // 🟢 เมธอดที่จะโหลด CardData ทั้งหมด
+    }
+    void LoadAllCards()
+    {
+        // ดึง CardData ทั้งหมดจาก Resources/Cards เหมือนตัวอย่างก่อนหน้า
+        allCards = Resources.LoadAll<CardData>("Cards").ToList();
+    }
+    void OnEnable()
+    {
+        SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
-    private List<CardData> BuildThreeRandom()
+    void OnDisable()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        // พยายามหา UICardSelect ตัวใหม่ใน Scene ที่เพิ่งโหลด
+        uiSelect = FindObjectOfType<UICardSelect>(true);
+    }
+
+    private CardData GetWeightedRandomCard()
+    {
+        // 1) สร้างลิสต์ที่รวม Category ที่มี weight > 0
+        var nonZeroCategories = categoryWeights
+            .Where(cw => cw.weight > 0)
+            .ToList();
+
+        if (nonZeroCategories.Count == 0)
+            return null;
+
+        // 2) คำนวณผลรวม weight ของ Category ทั้งหมด
+        int totalCategoryWeight = nonZeroCategories.Sum(cw => cw.weight);
+
+        // 3) สุ่มตัวเลขตั้งแต่ 0 - totalCategoryWeight-1
+        int randCatValue = Random.Range(0, totalCategoryWeight);
+
+        // 4) หา Category ที่ถูกเลือก (First-fit)
+        CardCategory chosenCategory = nonZeroCategories[0].category;
+        int accumulated = 0;
+        foreach (var cw in nonZeroCategories)
+        {
+            accumulated += cw.weight;
+            if (randCatValue < accumulated)
+            {
+                chosenCategory = cw.category;
+                break;
+            }
+        }
+
+        // 5) รวบรวมการ์ดที่ตรงกันใน allCards ตาม chosenCategory
+        var cardsInCategory = allCards
+            .Where(cd =>
+                cd.category == chosenCategory &&
+                cd.weight > 0 &&
+                (!cd.requirePurchase || PlayerProgressSO.Instance.HasCard(cd.id))   // 🆕
+            )
+            .ToList();
+
+        if (cardsInCategory.Count == 0)
+        {
+            // ถ้าไม่มีการ์ดใน Category นี้ ให้ fallback ไปสุ่มจาก allCards ปกติ
+            return allCards[Random.Range(0, allCards.Count)];
+        }
+
+        // 6) คำนวณผลรวม weight ภายใน Category
+        int totalCardWeight = cardsInCategory.Sum(cd => cd.weight);
+
+        // 7) สุ่มตัวเลขตั้งแต่ 0 - totalCardWeight-1
+        int randCardValue = Random.Range(0, totalCardWeight);
+
+        // 8) หา CardData ใบที่ถูกเลือก (First-fit)
+        int accCard = 0;
+        foreach (var cd in cardsInCategory)
+        {
+            accCard += cd.weight;
+            if (randCardValue < accCard)
+                return cd;
+        }
+
+        // กรณีตกหล่น (ควรจะไม่ถึง)
+        return cardsInCategory[0];
+    }
+
+
+    private List<CardData> BuildThreeWeightedRandom()
     {
         var opts = new List<CardData>();
+        int attempts = 0;
+        while (opts.Count < 3 && attempts < 20)
+        {
+            var candidate = GetWeightedRandomCard();
+            if (candidate != null && !opts.Contains(candidate))
+            {
+                opts.Add(candidate);
+            }
+            attempts++;
+        }
+
+        // หากยังไม่ครบ 3 ใบ (เช่น หาก weight จัดไว้ผิดพลาด) ให้สุ่มเพิ่มเติมจาก allCards ปกติ
         while (opts.Count < 3)
         {
-            var cd = allCards[Random.Range(0, allCards.Count)];
-            if (!opts.Contains(cd)) opts.Add(cd);
+            var fallback = allCards[Random.Range(0, allCards.Count)];
+            if (!opts.Contains(fallback))
+                opts.Add(fallback);
         }
+
         return opts;
     }
+    private void OnUseMasterDraft()
+    {
+        // เปิด UI MasterDraft รับ allCards ทั้งหมด
+        UIMasterDraft.Instance.Open(allCards, OnMasterDraftCardPicked);
+    }
+    private void OnMasterDraftCardPicked(CardData selected)
+    {
+        // นำ CardData ที่ได้ มาใส่ใน heldCards หรือแทนที่ช่องที่ต้องการ
+        if (heldCards.Count < maxHeldCards)
+        {
+            heldCards.Add(selected);
+        }
+        else
+        {
+            // กรณี heldCards เต็มแล้ว → อาจจะให้ Replace โดยเลือก index ที่ต้องการ
+            // หรือเลือกให้ผู้เล่นคลิก slot ที่จะถูกแทน
+            // ตัวอย่าง: แทนที่ index 0
+            heldCards[0] = selected;
+        }
 
+        // อัปเดต UI การ์ดที่ถือ (เช่น UpdateCardSlots)
+        UIManager.Instance.UpdateCardSlots(heldCards);
+
+        Debug.Log($"[MasterDraft] ผู้เล่นเลือกการ์ด {selected.displayName} แล้วใส่ลง heldCards");
+    }
     public void GiveRandomCard()
     {
-        var opts = BuildThreeRandom();
+        var opts = BuildThreeWeightedRandom();
         optionsQueue.Enqueue(opts);
         totalQueuedCount++;
         Debug.Log($"[CardManager] Enqueued options. Queue size: {optionsQueue.Count}, Total queued: {totalQueuedCount}");
@@ -277,6 +419,51 @@ public class CardManager : MonoBehaviour
                 BoardManager.Instance.CleanSlate();
                 UIManager.Instance.ShowMessage("Clean Slate — ล้างตัวอักษรทั้งหมดบนกระดาน!", 2f);
                 break;
-            }
+            // 21. LetterDoubleTime – ทำให้ตัวอักษรทั้งหมดคะแนน x2 เป็นเวลา 1 นาที
+            case CardEffectType.GlobalEcho:
+                // multiplier=2, duration=60 วินาที
+                ScoreManager.ActivateGlobalLetterMultiplier(2, 60f);
+                UIManager.Instance.ShowMessage("Letter Double Time – ตัวอักษรทั้งหมด ×2 เป็นเวลา 1 นาที!", 2f);
+                break;
+
+            // 22. AllRandomSpecialTime – ทุกช่องกลายเป็น special แบบสุ่ม เป็นเวลา 1 นาที
+            case CardEffectType.PandemoniumField:
+                BoardManager.Instance.ActivateAllRandomSpecial(60f);
+                // ข้อความแสดงผลอยู่ใน ActivateAllRandomSpecial() แล้ว
+                break;
+
+            // 23. ResetCardUsage – รีเซ็ตการใช้การ์ดในเทิร์นนี้
+            case CardEffectType.CardRefresh:
+                TurnManager.Instance.ResetCardUsage();
+                // ข้อความแสดงผลอยู่ใน ResetCardUsage() แล้ว
+                break;
+            // 24. InfiniteTiles (ตัวอักษรจาก tilepack ไม่หมด) 60 วินาที
+            case CardEffectType.InfiniteTiles:
+                TileBag.Instance.ActivateInfinite(60f);
+                UIManager.Instance.ShowMessage("Infinite Tiles – tilepack ไม่จำกัด 1 นาที!", 2f);
+                break;
+
+            // 25. PackRenewal (รีเซ็ต tilepack)
+            case CardEffectType.PackRenewal:
+                TileBag.Instance.ResetPool();
+                UIManager.Instance.ShowMessage("Pack Renewal – รีเซ็ต tilepack ใหม่ทั้งหมด!", 2f);
+                break;
+
+            // 26. ManaInfinity (มานาไม่จำกัด) 60 วินาที
+            case CardEffectType.ManaInfinity:
+                TurnManager.Instance.ActivateInfiniteMana(60f);
+                // ข้อความแสดงอยู่ใน ActivateInfiniteMana()
+                break;
+
+            // 27. OmniSpark (bench เป็น special ทั้งหมด ชั่วคราว)
+            case CardEffectType.OmniSpark:
+                BenchManager.Instance.OmniSpark();
+                UIManager.Instance.ShowMessage("Omni Spark – ทุกตัวใน Bench เป็น special ชั่วคราว!", 2f);
+                break;
+            // 28. MasterDraft เลือกการ์ดยกเว่้น widecard
+            case CardEffectType.MasterDraft:
+                OnUseMasterDraft();
+                break;
+        }
     }
 }

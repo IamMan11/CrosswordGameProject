@@ -12,6 +12,21 @@ public class CardData : ScriptableObject
     public int Mana;              // ใช้เป็นพารามิเตอร์ generic
     [Tooltip("จำนวนครั้งสูงสุดที่ใช้การ์ดใบนี้ได้ในหนึ่งเทิร์น")]
     public int maxUsagePerTurn = 1;
+
+    [Header("การจัดประเภทและน้ำหนัก (Drop Rates)")]
+    public CardCategory category;      // ยกตัวอย่าง: Buff, Dispell, Wildcard, ฯลฯ
+    [Tooltip("น้ำหนักของการ์ดนี้ภายในประเภท (ยิ่งมาก ยิ่งมีโอกาสถูกสุ่มเจอในประเภท)")]
+    public int weight = 1;
+    [Header("Shop")]
+    public bool  requirePurchase = false;   // ✔ true = ต้องซื้อก่อน
+    public int   price           = 0;       // ✔ ราคาเหรียญ
+}
+public enum CardCategory
+{
+    Buff,        // ออกง่ายสุด
+    Dispell,     // ออกง่าย
+    Neutral,     // ออกปานกลาง
+    Wildcard     // ออกยากสุด
 }
 
 public enum CardEffectType
@@ -39,6 +54,14 @@ public enum CardEffectType
     WildBloom,
     ChaosBloom,
     TargetedFlux,
-    CleanSlate
-    
+    CleanSlate,
+    GlobalEcho,
+    MasterDraft,
+    PandemoniumField,
+    WordForge,
+    OmniSpark,
+    CardRefresh,
+    InfiniteTiles,
+    PackRenewal,
+    ManaInfinity
 }

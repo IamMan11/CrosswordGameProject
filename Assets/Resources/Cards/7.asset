@@ -10,11 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b93f30633ee9c0a478ba730363e01632, type: 3}
-  m_Name: x3
+  m_Name: 7
   m_EditorClassIdentifier: 
-  id: 
-  displayName: x3
-  description: 
+  id: 7
+  displayName: WordQuad Surge
+  description: asd
   icon: {fileID: 21300000, guid: 69d6ac52d5876a44aba4566e7f77ee98, type: 3}
-  effectType: 0
-  Mana: 2
+  effectType: 5
+  Mana: 3
+  maxUsagePerTurn: 1
+  category: 0
+  weight: 1
+  requirePurchase: 1
+  price: 20
