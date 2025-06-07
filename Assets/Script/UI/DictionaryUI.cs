@@ -185,7 +185,37 @@ public class DictionaryUI : MonoBehaviour
         foreach (char ch in word.ToUpper())
         {
             var benchTiles = SpaceManager.Instance.GetAllBenchTiles();
+            // 1) พยายามหาตรงตัวก่อน
             LetterTile found = benchTiles.Find(t => t.GetData().letter.ToUpper() == ch.ToString());
+            // 2) ถ้าไม่เจอ ให้ถือว่าใช้ BLANK ได้
+            if (found == null)
+            {
+                found = benchTiles.Find(t => t.GetData().letter.Equals("Blank", System.StringComparison.OrdinalIgnoreCase));
+                if (found != null)
+                {
+                    // แปลง BLANK → ตัว ch (ไม่มีคะแนน)
+                    var data = found.GetData();
+                    data.letter = ch.ToString();
+                    data.score  = 0;
+                    // อัปเดต UI ของ Tile
+                    found.letterText.text = data.letter;
+                    found.scoreText .text = "0";
+                    // หา sprite ใหม่จาก TileBag
+                    var lc = TileBag.Instance.initialLetters
+                                .Find(x => x.data.letter.Equals(ch.ToString(), System.StringComparison.OrdinalIgnoreCase));
+                    if (lc != null && found.icon != null)
+                    {
+                        data.sprite    = lc.data.sprite;
+                        found.icon.sprite = data.sprite;
+                        // ปรับให้เต็มช่อง
+                        var rt = found.icon.GetComponent<RectTransform>();
+                        rt.anchorMin   = Vector2.zero;
+                        rt.anchorMax   = Vector2.one;
+                        rt.offsetMin   = Vector2.zero;
+                        rt.offsetMax   = Vector2.zero;
+                    }
+                }
+            }
             if (found != null)
             {
                 SpaceManager.Instance.AddTile(found);

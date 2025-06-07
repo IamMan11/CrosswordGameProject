@@ -32,6 +32,7 @@ public class SpaceManager : MonoBehaviour
             {
                 tile.transform.SetParent(slot);
                 tile.transform.localPosition = Vector3.zero;
+                tile.AdjustSizeToParent();
                 tile.IsInSpace = true;
 
                 if (debug) Debug.Log($"[Space] add '{tile.GetData().letter}' to slot {i}");
@@ -60,6 +61,7 @@ public class SpaceManager : MonoBehaviour
 
         tile.transform.SetParent(targetBench.transform);
         tile.transform.localPosition = Vector3.zero;
+        tile.AdjustSizeToParent();
         tile.IsInSpace = false;
 
         tile.AdjustSizeToParent(); 
