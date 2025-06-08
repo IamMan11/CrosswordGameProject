@@ -44,12 +44,14 @@ public class TurnManager : MonoBehaviour
 
     void Start()
     {
+        TileBag.Instance.ResetPool();
         var prog = PlayerProgressSO.Instance.data;
-        maxMana      = prog.maxMana;
-        currentMana  = maxMana;
+        maxMana = prog.maxMana;
+        currentMana = maxMana;
         usageCountThisTurn.Clear();
         UpdateScoreUI();
-        UpdateManaUI(); 
+        UpdateManaUI();
+        UpdateBagUI();
     }
     public void ActivateInfiniteMana(float duration)
     {
@@ -434,7 +436,7 @@ public class TurnManager : MonoBehaviour
         EnableConfirm();
     }
 
-    void UpdateBagUI()
+    public void UpdateBagUI()
         => bagCounterText.text = $"{TileBag.Instance.Remaining}/{TileBag.Instance.TotalInitial}";
 
     void ShowMessage(string msg, Color? col = null)

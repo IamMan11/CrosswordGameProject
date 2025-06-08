@@ -129,6 +129,12 @@ public class LetterTile : MonoBehaviour,
             AdjustSizeToParent();
         }
     }
+    void OnTransformParentChanged()
+    {
+        // ถ้า Tile เคยอยู่ใน Space แล้วถูกย้ายออก / ย้ายกลับ ให้รีเฟรชปุ่ม
+        if (SpaceManager.Instance != null)
+            SpaceManager.Instance.RefreshDiscardButton();
+    }
 
     // ==== ของเดิม =====
     private LetterData data;

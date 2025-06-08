@@ -45,7 +45,15 @@ public class ShopManager : MonoBehaviour
     void Start() => RefreshUI();
 
     /* ---------- ปุ่ม Back ไปเมนูหลัก ---------- */
-    public void OnPlayPressed() => SceneManager.LoadScene("Try");
+    public void OnPlayPressed()
+    {
+        // รีเซ็ตพูลให้ตรงกับค่า extraTiles ปัจจุบัน
+        if (TileBag.Instance != null)
+            TileBag.Instance.ResetPool();    // เรียก RebuildPool() ใหม่ :contentReference[oaicite:0]{index=0}
+
+        // จากนั้นค่อยโหลด Scene เกมหลัก
+        SceneManager.LoadScene("Try");
+    }
 
     /* ---------- ปุ่มอัปเกรดแต่ละอย่าง ---------- */
     public void OnBuyMana()
@@ -75,7 +83,14 @@ public class ShopManager : MonoBehaviour
 
         if (!Spend(slotUpgradeCost)) return;
 
+        // อัปเดต Progress
         PlayerProgressSO.Instance.data.maxCardSlots += 1;
+
+        // อัปเดตจำนวนช่องการ์ดที่ถือได้ใน CardManager ให้ตรงกับ Progress ใหม่
+        if (CardManager.Instance != null)
+            CardManager.Instance.UpgradeMaxHeldCards(PlayerProgressSO.Instance.data.maxCardSlots);
+
+        // บันทึกจำนวนครั้งซื้อ และอัปเดต UI
         slotBought++;
         PlayerPrefs.SetInt(PREF_SLOT, slotBought);
         RefreshUI();
@@ -89,15 +104,19 @@ public class ShopManager : MonoBehaviour
             ShowMsg("อัปเกรด TilePack เต็มแล้ว!");
             return;
         }
-
         if (!Spend(tilepackCost)) return;
 
+        // 1) อัปเดต ProgressSO ก่อน
         PlayerProgressSO.Instance.data.extraTiles += 10;
         tileBought++;
         PlayerPrefs.SetInt(PREF_TILE, tileBought);
+
+
         RefreshUI();
         ShowMsg("+10 Tiles สำเร็จ");
     }
+
+
 
     /* ---------- Helper: หักเหรียญ ---------- */
     bool Spend(int cost)
