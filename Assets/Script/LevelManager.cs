@@ -12,45 +12,71 @@ public class LevelManager : MonoBehaviour
 
     [Header("UI (ผูกใน Inspector)")]
     public TMP_Text levelText;
-    public TMP_Text timerText;
+    public TMP_Text timerText;         // จับเวลาสำหรับ Auto-Remove
+    public TMP_Text levelTimerText;    // จับเวลารวมของด่าน (เวลาหมด = แพ้)
 
-    int   currentLevel;
-    float elapsedTime;
-    bool  timerStarted;
-    bool  timing;
+    public int CurrentLevel => currentLevel;
+
+    int currentLevel;
+    bool timerStarted;
+    bool timing;
+    bool isGameOver = false;
+
+    float levelTimeLimit;
+    float levelTimeElapsed;
+    bool levelTimerRunning;
+
+    Coroutine autoRemoveCoroutine;
 
     void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
         Instance = this;
     }
 
     void Start()
     {
+        if (levels == null || levels.Length == 0)
+        {
+            Debug.LogError("❌ No level configuration provided!");
+            return;
+        }
+
         SetupLevel(0);
+    }
+
+    public bool IsGameOver()
+    {
+        return isGameOver;
     }
 
     void Update()
     {
+        if (isGameOver) return;
+
         var cfg = levels[currentLevel];
 
-        // นับถอยหลังเมื่อเริ่มแล้ว และมี timeLimit > 0
-        if (timing && timerStarted)
+        // 🕒 จับเวลาเลเวลหลัก
+        if (levelTimerRunning)
         {
-            elapsedTime += Time.deltaTime;
-            float remaining = Mathf.Max(0, cfg.timeLimit - elapsedTime);
-            timerText.text = remaining.ToString("0.0") + "s";
+            levelTimeElapsed += Time.deltaTime;
+            float remaining = Mathf.Max(0, levelTimeLimit - levelTimeElapsed);
+            UpdateLevelTimerText(remaining);
 
             if (remaining <= 0f)
             {
-                // หมดเวลา → สุ่มลบตัวอักษร + รีเซ็ตเวลา
-                TurnManager.Instance.AutoRemoveNow();
-                ResetTimer();
+                levelTimerRunning = false;
+                GameOver(false); // ❌ แพ้เพราะหมดเวลา
             }
         }
 
-        // เช็กผ่านเงื่อนไขด่าน
-        if (TurnManager.Instance.Score >= cfg.requiredScore
-            && TurnManager.Instance.CheckedWordCount >= cfg.requiredWords)
+        // ✅ ผ่านด่าน
+        if (!isGameOver && TurnManager.Instance.Score >= cfg.requiredScore &&
+            TurnManager.Instance.CheckedWordCount >= cfg.requiredWords)
         {
             NextLevel();
         }
@@ -59,36 +85,77 @@ public class LevelManager : MonoBehaviour
     void SetupLevel(int idx)
     {
         currentLevel = idx;
-        elapsedTime  = 0f;
         timerStarted = false;
-        timing       = levels[idx].timeLimit > 0;
+        timing = levels[idx].enableAutoRemove;
 
         levelText.text = $"Level {levels[idx].levelIndex}";
         timerText.gameObject.SetActive(false);
 
-        // รีเซ็ต TurnManager และเปิด/ปิด auto-remove
+        // 🔁 จับเวลาหลักของด่าน
+        levelTimeElapsed = 0f;
+        levelTimeLimit = levels[idx].timeLimit;
+        levelTimerRunning = false;
+        UpdateLevelTimerText(levelTimeLimit);
+
         TurnManager.Instance.ResetForNewLevel();
-        if (levels[idx].enableAutoRemove)
-            TurnManager.Instance.StartAutoRemove(levels[idx].autoRemoveInterval);
+
+        Debug.Log($"▶ เริ่มด่าน {levels[idx].levelIndex} | เวลา: {levels[idx].timeLimit}s | Score: {levels[idx].requiredScore}");
     }
 
-    // เรียกครั้งเดียวเมื่อผู้เล่นยืนยันคำแรก
     public void OnFirstConfirm()
     {
         if (!timerStarted && timing)
         {
             timerStarted = true;
-            elapsedTime  = 0f;
             timerText.gameObject.SetActive(true);
-            Debug.Log("Timer started");  // ลองดูใน Console ว่าถูกเรียกหรือไม่
+            StartAutoRemoveLoop(levels[currentLevel].autoRemoveInterval);
+            Debug.Log("⏱️ Auto-remove Timer started");
+        }
+
+        if (!levelTimerRunning && levelTimeLimit > 0)
+        {
+            levelTimerRunning = true;
+            levelTimeElapsed = 0f;
+            Debug.Log("🕒 Level timer started");
         }
     }
 
-    // รีเซ็ตเฉพาะตัวนับเวลา (แต่ไม่ปิด UI)
     public void ResetTimer()
     {
-        elapsedTime = 0f;
-        timerText.text = levels[currentLevel].timeLimit.ToString("0.0") + "s";
+        if (autoRemoveCoroutine != null)
+        {
+            StopCoroutine(autoRemoveCoroutine);
+        }
+        timerText.text = levels[currentLevel].autoRemoveInterval.ToString("0.0") + "s";
+        StartAutoRemoveLoop(levels[currentLevel].autoRemoveInterval);
+    }
+
+    void StartAutoRemoveLoop(float interval)
+    {
+        if (autoRemoveCoroutine != null)
+            StopCoroutine(autoRemoveCoroutine);
+
+        autoRemoveCoroutine = StartCoroutine(AutoRemoveRoutine(interval));
+    }
+
+    IEnumerator AutoRemoveRoutine(float interval)
+    {
+        while (!isGameOver)
+        {
+            float countdown = interval;
+            while (countdown > 0f && !isGameOver)
+            {
+                countdown -= Time.deltaTime;
+                timerText.text = countdown.ToString("0.0") + "s";
+                yield return null;
+            }
+
+            if (!isGameOver)
+            {
+                TurnManager.Instance.AutoRemoveNow();
+                Debug.Log("🔁 Auto-remove triggered");
+            }
+        }
     }
 
     void NextLevel()
@@ -99,8 +166,36 @@ public class LevelManager : MonoBehaviour
         }
         else
         {
-            Debug.Log("เกมจบ!");
-            // แสดง UI ชนะที่นี่ถ้ามี
+            GameOver(true); // ✅ ชนะเกม
         }
+    }
+
+    void GameOver(bool win)
+    {
+        if (isGameOver) return;
+
+        isGameOver = true;
+        timerStarted = false;
+        levelTimerRunning = false;
+
+        if (autoRemoveCoroutine != null)
+            StopCoroutine(autoRemoveCoroutine);
+
+        timerText.gameObject.SetActive(false);
+        levelTimerText.color = win ? Color.green : Color.red;
+
+        if (win)
+            Debug.Log("🎉 ชนะทุกด่าน");
+        else
+            Debug.Log("💀 แพ้เพราะหมดเวลา");
+
+        // TODO: แสดง GameOverPanel
+    }
+
+    void UpdateLevelTimerText(float remaining)
+    {
+        int minutes = Mathf.FloorToInt(remaining / 60f);
+        int seconds = Mathf.FloorToInt(remaining % 60f);
+        levelTimerText.text = $"🕒 {minutes:00}:{seconds:00}";
     }
 }

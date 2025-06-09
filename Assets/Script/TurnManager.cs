@@ -24,31 +24,33 @@ public class TurnManager : MonoBehaviour
     Coroutine fadeCo;
     Coroutine autoRemoveCo;
     readonly HashSet<string> boardWords = new();
-    int nextWordMul = 1; 
+    int nextWordMul = 1;
 
     [Header("Mana System")]
-    public int maxMana       = 10;
-    public int currentMana;            // ค่ามานาปัจจุบัน
-    [SerializeField] private TMP_Text manaText;   // ผูก UI Text ใน Inspector
+    public int maxMana = 10;
+    public int currentMana;
+    [SerializeField] private TMP_Text manaText;
 
     void Awake()
     {
         Instance = this;
         confirmBtn.onClick.AddListener(OnConfirm);
-        currentMana = 0;               // เริ่มต้นมานา
+        currentMana = 0;
     }
 
     void Start()
     {
         UpdateScoreUI();
-        UpdateManaUI(); 
+        UpdateManaUI();
     }
+
     public void AddMana(int amount)
     {
         currentMana = Mathf.Min(maxMana, currentMana + amount);
         UpdateManaUI();
         ShowMessage($"+{amount} Mana", Color.cyan);
     }
+
     public bool UseMana(int cost)
     {
         if (currentMana < cost) return false;
@@ -56,6 +58,7 @@ public class TurnManager : MonoBehaviour
         UpdateManaUI();
         return true;
     }
+
     void UpdateManaUI()
     {
         if (manaText != null)
@@ -80,11 +83,12 @@ public class TurnManager : MonoBehaviour
     }
 
     public void SetDictionaryUsed() => usedDictionaryThisTurn = true;
-    
-    public void SetScoreMultiplier(int mul)   // เรียกจาก CardManager
+
+    public void SetScoreMultiplier(int mul)
     {
         nextWordMul = Mathf.Max(1, mul);
     }
+
     public void OnWordChecked(bool isCorrect)
     {
         if (isCorrect) CheckedWordCount++;
@@ -149,7 +153,6 @@ public class TurnManager : MonoBehaviour
 
     void OnConfirm()
     {
-        StopAutoRemove();
         confirmBtn.interactable = false;
 
         var placed = new List<(LetterTile t, BoardSlot s)>();
@@ -159,6 +162,7 @@ public class TurnManager : MonoBehaviour
             var lt = sl.GetLetterTile();
             if (!lt.isLocked) placed.Add((lt, sl));
         }
+
         if (placed.Count == 0)
         {
             EnableConfirm();
@@ -180,6 +184,7 @@ public class TurnManager : MonoBehaviour
             if (cnt >= 2) newWords.Add(w);
             else linkWords.Add(w);
         }
+
         if (newWords.Count == 0 && linkWords.Count > 0)
         {
             newWords.Add(linkWords[0]);
@@ -189,7 +194,6 @@ public class TurnManager : MonoBehaviour
         var wrongNew = newWords.Where(w => !WordChecker.Instance.IsWordValid(w.word)).ToList();
         var dupNew = newWords.Where(w => boardWords.Contains(w.word)).ToList();
 
-        // ✅ ตรวจคำแรก ต้องไม่มีคำผิดหรือซ้ำ
         if (isFirstWord && (wrongNew.Count > 0 || dupNew.Count > 0))
         {
             StartCoroutine(BlinkWords(wrongNew.Concat(dupNew), Color.red));
@@ -227,7 +231,6 @@ public class TurnManager : MonoBehaviour
                 AddMana(slot.manaGain);
         }
 
-        // 6) คำนวณคะแนนคำใหม่
         int moveScore = 0;
         foreach (var w in newWords)
         {
@@ -237,6 +240,7 @@ public class TurnManager : MonoBehaviour
                 boardWords.Add(w.word);
             }
         }
+
         if (usedDictionaryThisTurn)
         {
             moveScore = Mathf.CeilToInt(moveScore * 0.5f);
@@ -248,10 +252,9 @@ public class TurnManager : MonoBehaviour
         if (isFirstWord)
         {
             isFirstWord = false;
-            LevelManager.Instance.OnFirstConfirm(); // ✅ เริ่มจับเวลาเมื่อวางคำแรกได้สำเร็จ
+            LevelManager.Instance.OnFirstConfirm();
         }
 
-        // 7) ล็อกตัวอักษร + อัพ UI
         foreach (var (t, _) in placed) t.Lock();
         ShowMessage($"✓ +{moveScore}", Color.green);
         BenchManager.Instance.RefillEmptySlots();
@@ -260,6 +263,14 @@ public class TurnManager : MonoBehaviour
 
         if (moveScore > 0)
             LevelManager.Instance.ResetTimer();
+
+        // ✅ เพิ่มการเริ่ม AutoRemove ใหม่หลังยืนยันคำ
+        if (!LevelManager.Instance.IsGameOver() &&
+            LevelManager.Instance.levels[LevelManager.Instance.CurrentLevel].enableAutoRemove)
+        {
+            float interval = LevelManager.Instance.levels[LevelManager.Instance.CurrentLevel].autoRemoveInterval;
+            StartAutoRemove(interval);
+        }
     }
 
     int CountNewInWord(MoveValidator.WordInfo w, HashSet<(int r, int c)> coords)
