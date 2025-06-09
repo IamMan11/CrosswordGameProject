@@ -145,8 +145,6 @@ public class UIHistoryViewer : MonoBehaviour
         int lettersPlaced = actions.Count(a => a.action_type == "place_letter");
         int cardsUsed = actions.Count(a => a.action_type == "use_card");
 
-        Debug.Log($"[Stats] totalGames={totalGames}, totalScore={totalScore}, avg={avgScore}, placed={lettersPlaced}, cards={cardsUsed}");
-
         statsText.text =
             $"Player: {playerName}\n" +
             $"- Games Played: {totalGames}\n" +
@@ -158,7 +156,7 @@ public class UIHistoryViewer : MonoBehaviour
 
     void DrawGraph(string playerName)
     {
-        if (lineGraph == null || graphContainer == null) return;
+        if (lineGraph == null || graphContainer == null || graphLabelContainer == null) return;
 
         foreach (Transform child in graphLabelContainer)
             Destroy(child.gameObject);
@@ -185,7 +183,6 @@ public class UIHistoryViewer : MonoBehaviour
             lineGraph.positionCount = 2;
             lineGraph.SetPosition(0, new Vector3(leftX, bottomY, 0));
             lineGraph.SetPosition(1, new Vector3(-leftX, bottomY, 0));
-            Debug.Log("[Graph] No game data → Draw flat line");
             return;
         }
 
@@ -201,14 +198,14 @@ public class UIHistoryViewer : MonoBehaviour
             var label = Instantiate(graphLabelPrefab, graphLabelContainer);
             label.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, bottomY - 20f);
 
-            // ✅ ใช้ TryParse แทนตรงนี้ด้วย
+            var textComp = label.GetComponentInChildren<TMP_Text>();
             if (System.DateTime.TryParse(games[0].start_time, out System.DateTime parsedDate))
-                label.GetComponent<TMP_Text>().text = parsedDate.ToString("MM/dd");
+                textComp.text = parsedDate.ToString("MM/dd");
             else
-                label.GetComponent<TMP_Text>().text = "??";
+                textComp.text = "??";
+
             return;
         }
-
 
         float maxScore = Mathf.Max(1, games.Max(g => g.total_score));
         lineGraph.positionCount = games.Count;
@@ -224,12 +221,13 @@ public class UIHistoryViewer : MonoBehaviour
             var label = Instantiate(graphLabelPrefab, graphLabelContainer);
             label.GetComponent<RectTransform>().anchoredPosition = new Vector2(x, bottomY - 20f);
 
-            // ✅ ใช้ TryParse แทน
+            var textComp = label.GetComponentInChildren<TMP_Text>();
             if (System.DateTime.TryParse(games[i].start_time, out System.DateTime parsedDate))
-                label.GetComponent<TMP_Text>().text = parsedDate.ToString("MM/dd");
+                textComp.text = parsedDate.ToString("MM/dd");
             else
-                label.GetComponent<TMP_Text>().text = "??";
+                textComp.text = "??";
         }
+
     }
 
     void ShowTop5(string playerName)
