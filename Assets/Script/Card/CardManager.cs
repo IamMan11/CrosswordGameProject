@@ -193,10 +193,15 @@ public class CardManager : MonoBehaviour
     }
     public void UpgradeMaxHeldCards(int newMax)
     {
-        maxHeldCards = Mathf.Clamp(newMax, 2, 6);   // อยากจำกัดไม่เกิน 6 ช่อง
-        UIManager.Instance.UpdateCardSlots(heldCards);
-    }
+        // ปรับค่าช่องการ์ดสูงสุดตามที่ซื้อมา (จำกัด 2–6 ช่อง)
+        maxHeldCards = Mathf.Clamp(newMax, 2, 6);
 
+        // อัปเดต UI เฉพาะเมื่อ UIManager มีอยู่ (เช่น ในเกมหลัก ไม่เรียกในหน้า Shop)
+        if (UIManager.Instance != null)
+        {
+            UIManager.Instance.UpdateCardSlots(heldCards);
+        }
+    }
     private void TryOpenNextSelection()
     {
         if (uiSelect.IsOpen || isReplaceMode) return;

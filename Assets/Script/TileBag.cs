@@ -6,7 +6,7 @@ using UnityEngine;
 public class LetterCount
 {
     public LetterData data;    // Sprite / คะแนน ฯลฯ
-    [Range(1,99)]
+    [Range(1,199)]
     public int count = 1;      // จำนวนตัวที่ใส่ลงถุง
 }
 
@@ -18,6 +18,7 @@ public class TileBag : MonoBehaviour
     public List<LetterCount> initialLetters = new();   // จัดสรร A‑Z ตามใจ
 
     private readonly List<LetterData> pool = new();    // ถุงจริงหลังแตกตัว
+    int baseCapacity; 
 
     public int TotalInitial { get; private set; }      // 100
     public int Remaining   => pool.Count;              // เหลือในถุง
@@ -27,56 +28,46 @@ public class TileBag : MonoBehaviour
 
     void Awake()
     {
-        if (Instance == null) Instance = this;
-        else { Destroy(gameObject); return; }
+        if (Instance == null) Instance = this; else { Destroy(gameObject); return; }
 
-        foreach (var lc in initialLetters)
-        {
-            TotalInitial += lc.count;
-            for (int i = 0; i < lc.count; i++) pool.Add(lc.data);
-        }
+        // Base capacity = sum initial counts (100)
+        baseCapacity = 0;
+        foreach (var lc in initialLetters) baseCapacity += lc.count;
 
-        int extra = PlayerProgressSO.Instance.data.extraTiles;        // ✨
-        for (int i = 0; i < extra; i++)
-        {
-            var template = initialLetters[Random.Range(0, initialLetters.Count)].data;
-            pool.Add(template);
-        }
-        TotalInitial += extra;
-        RebuildPool(); 
+        TotalInitial = baseCapacity + PlayerProgressSO.Instance.data.extraTiles;
+        RebuildPool();
+        // เรียก UI ครั้งแรกหลังสร้าง pool
+        TurnManager.Instance?.UpdateBagUI();
     }
 
     /// <summary>ดึงสุ่ม 1 ตัว (ถ้าหมดคืน null)</summary>
+    /* -------------------------------------------------- public API -------------------------------------------------- */
     public void AddExtraLetters(int extra)
     {
-        for (int i = 0; i < extra; i++)
+        TotalInitial += extra;                     // expand capacity first
+        for (int i = 0; i < extra; i++)            // add letters immediately
         {
-            // ดึง template สักตัวจาก initialLetters (สุ่ม)
-            var template = initialLetters[Random.Range(0, initialLetters.Count)].data;
-            pool.Add(template);
+            var t = initialLetters[Random.Range(0, initialLetters.Count)].data;
+            pool.Add(t);
         }
-        TotalInitial += extra;         // ให้ตัวนับรวมเพิ่มด้วย
-        Debug.Log($"[TileBag] เพิ่ม {extra} tiles → รวม {TotalInitial}");
+        Debug.Log($"[TileBag] +{extra} tiles → {Remaining}/{TotalInitial}");
+        TurnManager.Instance?.UpdateBagUI();       // sync UI
     }
     /// <summary>สร้าง (หรือสร้างใหม่) พูลตัวอักษรทั้งหมดตาม initialLetters</summary>
-    private void RebuildPool()
+    void RebuildPool()
     {
         pool.Clear();
-        TotalInitial = 0;
+        // initial letters
         foreach (var lc in initialLetters)
-        {
-            TotalInitial += lc.count;
             for (int i = 0; i < lc.count; i++)
                 pool.Add(lc.data);
-        }
-
-        int extra = PlayerProgressSO.Instance.data.extraTiles;        // ✨
+        // extras
+        int extra = TotalInitial - baseCapacity;
         for (int i = 0; i < extra; i++)
         {
-            var template = initialLetters[Random.Range(0, initialLetters.Count)].data;
-            pool.Add(template);
+            var t = initialLetters[Random.Range(0, initialLetters.Count)].data;
+            pool.Add(t);
         }
-        TotalInitial += extra;
     }
     /// <summary>เปิดโหมด InfiniteTiles (tilepack ไม่หมด)</summary>
     public void ActivateInfinite(float duration)
@@ -106,6 +97,7 @@ public class TileBag : MonoBehaviour
         RebuildPool();
         drawsSinceSpecial = 0;
         Debug.Log("[TileBag] Pool ถูกรีเซ็ตใหม่ทั้งหมด");
+        TurnManager.Instance?.UpdateBagUI();
     }
     
     public LetterData DrawRandomTile()
@@ -135,6 +127,7 @@ public class TileBag : MonoBehaviour
         int idx = Random.Range(0, pool.Count);
         var templateNormal = pool[idx];
         pool.RemoveAt(idx);
+        TurnManager.Instance?.UpdateBagUI();
 
         LetterData dataNorm = new LetterData
         {

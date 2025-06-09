@@ -72,6 +72,7 @@ public class BenchManager : MonoBehaviour
             tile.transform.SetParent(empty.transform, false);
             tile.transform.localPosition = Vector3.zero;
             tile.transform.localScale = Vector3.one;
+            tile.AdjustSizeToParent();
         }
         else Destroy(tile.gameObject);
         RefillEmptySlots();

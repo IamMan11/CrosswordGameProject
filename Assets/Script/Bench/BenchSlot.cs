@@ -30,8 +30,8 @@ public class BenchSlot : MonoBehaviour, IDropHandler
 
         // ย้ายตัวที่ลากมาลง slot นี้
         draggedTile.OriginalParent = transform;
-        draggedGO.transform.SetParent(transform);
-        draggedGO.transform.localPosition = Vector3.zero;
-        draggedTile.AdjustSizeToParent();  // ปรับขนาดให้พอดีช่อง
+        draggedGO.transform.SetParent(transform, false);
+        // AdjustSizeToParent จะตั้ง anchors+offset ให้เต็ม slot ใหม่
+        draggedTile.AdjustSizeToParent();
     }
 }

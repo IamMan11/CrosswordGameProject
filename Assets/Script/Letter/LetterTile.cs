@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using UnityEngine.EventSystems;
+using System;
 
 public class LetterTile : MonoBehaviour,
     IBeginDragHandler, IDragHandler, IEndDragHandler,
@@ -36,7 +37,41 @@ public class LetterTile : MonoBehaviour,
         if (isLocked) return;
         Debug.Log($"[Tile] click {data.letter}  IsInSpace={IsInSpace}");
 
-        if (!IsInSpace)
+        if (IsInSpace && data.letter.Equals("Blank", StringComparison.OrdinalIgnoreCase))
+        {
+            BlankPopup.Show(chosen =>
+            {
+                // 1. เปลี่ยนตัวอักษรและรีเซ็ตคะแนน
+                data.letter = chosen.ToString();
+                data.score  = 0;
+                letterText.text = data.letter;
+                scoreText .text = "0";
+
+                // 2. หา sprite ของตัวที่เลือกจาก TileBag (LetterCount.data.sprite)
+                var lc = TileBag.Instance.initialLetters
+                        .Find(x => x.data.letter.Equals(chosen.ToString(), StringComparison.OrdinalIgnoreCase));
+                if (lc != null)
+                {
+                    // อัปเดต data.sprite และ icon.sprite
+                    data.sprite = lc.data.sprite;
+                    if (icon != null)
+                    {
+                        icon.sprite = data.sprite;
+                        // ปรับให้ไอคอนยืดเต็มขนาด Tile
+                        var rtIcon = icon.GetComponent<RectTransform>();
+                        rtIcon.anchorMin   = Vector2.zero;
+                        rtIcon.anchorMax   = Vector2.one;
+                        rtIcon.offsetMin   = Vector2.zero;
+                        rtIcon.offsetMax   = Vector2.zero;
+                        rtIcon.localScale  = Vector3.one;
+                    }
+                }
+
+                Debug.Log($"[Blank] Changed to {chosen}");
+            });
+            return;
+        }
+        else if (!IsInSpace)
         {
             bool success = SpaceManager.Instance.AddTile(this);
             Debug.Log($"   → AddTile success={success}");
@@ -88,6 +123,17 @@ public class LetterTile : MonoBehaviour,
             transform.SetParent(OriginalParent);
             transform.localPosition = Vector3.zero;
         }
+        if (transform.parent == canvas.transform)
+        {
+            transform.SetParent(OriginalParent, false);
+            AdjustSizeToParent();
+        }
+    }
+    void OnTransformParentChanged()
+    {
+        // ถ้า Tile เคยอยู่ใน Space แล้วถูกย้ายออก / ย้ายกลับ ให้รีเฟรชปุ่ม
+        if (SpaceManager.Instance != null)
+            SpaceManager.Instance.RefreshDiscardButton();
     }
 
     // ==== ของเดิม =====
@@ -109,13 +155,17 @@ public class LetterTile : MonoBehaviour,
 
     public void AdjustSizeToParent()
     {
-        RectTransform rtTile = GetComponent<RectTransform>();
-        RectTransform rtParent = transform.parent.GetComponent<RectTransform>();
+        var rtTile   = GetComponent<RectTransform>();
+        var parentRt = transform.parent as RectTransform;
+        if (parentRt == null) return;
 
-        rtTile.anchorMin = rtTile.anchorMax = new Vector2(0.5f, 0.5f);
-        rtTile.pivot = new Vector2(0.5f, 0.5f);
-        rtTile.sizeDelta = rtParent.sizeDelta;          // เท่าช่องเป๊ะ
-        rtTile.localScale = Vector3.one;
+        // ให้ Stretch เต็มพาเรนต์
+        rtTile.anchorMin      = Vector2.zero;
+        rtTile.anchorMax      = Vector2.one;
+        rtTile.anchoredPosition = Vector2.zero;
+        rtTile.offsetMin      = Vector2.zero;
+        rtTile.offsetMax      = Vector2.zero;
+        rtTile.localScale     = Vector3.one;
     }
 
     public void Lock() => isLocked = true;

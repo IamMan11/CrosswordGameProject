@@ -21,4 +21,26 @@ public class PlayerProgressSO : MonoBehaviour
         if (!data.ownedCardIds.Contains(id))
             data.ownedCardIds.Add(id);
     }
+    
+    public void ResetProgress()
+    {
+        // รีเซ็ตค่าพื้นฐานใน ScriptableObject
+        data.coins = 0;
+        data.maxMana = 10;
+        data.maxCardSlots = 2;
+        data.extraTiles = 0;
+        data.ownedCardIds.Clear();
+        data.manaUpCount = 0;
+        data.slotUpCount = 0;
+        data.tileUpCount = 0;
+
+        // รีเซ็ตคีย์อัปเกรดใน Shop (PlayerPrefs)
+        PlayerPrefs.DeleteKey("CC_UPG_MANA");
+        PlayerPrefs.DeleteKey("CC_UPG_SLOT");
+        PlayerPrefs.DeleteKey("CC_UPG_TILE");
+        PlayerPrefs.Save();
+
+        Debug.Log("[PlayerProgressSO] Progress ถูกรีเซ็ตทั้งหมด");
+    }
+    
 }
