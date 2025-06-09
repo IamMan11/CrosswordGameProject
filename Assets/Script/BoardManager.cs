@@ -27,7 +27,7 @@ public class BoardManager : MonoBehaviour
     [Header("Prefabs / Parents")]
     public GameObject boardSlotPrefab;
     public RectTransform boardParent;          // RectTransform เท่านั้น
-    
+
     [Header("Special Slots")]
     public List<SpecialSlotData> specials = new List<SpecialSlotData>();  // ← เพิ่มตรงนี้
 
@@ -79,12 +79,12 @@ public class BoardManager : MonoBehaviour
             for (int c = 0; c < cols; c++)
             {
                 // หา type พิเศษ
-                SlotType st       = SlotType.Normal;
-                int      manaGain = 0;
+                SlotType st = SlotType.Normal;
+                int manaGain = 0;
                 foreach (var sp in specials)
                     if (sp.row == r && sp.col == c)
                     {
-                        st       = sp.type;
+                        st = sp.type;
                         manaGain = sp.manaGain;      // ← รับค่า manaGain
                         break;
                     }
@@ -114,5 +114,20 @@ public class BoardManager : MonoBehaviour
             col < 0 || col >= cols)
             return null;
         return grid[row, col];
+    }
+
+    public void ClearBoard()
+    {
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                var slot = grid[r, c];
+                if (slot != null && slot.HasLetterTile())
+                {
+                    slot.ClearTile();  // ใช้ได้แล้ว
+                }
+            }
+        }
     }
 }
