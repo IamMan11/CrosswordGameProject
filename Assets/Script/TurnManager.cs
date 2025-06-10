@@ -20,46 +20,98 @@ public class TurnManager : MonoBehaviour
 
     bool usedDictionaryThisTurn = false;
     bool isFirstWord = true;
+    private bool freePassActiveThisTurn = false;
 
     Coroutine fadeCo;
     Coroutine autoRemoveCo;
     readonly HashSet<string> boardWords = new();
-    int nextWordMul = 1; 
+    int nextWordMul = 1;
 
     [Header("Mana System")]
     public int maxMana       = 10;
     public int currentMana;            // ค่ามานาปัจจุบัน
     [SerializeField] private TMP_Text manaText;   // ผูก UI Text ใน Inspector
+    private bool infiniteManaMode = false;
+    private Coroutine manaInfiniteCoroutine = null;
+    private Dictionary<string, int> usageCountThisTurn = new Dictionary<string, int>();
 
     void Awake()
     {
         Instance = this;
         confirmBtn.onClick.AddListener(OnConfirm);
-        currentMana = 0;               // เริ่มต้นมานา
+        currentMana = 0;
     }
 
     void Start()
     {
+        TileBag.Instance.ResetPool();
+        var prog = PlayerProgressSO.Instance.data;
+        maxMana = prog.maxMana;
+        currentMana = maxMana;
+        usageCountThisTurn.Clear();
         UpdateScoreUI();
-        UpdateManaUI(); 
+        UpdateManaUI();
+        UpdateBagUI();
     }
+    public void ActivateInfiniteMana(float duration)
+    {
+        if (manaInfiniteCoroutine != null)
+            StopCoroutine(manaInfiniteCoroutine);
+
+        infiniteManaMode = true;
+        UpdateManaUI();  // แสดงเป็น "Mana: ∞"
+        ShowMessage("Mana Infinity – ใช้มานาไม่จำกัด 1 นาที!", Color.cyan);
+
+        manaInfiniteCoroutine = StartCoroutine(DeactivateInfiniteManaAfter(duration));
+    }
+
+    /// <summary>
+    /// Coroutine รอแล้วปิดโหมด ManaInfinity อัตโนมัติ
+    /// </summary>
+    private IEnumerator DeactivateInfiniteManaAfter(float duration)
+    {
+        yield return new WaitForSeconds(duration);
+        infiniteManaMode = false;
+        manaInfiniteCoroutine = null;
+        UpdateManaUI();
+        ShowMessage("Mana Infinity หมดเวลาแล้ว", Color.cyan);
+    }
+
     public void AddMana(int amount)
     {
+        if (infiniteManaMode)
+        {
+            // ถ้าเป็นโหมด Infinity → ไม่ต้องบวกเพราะไม่จำกัดเสมอ
+            return;
+        }
         currentMana = Mathf.Min(maxMana, currentMana + amount);
         UpdateManaUI();
         ShowMessage($"+{amount} Mana", Color.cyan);
     }
-    public bool UseMana(int cost)
+    public bool UseMana(int amount)
     {
-        if (currentMana < cost) return false;
-        currentMana -= cost;
+        if (infiniteManaMode)
+        {
+            // ถ้าเป็นโหมด Infinity → ไม่ต้องบวกเพราะไม่จำกัดเสมอ
+            return true;
+        }
+        if (currentMana < amount) return false;
+        currentMana -= amount;
         UpdateManaUI();
         return true;
+    }
+    public void UpgradeMaxMana(int newMax)
+    {
+        maxMana = newMax;
+        currentMana = Mathf.Min(currentMana, maxMana);
+        UpdateManaUI();
     }
     void UpdateManaUI()
     {
         if (manaText != null)
-            manaText.text = $"Mana: {currentMana}/{maxMana}";
+            manaText.text = infiniteManaMode
+                ? $"Mana: ∞"
+                : $"Mana: {currentMana}/{maxMana}";
     }
 
     public void ResetForNewLevel()
@@ -81,10 +133,18 @@ public class TurnManager : MonoBehaviour
 
     public void SetDictionaryUsed() => usedDictionaryThisTurn = true;
     
+    //เรียกเมื่อใช้การ์ด Free Pass เพื่อยกเลิก penalty จากการเปิดพจนานุกรมในเทิร์นนี้
+    public void ApplyFreePass()
+    {
+        freePassActiveThisTurn = true;
+        ShowMessage("Free Pass – ยกเลิกโทษการเปิดพจนานุกรมในเทิร์นนี้!", Color.cyan);
+    }
+    
     public void SetScoreMultiplier(int mul)   // เรียกจาก CardManager
     {
         nextWordMul = Mathf.Max(1, mul);
     }
+
     public void OnWordChecked(bool isCorrect)
     {
         if (isCorrect) CheckedWordCount++;
@@ -146,10 +206,64 @@ public class TurnManager : MonoBehaviour
     {
         RemoveOneLetter();
     }
+    /// <summary>
+    /// เช็คว่า การ์ดใบนี้ (card.id) ยังใช้ได้ในเทิร์นนั้นหรือไม่
+    /// </summary>
+    /// <param name="card">CardData ที่กำลังจะใช้</param>
+    /// <returns>True ถ้ายังใช้ได้ (ไม่เกิน maxUsagePerTurn), False ถ้ามากกว่า</returns>
+    public void ResetCardUsage()
+    {
+        usageCountThisTurn.Clear();
+        ShowMessage("Reset Card Usage – รีเซ็ตการใช้การ์ดในเทิร์นนี้แล้ว", Color.cyan);
+    }
+    public bool CanUseCard(CardData card)
+    {
+        if (card == null) return false;
+
+        // ดูว่ามี key อยู่ใน dictionary แล้วหรือไม่
+        if (!usageCountThisTurn.ContainsKey(card.id))
+        {
+            // ยังไม่เคยใช้เลย → ยังใช้ได้
+            return true;
+        }
+
+        // ถ้าซ้ำ ให้ดูจำนวนครั้งที่ใช้ไปแล้ว
+        int used = usageCountThisTurn[card.id];
+        return used < card.maxUsagePerTurn;
+    }
+    
+
+    /// <summary>
+    /// เรียกเมื่อมีการใช้การ์ดจริง ๆ แล้ว (ผ่านเงื่อนไข CanUseCard() แล้ว)
+    /// เพื่อบันทึกจำนวนครั้งที่ใช้ในเทิร์นนั้น
+    /// </summary>
+    public void OnCardUsed(CardData card)
+    {
+        if (card == null) return;
+
+        if (!usageCountThisTurn.ContainsKey(card.id))
+        {
+            usageCountThisTurn[card.id] = 1;
+        }
+        else
+        {
+            usageCountThisTurn[card.id]++;
+        }
+    }
+
+    /// <summary>
+    /// (ทางเลือก) ถ้าอยากตรวจจำนวนครั้งที่ใช้แล้ว ก็เรียกเมธอดนี้
+    /// </summary>
+    public int GetUsageCount(CardData card)
+    {
+        if (card == null) return 0;
+        if (!usageCountThisTurn.ContainsKey(card.id)) return 0;
+        return usageCountThisTurn[card.id];
+    }
+
 
     void OnConfirm()
     {
-        StopAutoRemove();
         confirmBtn.interactable = false;
 
         var placed = new List<(LetterTile t, BoardSlot s)>();
@@ -159,6 +273,7 @@ public class TurnManager : MonoBehaviour
             var lt = sl.GetLetterTile();
             if (!lt.isLocked) placed.Add((lt, sl));
         }
+
         if (placed.Count == 0)
         {
             EnableConfirm();
@@ -180,6 +295,7 @@ public class TurnManager : MonoBehaviour
             if (cnt >= 2) newWords.Add(w);
             else linkWords.Add(w);
         }
+
         if (newWords.Count == 0 && linkWords.Count > 0)
         {
             newWords.Add(linkWords[0]);
@@ -189,7 +305,6 @@ public class TurnManager : MonoBehaviour
         var wrongNew = newWords.Where(w => !WordChecker.Instance.IsWordValid(w.word)).ToList();
         var dupNew = newWords.Where(w => boardWords.Contains(w.word)).ToList();
 
-        // ✅ ตรวจคำแรก ต้องไม่มีคำผิดหรือซ้ำ
         if (isFirstWord && (wrongNew.Count > 0 || dupNew.Count > 0))
         {
             StartCoroutine(BlinkWords(wrongNew.Concat(dupNew), Color.red));
@@ -227,7 +342,6 @@ public class TurnManager : MonoBehaviour
                 AddMana(slot.manaGain);
         }
 
-        // 6) คำนวณคะแนนคำใหม่
         int moveScore = 0;
         foreach (var w in newWords)
         {
@@ -237,9 +351,16 @@ public class TurnManager : MonoBehaviour
                 boardWords.Add(w.word);
             }
         }
+
         if (usedDictionaryThisTurn)
         {
-            moveScore = Mathf.CeilToInt(moveScore * 0.5f);
+            if (!freePassActiveThisTurn)
+            {
+                // ถ้าไม่ได้ใช้ Free Pass → ลดคะแนนครึ่งนึง
+                moveScore = Mathf.CeilToInt(moveScore * 0.5f);
+                ShowMessage("Penalty: ลดคะแนน 50% จากการเปิดพจนานุกรม", Color.red);
+            }
+            // regardless of freePass, รีเซ็ต usedDictionary flag
             usedDictionaryThisTurn = false;
         }
 
@@ -248,10 +369,9 @@ public class TurnManager : MonoBehaviour
         if (isFirstWord)
         {
             isFirstWord = false;
-            LevelManager.Instance.OnFirstConfirm(); // ✅ เริ่มจับเวลาเมื่อวางคำแรกได้สำเร็จ
+            LevelManager.Instance.OnFirstConfirm();
         }
 
-        // 7) ล็อกตัวอักษร + อัพ UI
         foreach (var (t, _) in placed) t.Lock();
         ShowMessage($"✓ +{moveScore}", Color.green);
         BenchManager.Instance.RefillEmptySlots();
@@ -260,6 +380,14 @@ public class TurnManager : MonoBehaviour
 
         if (moveScore > 0)
             LevelManager.Instance.ResetTimer();
+
+        // ✅ เพิ่มการเริ่ม AutoRemove ใหม่หลังยืนยันคำ
+        if (!LevelManager.Instance.IsGameOver() &&
+            LevelManager.Instance.levels[LevelManager.Instance.CurrentLevel].enableAutoRemove)
+        {
+            float interval = LevelManager.Instance.levels[LevelManager.Instance.CurrentLevel].autoRemoveInterval;
+            StartAutoRemove(interval);
+        }
     }
 
     int CountNewInWord(MoveValidator.WordInfo w, HashSet<(int r, int c)> coords)
@@ -317,7 +445,7 @@ public class TurnManager : MonoBehaviour
         EnableConfirm();
     }
 
-    void UpdateBagUI()
+    public void UpdateBagUI()
         => bagCounterText.text = $"{TileBag.Instance.Remaining}/{TileBag.Instance.TotalInitial}";
 
     void ShowMessage(string msg, Color? col = null)
