@@ -147,6 +147,25 @@ public class TileBag : MonoBehaviour
         return dataNorm;
     }
 
+    public void RefillTileBag()
+    {
+        pool.Clear(); // เคลียร์ถุงของเดิม
+        TotalInitial = 0;
+
+        foreach (var lc in initialLetters)
+        {
+            TotalInitial += lc.count;
+            for (int i = 0; i < lc.count; i++)
+            {
+                pool.Add(lc.data);
+            }
+        }
+
+        drawsSinceSpecial = 0;
+
+        Debug.Log("🔁 Refill tile bag เสร็จแล้ว! จำนวน: " + pool.Count);
+    }
+
     /// <summary>คืนตัวอักษรกลับถุง (กรณี Undo / ยกเลิก)</summary>
     public void ReturnTile(LetterData data)
     {
