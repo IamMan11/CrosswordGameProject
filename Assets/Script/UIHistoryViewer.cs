@@ -29,6 +29,10 @@ public class UIHistoryViewer : MonoBehaviour
     public GameObject graphLabelPrefab;
     public Transform graphLabelContainer;
 
+    [Header("Graph Point Prefab")]
+    public GameObject graphPointPrefab;
+    public Transform graphPointContainer;
+
     private SQLiteConnection db;
     private const string currentPlayerName = "Player1";
 
@@ -37,29 +41,29 @@ public class UIHistoryViewer : MonoBehaviour
         yield return null;
 
         string path = System.IO.Path.Combine(Application.streamingAssetsPath, "data.db");
-        Debug.Log("📦 DB path: " + path);
+        Debug.Log("\ud83d\udce6 DB path: " + path);
         db = new SQLiteConnection(path, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create);
 
         var player = db.Table<PlayerRecord>().FirstOrDefault(p => p.player_name == currentPlayerName);
         if (player == null)
         {
             db.Insert(new PlayerRecord { player_name = currentPlayerName });
-            Debug.Log("🟢 Added Player1 to database");
+            Debug.Log("\ud83d\udfe2 Added Player1 to database");
         }
 
         rootPanel.SetActive(true);
         logPanel.SetActive(false);
 
         Material lineMat = new Material(Shader.Find("Sprites/Default"));
-        lineMat.color = Color.red;
+        lineMat.color = Color.cyan;
         lineGraph.material = lineMat;
-        lineGraph.startWidth = 10f;
-        lineGraph.endWidth = 10f;
+        lineGraph.startWidth = 5f;
+        lineGraph.endWidth = 5f;
         lineGraph.useWorldSpace = false;
         lineGraph.sortingLayerName = "UI";
         lineGraph.sortingOrder = 0;
-        lineGraph.startColor = Color.red;
-        lineGraph.endColor = Color.red;
+        lineGraph.startColor = Color.cyan;
+        lineGraph.endColor = Color.cyan;
         lineGraph.positionCount = 0;
 
         OnClickShowHistory();
@@ -156,9 +160,11 @@ public class UIHistoryViewer : MonoBehaviour
 
     void DrawGraph(string playerName)
     {
-        if (lineGraph == null || graphContainer == null || graphLabelContainer == null) return;
+        if (lineGraph == null || graphContainer == null || graphLabelContainer == null || graphPointContainer == null) return;
 
         foreach (Transform child in graphLabelContainer)
+            Destroy(child.gameObject);
+        foreach (Transform child in graphPointContainer)
             Destroy(child.gameObject);
 
         var player = db.Table<PlayerRecord>().FirstOrDefault(p => p.player_name == playerName);
@@ -186,27 +192,6 @@ public class UIHistoryViewer : MonoBehaviour
             return;
         }
 
-        if (games.Count == 1)
-        {
-            float max = Mathf.Max(1, games[0].total_score);
-            float y = (games[0].total_score / max) * usableHeight;
-            Vector3 point = new Vector3(0, bottomY + y, 0);
-            lineGraph.positionCount = 2;
-            lineGraph.SetPosition(0, point + new Vector3(-5, 0, 0));
-            lineGraph.SetPosition(1, point + new Vector3(5, 0, 0));
-
-            var label = Instantiate(graphLabelPrefab, graphLabelContainer);
-            label.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, bottomY - 20f);
-
-            var textComp = label.GetComponentInChildren<TMP_Text>();
-            if (System.DateTime.TryParse(games[0].start_time, out System.DateTime parsedDate))
-                textComp.text = parsedDate.ToString("MM/dd");
-            else
-                textComp.text = "??";
-
-            return;
-        }
-
         float maxScore = Mathf.Max(1, games.Max(g => g.total_score));
         lineGraph.positionCount = games.Count;
 
@@ -218,16 +203,28 @@ public class UIHistoryViewer : MonoBehaviour
             Vector3 point = new Vector3(x, y, 0);
             lineGraph.SetPosition(i, point);
 
+            if (graphPointPrefab != null)
+            {
+                var pointGO = Instantiate(graphPointPrefab, graphPointContainer);
+                pointGO.GetComponent<RectTransform>().anchoredPosition = new Vector2(x, y);
+            }
+
             var label = Instantiate(graphLabelPrefab, graphLabelContainer);
-            label.GetComponent<RectTransform>().anchoredPosition = new Vector2(x, bottomY - 20f);
+            var rect = label.GetComponent<RectTransform>();
+            rect.anchoredPosition = new Vector2(x, bottomY - 25f);
+            rect.rotation = Quaternion.Euler(0, 0, 45f);
 
             var textComp = label.GetComponentInChildren<TMP_Text>();
-            if (System.DateTime.TryParse(games[i].start_time, out System.DateTime parsedDate))
-                textComp.text = parsedDate.ToString("MM/dd");
-            else
-                textComp.text = "??";
+            if (textComp != null)
+            {
+                textComp.fontSize = 18;
+                textComp.color = Color.white;
+                if (System.DateTime.TryParse(games[i].start_time, out System.DateTime parsedDate))
+                    textComp.text = parsedDate.ToString("MM/dd");
+                else
+                    textComp.text = "??";
+            }
         }
-
     }
 
     void ShowTop5(string playerName)
