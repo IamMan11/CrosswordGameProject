@@ -29,9 +29,9 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
 
     public void Setup(int r, int c, SlotType t, int _manaGain)
     {
-        row = r;
-        col = c;
-        type = t;
+        row      = r;
+        col      = c;
+        type     = t;
         manaGain = _manaGain;              // ← เก็บค่าเข้า slot
         ApplyVisual();
     }
@@ -84,20 +84,11 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
             PlacementManager.Instance.TryPlaceFromSlot(this);
     }
 
-    public void ClearTile()
-    {
-        var tile = GetLetterTile();
-        if (tile != null)
-        {
-            Destroy(tile.gameObject);
-        }
-    }
-
     // ---------- ให้ PlacementManager เรียก ----------
     public void ShowPreview(Color color) { highlight.enabled = true; highlight.color = color; }
     public void HidePreview() { highlight.enabled = false; }
 
-    public bool  HasLetterTile()
+    public bool HasLetterTile()
     {
         if (transform.childCount > 1) return true;
         return GetComponentInChildren<LetterTile>() != null;

@@ -38,21 +38,6 @@ public class BenchManager : MonoBehaviour
         }
     }
 
-    public void RefillAllSlots()
-    {
-        // ลบตัวอักษรเก่าทั้งหมด
-        foreach (Transform slot in slotTransforms)
-        {
-            foreach (Transform child in slot)
-            {
-                Destroy(child.gameObject);
-            }
-        }
-
-        // เติมใหม่ทุกช่อง
-        RefillEmptySlots();
-    }
-
     /// <summary>เติมแค่ช่องแรกที่ว่าง</summary>
     public void RefillOneSlot()
     {
