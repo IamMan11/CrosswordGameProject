@@ -5,7 +5,7 @@ using UnityEngine;
 public class LetterCount
 {
     public LetterData data;    // Sprite / คะแนน ฯลฯ
-    [Range(1,99)]
+    [Range(1, 99)]
     public int count = 1;      // จำนวนตัวที่ใส่ลงถุง
 }
 
@@ -19,8 +19,8 @@ public class TileBag : MonoBehaviour
     private readonly List<LetterData> pool = new();    // ถุงจริงหลังแตกตัว
 
     public int TotalInitial { get; private set; }      // 100
-    public int Remaining   => pool.Count;              // เหลือในถุง
-    int drawsSinceSpecial = 0; 
+    public int Remaining => pool.Count;              // เหลือในถุง
+    int drawsSinceSpecial = 0;
 
     void Awake()
     {
@@ -38,13 +38,13 @@ public class TileBag : MonoBehaviour
     }
 
     /// <summary>ดึงสุ่ม 1 ตัว (ถ้าหมดคืน null)</summary>
-    
+
     public LetterData DrawRandomTile()
     {
         if (pool.Count == 0) return null;
 
         // 1) หยิบ template
-        int idx      = Random.Range(0, pool.Count);
+        int idx = Random.Range(0, pool.Count);
         var template = pool[idx];
         pool.RemoveAt(idx);
 
@@ -53,7 +53,7 @@ public class TileBag : MonoBehaviour
         {
             letter = template.letter,
             sprite = template.sprite,
-            score  = template.score,
+            score = template.score,
             isSpecial = false
         };
 
@@ -63,10 +63,29 @@ public class TileBag : MonoBehaviour
         {
             data.isSpecial = true;
             drawsSinceSpecial = 0;
-            
+
             Debug.Log($"[TileBag] สร้างตัวอักษรพิเศษ: '{data.letter}'");
         }
         return data;
+    }
+
+    public void RefillTileBag()
+    {
+        pool.Clear(); // เคลียร์ถุงของเดิม
+        TotalInitial = 0;
+
+        foreach (var lc in initialLetters)
+        {
+            TotalInitial += lc.count;
+            for (int i = 0; i < lc.count; i++)
+            {
+                pool.Add(lc.data);
+            }
+        }
+
+        drawsSinceSpecial = 0;
+
+        Debug.Log("🔁 Refill tile bag เสร็จแล้ว! จำนวน: " + pool.Count);
     }
 
     /// <summary>คืนตัวอักษรกลับถุง (กรณี Undo / ยกเลิก)</summary>

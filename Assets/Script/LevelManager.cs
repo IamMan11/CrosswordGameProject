@@ -78,6 +78,7 @@ public class LevelManager : MonoBehaviour
         if (!isGameOver && TurnManager.Instance.Score >= cfg.requiredScore &&
             TurnManager.Instance.CheckedWordCount >= cfg.requiredWords)
         {
+            AnnounceLevelComplete();
             NextLevel();
         }
     }
@@ -97,7 +98,11 @@ public class LevelManager : MonoBehaviour
         levelTimerRunning = false;
         UpdateLevelTimerText(levelTimeLimit);
 
+        // ล้างกระดาน + เติมตัวอักษรใหม่
+        BoardManager.Instance.GenerateBoard();
         TurnManager.Instance.ResetForNewLevel();
+        TileBag.Instance.RefillTileBag();
+        BenchManager.Instance.RefillEmptySlots();
 
         Debug.Log($"▶ เริ่มด่าน {levels[idx].levelIndex} | เวลา: {levels[idx].timeLimit}s | Score: {levels[idx].requiredScore}");
     }
@@ -160,6 +165,8 @@ public class LevelManager : MonoBehaviour
 
     void NextLevel()
     {
+        Debug.Log($"[LevelManager] NextLevel: currentLevel={currentLevel}, levels.Length={levels.Length}");
+
         if (currentLevel + 1 < levels.Length)
         {
             SetupLevel(currentLevel + 1);
@@ -197,5 +204,10 @@ public class LevelManager : MonoBehaviour
         int minutes = Mathf.FloorToInt(remaining / 60f);
         int seconds = Mathf.FloorToInt(remaining % 60f);
         levelTimerText.text = $"🕒 {minutes:00}:{seconds:00}";
+    }
+
+    void AnnounceLevelComplete()
+    {
+        Debug.Log($"✅ ผ่านด่าน {levels[currentLevel].levelIndex}!");
     }
 }
