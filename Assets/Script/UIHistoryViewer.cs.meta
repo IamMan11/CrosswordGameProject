@@ -1,0 +1,24 @@
+fileFormatVersion: 2
+guid: 0386415473a4dcd44b0f7d3515a79ea4
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - rootPanel: {instanceID: 0}
+  - scoreFilterInput: {instanceID: 0}
+  - showHistoryButton: {instanceID: 0}
+  - historyContainer: {instanceID: 0}
+  - historyEntryPrefab: {instanceID: 0}
+  - logPanel: {instanceID: 0}
+  - logContainer: {instanceID: 0}
+  - logEntryPrefab: {instanceID: 0}
+  - statsText: {instanceID: 0}
+  - lineGraph: {instanceID: 0}
+  - graphContainer: {instanceID: 0}
+  - topScoreTable: {instanceID: 0}
+  - topScoreRowPrefab: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
