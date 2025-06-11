@@ -44,7 +44,6 @@ public class TurnManager : MonoBehaviour
 
     void Start()
     {
-        TileBag.Instance.ResetPool();
         var prog = PlayerProgressSO.Instance.data;
         maxMana = prog.maxMana;
         currentMana = maxMana;
