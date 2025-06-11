@@ -149,21 +149,34 @@ public class TileBag : MonoBehaviour
 
     public void RefillTileBag()
     {
-        pool.Clear(); // เคลียร์ถุงของเดิม
-        TotalInitial = 0;
+        // 1) เคลียร์ถุงเก่า
+        pool.Clear();
 
+        // 2) เติมตัวอักษรพื้นฐาน
+        int baseCount = 0;
         foreach (var lc in initialLetters)
         {
-            TotalInitial += lc.count;
+            baseCount += lc.count;
             for (int i = 0; i < lc.count; i++)
-            {
                 pool.Add(lc.data);
-            }
         }
 
+        // 3) เอา extraTiles จาก Progress มาเติม (ซื้อเพิ่มครั้งละ 10)
+        int extra = PlayerProgressSO.Instance.data.extraTiles;  // :contentReference[oaicite:0]{index=0}
+
+        // 4) คำนวณ TotalInitial ใหม่ = พื้นฐาน + เพิ่มเติม
+        TotalInitial = baseCount + extra;
+
+        // 5) เติมตัวอักษรสุ่มจำนวน extra
+        for (int i = 0; i < extra; i++)
+            pool.Add(initialLetters[Random.Range(0, initialLetters.Count)].data);
+
+        // 6) รีเซ็ต counter พิเศษ
         drawsSinceSpecial = 0;
 
-        Debug.Log("🔁 Refill tile bag เสร็จแล้ว! จำนวน: " + pool.Count);
+        Debug.Log($"🔁 RefillTileBag → Remaining/Total = {pool.Count}/{TotalInitial}");
+        // 7) อัปเดต UI ถุงให้ทันที
+        TurnManager.Instance?.UpdateBagUI();
     }
 
     /// <summary>คืนตัวอักษรกลับถุง (กรณี Undo / ยกเลิก)</summary>

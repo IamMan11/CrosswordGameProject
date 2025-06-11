@@ -101,8 +101,14 @@ public class LevelManager : MonoBehaviour
         // ล้างกระดาน + เติมตัวอักษรใหม่
         BoardManager.Instance.GenerateBoard();
         TurnManager.Instance.ResetForNewLevel();
+        // a) รีเซ็ต TileBag ตาม Progress (190/200 หรือค่าจริง)
         TileBag.Instance.RefillTileBag();
+        // b) อัปเดต UI ถุงก่อนจั่ว
+        TurnManager.Instance.UpdateBagUI();
+        // c) จั่วลง Bench (เหลือ 190)
         BenchManager.Instance.RefillEmptySlots();
+        // d) อัปเดต UI อีกครั้งเพื่อความชัวร์
+        TurnManager.Instance.UpdateBagUI();
 
         Debug.Log($"▶ เริ่มด่าน {levels[idx].levelIndex} | เวลา: {levels[idx].timeLimit}s | Score: {levels[idx].requiredScore}");
     }
