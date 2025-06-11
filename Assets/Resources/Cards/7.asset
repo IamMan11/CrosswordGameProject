@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: WordQuad Surge
   description: asd
   icon: {fileID: 21300000, guid: 69d6ac52d5876a44aba4566e7f77ee98, type: 3}
-  effectType: 5
+  effectType: 1
   Mana: 3
   maxUsagePerTurn: 1
   category: 0

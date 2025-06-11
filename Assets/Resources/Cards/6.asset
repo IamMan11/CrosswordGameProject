@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Twin Draw
   description: asdww
   icon: {fileID: 21300000, guid: 69d6ac52d5876a44aba4566e7f77ee98, type: 3}
-  effectType: 9
+  effectType: 1
   Mana: 4
   maxUsagePerTurn: 1
   category: 0
