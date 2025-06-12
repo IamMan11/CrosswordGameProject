@@ -120,14 +120,14 @@ public class LevelManager : MonoBehaviour
             timerStarted = true;
             timerText.gameObject.SetActive(true);
             StartAutoRemoveLoop(levels[currentLevel].autoRemoveInterval);
-            Debug.Log("⏱️ Auto-remove Timer started");
+            Debug.Log("Auto-remove Timer started");
         }
 
         if (!levelTimerRunning && levelTimeLimit > 0)
         {
             levelTimerRunning = true;
             levelTimeElapsed = 0f;
-            Debug.Log("🕒 Level timer started");
+            Debug.Log("Level timer started");
         }
     }
 
@@ -209,7 +209,7 @@ public class LevelManager : MonoBehaviour
     {
         int minutes = Mathf.FloorToInt(remaining / 60f);
         int seconds = Mathf.FloorToInt(remaining % 60f);
-        levelTimerText.text = $"🕒 {minutes:00}:{seconds:00}";
+        levelTimerText.text = $"{minutes:00}:{seconds:00}";
     }
 
     void AnnounceLevelComplete()

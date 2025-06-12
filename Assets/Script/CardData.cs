@@ -31,10 +31,6 @@ public enum CardCategory
 
 public enum CardEffectType
 {
-    ExtraDraw,          // เติม Bench x ตัว
-    DoubleNextScore,    // คูณคะแนนคำถัดไป
-    FillBenchAll,       // เติม Bench ว่างทั้งหมด  (#6)
-    BonusCardChoice,
     LetterQuadSurge,
     WordQuadSurge,
     LetterHexSurge,
