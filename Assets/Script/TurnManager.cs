@@ -15,7 +15,8 @@ public class TurnManager : MonoBehaviour
     public TMP_Text bagCounterText;
     public TMP_Text messageText;
 
-    public int Score { get; private set; }
+    public int Score { get; private set; }             // คะแนนของด่านปัจจุบัน
+    public int TotalScore { get; private set; }        // คะแนนสะสมข้ามด่าน
     public int CheckedWordCount { get; private set; }
 
     bool usedDictionaryThisTurn = false;
@@ -28,9 +29,9 @@ public class TurnManager : MonoBehaviour
     int nextWordMul = 1;
 
     [Header("Mana System")]
-    public int maxMana       = 10;
-    public int currentMana;            // ค่ามานาปัจจุบัน
-    [SerializeField] private TMP_Text manaText;   // ผูก UI Text ใน Inspector
+    public int maxMana = 10;
+    public int currentMana;
+    [SerializeField] private TMP_Text manaText;
     private bool infiniteManaMode = false;
     private Coroutine manaInfiniteCoroutine = null;
     private Dictionary<string, int> usageCountThisTurn = new Dictionary<string, int>();
@@ -53,65 +54,10 @@ public class TurnManager : MonoBehaviour
         UpdateManaUI();
         UpdateBagUI();
     }
-    public void ActivateInfiniteMana(float duration)
-    {
-        if (manaInfiniteCoroutine != null)
-            StopCoroutine(manaInfiniteCoroutine);
 
-        infiniteManaMode = true;
-        UpdateManaUI();  // แสดงเป็น "Mana: ∞"
-        ShowMessage("Mana Infinity – ใช้มานาไม่จำกัด 1 นาที!", Color.cyan);
-
-        manaInfiniteCoroutine = StartCoroutine(DeactivateInfiniteManaAfter(duration));
-    }
-
-    /// <summary>
-    /// Coroutine รอแล้วปิดโหมด ManaInfinity อัตโนมัติ
-    /// </summary>
-    private IEnumerator DeactivateInfiniteManaAfter(float duration)
+    public void ResetTotalScore()
     {
-        yield return new WaitForSeconds(duration);
-        infiniteManaMode = false;
-        manaInfiniteCoroutine = null;
-        UpdateManaUI();
-        ShowMessage("Mana Infinity หมดเวลาแล้ว", Color.cyan);
-    }
-
-    public void AddMana(int amount)
-    {
-        if (infiniteManaMode)
-        {
-            // ถ้าเป็นโหมด Infinity → ไม่ต้องบวกเพราะไม่จำกัดเสมอ
-            return;
-        }
-        currentMana = Mathf.Min(maxMana, currentMana + amount);
-        UpdateManaUI();
-        ShowMessage($"+{amount} Mana", Color.cyan);
-    }
-    public bool UseMana(int amount)
-    {
-        if (infiniteManaMode)
-        {
-            // ถ้าเป็นโหมด Infinity → ไม่ต้องบวกเพราะไม่จำกัดเสมอ
-            return true;
-        }
-        if (currentMana < amount) return false;
-        currentMana -= amount;
-        UpdateManaUI();
-        return true;
-    }
-    public void UpgradeMaxMana(int newMax)
-    {
-        maxMana = newMax;
-        currentMana = Mathf.Min(currentMana, maxMana);
-        UpdateManaUI();
-    }
-    void UpdateManaUI()
-    {
-        if (manaText != null)
-            manaText.text = infiniteManaMode
-                ? $"Mana: ∞"
-                : $"Mana: {currentMana}/{maxMana}";
+        TotalScore = 0;
     }
 
     public void ResetForNewLevel()
@@ -128,19 +74,77 @@ public class TurnManager : MonoBehaviour
     public void AddScore(int delta)
     {
         Score += delta;
+        TotalScore += delta;
         UpdateScoreUI();
     }
 
+    void UpdateScoreUI()
+    {
+        scoreText.text = $"Score : {Score}";
+    }
+
+    public void ActivateInfiniteMana(float duration)
+    {
+        if (manaInfiniteCoroutine != null)
+            StopCoroutine(manaInfiniteCoroutine);
+
+        infiniteManaMode = true;
+        UpdateManaUI();
+        ShowMessage("Mana Infinity – ใช้มานาไม่จำกัด 1 นาที!", Color.cyan);
+
+        manaInfiniteCoroutine = StartCoroutine(DeactivateInfiniteManaAfter(duration));
+    }
+
+    private IEnumerator DeactivateInfiniteManaAfter(float duration)
+    {
+        yield return new WaitForSeconds(duration);
+        infiniteManaMode = false;
+        manaInfiniteCoroutine = null;
+        UpdateManaUI();
+        ShowMessage("Mana Infinity หมดเวลาแล้ว", Color.cyan);
+    }
+
+    public void AddMana(int amount)
+    {
+        if (infiniteManaMode) return;
+        currentMana = Mathf.Min(maxMana, currentMana + amount);
+        UpdateManaUI();
+        ShowMessage($"+{amount} Mana", Color.cyan);
+    }
+
+    public bool UseMana(int amount)
+    {
+        if (infiniteManaMode) return true;
+        if (currentMana < amount) return false;
+        currentMana -= amount;
+        UpdateManaUI();
+        return true;
+    }
+
+    public void UpgradeMaxMana(int newMax)
+    {
+        maxMana = newMax;
+        currentMana = Mathf.Min(currentMana, maxMana);
+        UpdateManaUI();
+    }
+
+    void UpdateManaUI()
+    {
+        if (manaText != null)
+            manaText.text = infiniteManaMode
+                ? $"Mana: ∞"
+                : $"Mana: {currentMana}/{maxMana}";
+    }
+
     public void SetDictionaryUsed() => usedDictionaryThisTurn = true;
-    
-    //เรียกเมื่อใช้การ์ด Free Pass เพื่อยกเลิก penalty จากการเปิดพจนานุกรมในเทิร์นนี้
+
     public void ApplyFreePass()
     {
         freePassActiveThisTurn = true;
         ShowMessage("Free Pass – ยกเลิกโทษการเปิดพจนานุกรมในเทิร์นนี้!", Color.cyan);
     }
-    
-    public void SetScoreMultiplier(int mul)   // เรียกจาก CardManager
+
+    public void SetScoreMultiplier(int mul)
     {
         nextWordMul = Mathf.Max(1, mul);
     }
@@ -148,11 +152,6 @@ public class TurnManager : MonoBehaviour
     public void OnWordChecked(bool isCorrect)
     {
         if (isCorrect) CheckedWordCount++;
-    }
-
-    void UpdateScoreUI()
-    {
-        scoreText.text = $"Score : {Score}";
     }
 
     public void StartAutoRemove(float interval)
@@ -202,58 +201,30 @@ public class TurnManager : MonoBehaviour
         }
     }
 
-    public void AutoRemoveNow()
-    {
-        RemoveOneLetter();
-    }
-    /// <summary>
-    /// เช็คว่า การ์ดใบนี้ (card.id) ยังใช้ได้ในเทิร์นนั้นหรือไม่
-    /// </summary>
-    /// <param name="card">CardData ที่กำลังจะใช้</param>
-    /// <returns>True ถ้ายังใช้ได้ (ไม่เกิน maxUsagePerTurn), False ถ้ามากกว่า</returns>
+    public void AutoRemoveNow() => RemoveOneLetter();
+
     public void ResetCardUsage()
     {
         usageCountThisTurn.Clear();
         ShowMessage("Reset Card Usage – รีเซ็ตการใช้การ์ดในเทิร์นนี้แล้ว", Color.cyan);
     }
+
     public bool CanUseCard(CardData card)
     {
         if (card == null) return false;
-
-        // ดูว่ามี key อยู่ใน dictionary แล้วหรือไม่
-        if (!usageCountThisTurn.ContainsKey(card.id))
-        {
-            // ยังไม่เคยใช้เลย → ยังใช้ได้
-            return true;
-        }
-
-        // ถ้าซ้ำ ให้ดูจำนวนครั้งที่ใช้ไปแล้ว
-        int used = usageCountThisTurn[card.id];
-        return used < card.maxUsagePerTurn;
+        if (!usageCountThisTurn.ContainsKey(card.id)) return true;
+        return usageCountThisTurn[card.id] < card.maxUsagePerTurn;
     }
-    
 
-    /// <summary>
-    /// เรียกเมื่อมีการใช้การ์ดจริง ๆ แล้ว (ผ่านเงื่อนไข CanUseCard() แล้ว)
-    /// เพื่อบันทึกจำนวนครั้งที่ใช้ในเทิร์นนั้น
-    /// </summary>
     public void OnCardUsed(CardData card)
     {
         if (card == null) return;
-
         if (!usageCountThisTurn.ContainsKey(card.id))
-        {
             usageCountThisTurn[card.id] = 1;
-        }
         else
-        {
             usageCountThisTurn[card.id]++;
-        }
     }
 
-    /// <summary>
-    /// (ทางเลือก) ถ้าอยากตรวจจำนวนครั้งที่ใช้แล้ว ก็เรียกเมธอดนี้
-    /// </summary>
     public int GetUsageCount(CardData card)
     {
         if (card == null) return 0;
@@ -261,6 +232,43 @@ public class TurnManager : MonoBehaviour
         return usageCountThisTurn[card.id];
     }
 
+    public void UpdateBagUI()
+        => bagCounterText.text = $"{TileBag.Instance.Remaining}/{TileBag.Instance.TotalInitial}";
+
+    void ShowMessage(string msg, Color? col = null)
+    {
+        if (messageText == null) return;
+        if (fadeCo != null) StopCoroutine(fadeCo);
+        messageText.text = msg;
+        messageText.color = col ?? Color.white;
+        if (!string.IsNullOrEmpty(msg))
+            fadeCo = StartCoroutine(FadeOut());
+    }
+
+    IEnumerator FadeOut()
+    {
+        yield return new WaitForSeconds(2f);
+        float t = 0f;
+        Color start = messageText.color;
+        while (t < 1f)
+        {
+            t += Time.deltaTime * 2f;
+            messageText.color = new Color(start.r, start.g, start.b, 1 - t);
+            yield return null;
+        }
+        messageText.text = string.Empty;
+    }
+
+    public void EnableConfirm() => confirmBtn.interactable = true;
+
+    public void OnClickDictionaryButton()
+    {
+        UIConfirmPopup.Show(
+            "การเปิดพจนานุกรมจะลดคะแนนคำในเทิร์นนี้ 50%\nยังต้องการเปิดหรือไม่?",
+            () => DictionaryUI.Instance.Open(),
+            null
+        );
+    }
 
     void OnConfirm()
     {
@@ -443,43 +451,5 @@ public class TurnManager : MonoBehaviour
         ShowMessage(msg, Color.red);
         UpdateBagUI();
         EnableConfirm();
-    }
-
-    public void UpdateBagUI()
-        => bagCounterText.text = $"{TileBag.Instance.Remaining}/{TileBag.Instance.TotalInitial}";
-
-    void ShowMessage(string msg, Color? col = null)
-    {
-        if (messageText == null) return;
-        if (fadeCo != null) StopCoroutine(fadeCo);
-        messageText.text = msg;
-        messageText.color = col ?? Color.white;
-        if (!string.IsNullOrEmpty(msg))
-            fadeCo = StartCoroutine(FadeOut());
-    }
-
-    IEnumerator FadeOut()
-    {
-        yield return new WaitForSeconds(2f);
-        float t = 0f;
-        Color start = messageText.color;
-        while (t < 1f)
-        {
-            t += Time.deltaTime * 2f;
-            messageText.color = new Color(start.r, start.g, start.b, 1 - t);
-            yield return null;
-        }
-        messageText.text = string.Empty;
-    }
-
-    public void EnableConfirm() => confirmBtn.interactable = true;
-
-    public void OnClickDictionaryButton()
-    {
-        UIConfirmPopup.Show(
-            "การเปิดพจนานุกรมจะลดคะแนนคำในเทิร์นนี้ 50%\nยังต้องการเปิดหรือไม่?",
-            () => DictionaryUI.Instance.Open(),
-            null
-        );
     }
 }

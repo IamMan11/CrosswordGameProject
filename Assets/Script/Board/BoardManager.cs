@@ -298,5 +298,27 @@ public class BoardManager : MonoBehaviour
             return null;
         return grid[row, col];
     }
-    
+
+    public void LockRandomSlot()
+    {
+        List<BoardSlot> unlockable = new List<BoardSlot>();
+
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                var slot = grid[r, c];
+                if (!slot.IsLocked && !slot.HasLetterTile())
+                {
+                    unlockable.Add(slot);
+                }
+            }
+        }
+
+        if (unlockable.Count == 0) return;
+
+        var randomSlot = unlockable[Random.Range(0, unlockable.Count)];
+        randomSlot.Lock();
+        Debug.Log($"🔒 ล็อกช่อง ({randomSlot.row}, {randomSlot.col}) แล้ว");
+    }
 }

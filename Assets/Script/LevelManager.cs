@@ -27,6 +27,7 @@ public class LevelManager : MonoBehaviour
     bool levelTimerRunning;
 
     Coroutine autoRemoveCoroutine;
+    Coroutine boardLockCoroutine; // ✅ เพิ่มสำหรับล็อกช่อง
 
     void Awake()
     {
@@ -49,10 +50,7 @@ public class LevelManager : MonoBehaviour
         SetupLevel(0);
     }
 
-    public bool IsGameOver()
-    {
-        return isGameOver;
-    }
+    public bool IsGameOver() => isGameOver;
 
     void Update()
     {
@@ -105,6 +103,12 @@ public class LevelManager : MonoBehaviour
         BenchManager.Instance.RefillEmptySlots();
 
         Debug.Log($"▶ เริ่มด่าน {levels[idx].levelIndex} | เวลา: {levels[idx].timeLimit}s | Score: {levels[idx].requiredScore}");
+
+        // ✅ เริ่มล็อกช่องทุก 30 วินาที (เฉพาะด่านสุดท้าย)
+        if (idx == levels.Length - 1)
+        {
+            boardLockCoroutine = StartCoroutine(BoardLockRoutine(30f));
+        }
     }
 
     public void OnFirstConfirm()
@@ -188,6 +192,9 @@ public class LevelManager : MonoBehaviour
         if (autoRemoveCoroutine != null)
             StopCoroutine(autoRemoveCoroutine);
 
+        if (boardLockCoroutine != null)
+            StopCoroutine(boardLockCoroutine); // ✅ หยุดล็อกเมื่อเกมจบ
+
         timerText.gameObject.SetActive(false);
         levelTimerText.color = win ? Color.green : Color.red;
 
@@ -209,5 +216,20 @@ public class LevelManager : MonoBehaviour
     void AnnounceLevelComplete()
     {
         Debug.Log($"✅ ผ่านด่าน {levels[currentLevel].levelIndex}!");
+    }
+
+    // ✅ เพิ่มเมธอดสุ่มล็อกช่อง
+    IEnumerator BoardLockRoutine(float interval)
+    {
+        while (!isGameOver)
+        {
+            yield return new WaitForSeconds(interval);
+
+            if (!isGameOver)
+            {
+                BoardManager.Instance.LockRandomSlot();
+                Debug.Log("🔒 ล็อกช่องสุ่มบนบอร์ด");
+            }
+        }
     }
 }
