@@ -9459,10 +9459,19 @@ MonoBehaviour:
   m_GameObject: {fileID: 1068498659}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dd3578f0cb059d74294106c283d9f9e7, type: 3}
+  m_Script: {fileID: 11500000, guid: 0e593ed13fd1d5c4b983c521bdd35467, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cardInSlot: {fileID: 0}
+  panel: {fileID: 0}
+  cardButtons:
+  - {fileID: 1929818708}
+  - {fileID: 1360454358}
+  - {fileID: 1497995118}
+  cardNames:
+  - {fileID: 2070208263}
+  - {fileID: 26574343}
+  - {fileID: 1353390113}
+  discardButton: {fileID: 769518283}
 --- !u!1 &1068582360
 GameObject:
   m_ObjectHideFlags: 0
@@ -19026,7 +19035,7 @@ PrefabInstance:
     - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
       propertyPath: uiSelect
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 1068498665}
     - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
       propertyPath: maxHeldCards
       value: 2
