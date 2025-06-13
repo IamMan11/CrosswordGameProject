@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5561242061352152828}
-  - component: {fileID: 801197740258196647}
+  - component: {fileID: 973196689414747109}
   m_Layer: 0
   m_Name: UIManager
   m_TagString: Untagged
@@ -32,7 +32,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &801197740258196647
+--- !u!114 &973196689414747109
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -41,23 +41,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 2404993454658661561}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 82db193cc341682438eb1984daa631da, type: 3}
+  m_Script: {fileID: 11500000, guid: bdf5e09663042054382e7f3fec408735, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gameWinPanel: {fileID: 4973536909048789358, guid: 6b01e7dc7b3d28347ae7b81242099d72, type: 3}
-  levelFailPanel: {fileID: 4973536909048789358, guid: 6b01e7dc7b3d28347ae7b81242099d72, type: 3}
+  gameWinPanel: {fileID: 0}
+  levelFailPanel: {fileID: 0}
   popupPanel: {fileID: 0}
   messageText: {fileID: 0}
   displayTime: 2
-  cardSlotButtons:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  cardSlotIcons:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
+  cardSlotButtons: []
+  cardSlotIcons: []
   cancelReplacementButton: {fileID: 0}
   replaceModePromptText: {fileID: 0}

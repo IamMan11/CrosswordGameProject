@@ -358,7 +358,7 @@ GameObject:
   - component: {fileID: 7015826721956423592}
   - component: {fileID: 1051120802499293902}
   - component: {fileID: 604053045338733320}
-  - component: {fileID: 7234044220560837284}
+  - component: {fileID: 7642126956220534543}
   m_Layer: 0
   m_Name: Lettertile
   m_TagString: Untagged
@@ -426,7 +426,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &7234044220560837284
+--- !u!114 &7642126956220534543
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -435,7 +435,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 7611389272195252624}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6791ef777e0a3aa4ca1ba5155e3d7a4a, type: 3}
+  m_Script: {fileID: 11500000, guid: 008a74e1e4487334cb3b9c5bdc972024, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   icon: {fileID: 604053045338733320}

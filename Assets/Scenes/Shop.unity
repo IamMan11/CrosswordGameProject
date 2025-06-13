@@ -304,7 +304,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 16091461}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 76d210d8ea3edaf49855bd3c14114e25, type: 3}
+  m_Script: {fileID: 11500000, guid: 113ad2bb80afbeb4ab00b69bb3e45401, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   slots:
@@ -364,7 +364,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 68622247}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 65e5944b185ce7240b108f85830c8f0e, type: 3}
+  m_Script: {fileID: 11500000, guid: fe2323254477c7b44a799c24f69d9569, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   icon: {fileID: 137954378}
@@ -454,7 +454,7 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1251931465}
+      - m_Target: {fileID: 1251931467}
         m_TargetAssemblyTypeName: ShopManager, Assembly-CSharp
         m_MethodName: OnPlayPressed
         m_Mode: 1
@@ -2281,7 +2281,7 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1251931465}
+      - m_Target: {fileID: 1251931467}
         m_TargetAssemblyTypeName: ShopManager, Assembly-CSharp
         m_MethodName: OnBuyCardSlot
         m_Mode: 1
@@ -2838,7 +2838,7 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1251931465}
+      - m_Target: {fileID: 1251931467}
         m_TargetAssemblyTypeName: ShopManager, Assembly-CSharp
         m_MethodName: OnBuyMana
         m_Mode: 1
@@ -2898,6 +2898,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1251931466}
   - component: {fileID: 1251931465}
+  - component: {fileID: 1251931467}
   m_Layer: 0
   m_Name: ShopManager
   m_TagString: Untagged
@@ -2942,6 +2943,28 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1251931467
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1251931464}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef8010b9ac0909644b4e64ade0e7b47e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  coinText: {fileID: 1603311207}
+  manaBtn: {fileID: 1141932657}
+  slotBtn: {fileID: 890029643}
+  tileBtn: {fileID: 1448738419}
+  manaUpgradeCost: 50
+  slotUpgradeCost: 75
+  tilepackCost: 40
+  manaUpgradeMaxTimes: 5
+  slotUpgradeMaxTimes: 2
+  tileUpgradeMaxTimes: 10
 --- !u!1 &1347875329
 GameObject:
   m_ObjectHideFlags: 0
@@ -3098,7 +3121,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1378940650}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 65e5944b185ce7240b108f85830c8f0e, type: 3}
+  m_Script: {fileID: 11500000, guid: fe2323254477c7b44a799c24f69d9569, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   icon: {fileID: 324252037}
@@ -3324,7 +3347,7 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1251931465}
+      - m_Target: {fileID: 1251931467}
         m_TargetAssemblyTypeName: ShopManager, Assembly-CSharp
         m_MethodName: OnBuyTilePack
         m_Mode: 1
@@ -4284,7 +4307,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 2051263116}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 65e5944b185ce7240b108f85830c8f0e, type: 3}
+  m_Script: {fileID: 11500000, guid: fe2323254477c7b44a799c24f69d9569, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   icon: {fileID: 925492938}

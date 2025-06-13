@@ -4884,9 +4884,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 450765403}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: af7edc49c2d690544a80dd89d87e09c8, type: 3}
+  m_Script: {fileID: 11500000, guid: dd3578f0cb059d74294106c283d9f9e7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  cardInSlot: {fileID: 0}
 --- !u!1 &471103512
 GameObject:
   m_ObjectHideFlags: 0
@@ -9462,7 +9463,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0e593ed13fd1d5c4b983c521bdd35467, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  panel: {fileID: 0}
+  panel: {fileID: 1068498659}
   cardButtons:
   - {fileID: 1929818708}
   - {fileID: 1360454358}
@@ -11110,9 +11111,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 1272761139}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: af7edc49c2d690544a80dd89d87e09c8, type: 3}
+  m_Script: {fileID: 11500000, guid: dd3578f0cb059d74294106c283d9f9e7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  cardInSlot: {fileID: 0}
 --- !u!1 &1292712235
 GameObject:
   m_ObjectHideFlags: 0
@@ -11319,9 +11321,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 1302249028}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: af7edc49c2d690544a80dd89d87e09c8, type: 3}
+  m_Script: {fileID: 11500000, guid: dd3578f0cb059d74294106c283d9f9e7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  cardInSlot: {fileID: 0}
 --- !u!1 &1316975262
 GameObject:
   m_ObjectHideFlags: 0
@@ -14776,40 +14779,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1669550289}
   m_CullTransparentMesh: 1
---- !u!1 &1669965064 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 2404993454658661561, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
-  m_PrefabInstance: {fileID: 4044141065521159389}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &1669965067
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1669965064}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bdf5e09663042054382e7f3fec408735, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  gameWinPanel: {fileID: 4973536909048789358, guid: 6b01e7dc7b3d28347ae7b81242099d72, type: 3}
-  levelFailPanel: {fileID: 4973536909048789358, guid: 6b01e7dc7b3d28347ae7b81242099d72, type: 3}
-  popupPanel: {fileID: 1118088603}
-  messageText: {fileID: 791051081}
-  displayTime: 2
-  cardSlotButtons:
-  - {fileID: 1272761141}
-  - {fileID: 1925496813}
-  - {fileID: 450765405}
-  - {fileID: 1302249030}
-  cardSlotIcons:
-  - {fileID: 1272761142}
-  - {fileID: 1925496814}
-  - {fileID: 450765406}
-  - {fileID: 1302249031}
-  cancelReplacementButton: {fileID: 653146165}
-  replaceModePromptText: {fileID: 758776938}
 --- !u!1 &1677210424
 GameObject:
   m_ObjectHideFlags: 0
@@ -16956,9 +16925,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 1925496811}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: af7edc49c2d690544a80dd89d87e09c8, type: 3}
+  m_Script: {fileID: 11500000, guid: dd3578f0cb059d74294106c283d9f9e7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  cardInSlot: {fileID: 0}
 --- !u!1 &1929818704
 GameObject:
   m_ObjectHideFlags: 0
@@ -18928,6 +18898,70 @@ PrefabInstance:
       propertyPath: 'cardSlotButtons.Array.data[3]'
       value: 
       objectReference: {fileID: 1302249030}
+    - target: {fileID: 973196689414747109, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
+      propertyPath: popupPanel
+      value: 
+      objectReference: {fileID: 1118088603}
+    - target: {fileID: 973196689414747109, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
+      propertyPath: messageText
+      value: 
+      objectReference: {fileID: 791051081}
+    - target: {fileID: 973196689414747109, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
+      propertyPath: gameWinPanel
+      value: 
+      objectReference: {fileID: 4973536909048789358, guid: 6b01e7dc7b3d28347ae7b81242099d72, type: 3}
+    - target: {fileID: 973196689414747109, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
+      propertyPath: levelFailPanel
+      value: 
+      objectReference: {fileID: 4973536909048789358, guid: 6b01e7dc7b3d28347ae7b81242099d72, type: 3}
+    - target: {fileID: 973196689414747109, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
+      propertyPath: replaceModePromptText
+      value: 
+      objectReference: {fileID: 758776938}
+    - target: {fileID: 973196689414747109, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
+      propertyPath: cancelReplacementButton
+      value: 
+      objectReference: {fileID: 653146165}
+    - target: {fileID: 973196689414747109, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
+      propertyPath: cardSlotIcons.Array.size
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 973196689414747109, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
+      propertyPath: cardSlotButtons.Array.size
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 973196689414747109, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
+      propertyPath: 'cardSlotIcons.Array.data[0]'
+      value: 
+      objectReference: {fileID: 1272761142}
+    - target: {fileID: 973196689414747109, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
+      propertyPath: 'cardSlotIcons.Array.data[1]'
+      value: 
+      objectReference: {fileID: 1925496814}
+    - target: {fileID: 973196689414747109, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
+      propertyPath: 'cardSlotIcons.Array.data[2]'
+      value: 
+      objectReference: {fileID: 450765406}
+    - target: {fileID: 973196689414747109, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
+      propertyPath: 'cardSlotIcons.Array.data[3]'
+      value: 
+      objectReference: {fileID: 1302249031}
+    - target: {fileID: 973196689414747109, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
+      propertyPath: 'cardSlotButtons.Array.data[0]'
+      value: 
+      objectReference: {fileID: 1272761141}
+    - target: {fileID: 973196689414747109, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
+      propertyPath: 'cardSlotButtons.Array.data[1]'
+      value: 
+      objectReference: {fileID: 1925496813}
+    - target: {fileID: 973196689414747109, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
+      propertyPath: 'cardSlotButtons.Array.data[2]'
+      value: 
+      objectReference: {fileID: 450765405}
+    - target: {fileID: 973196689414747109, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
+      propertyPath: 'cardSlotButtons.Array.data[3]'
+      value: 
+      objectReference: {fileID: 1302249030}
     - target: {fileID: 2404993454658661561, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
       propertyPath: m_Name
       value: UIManager
@@ -18972,13 +19006,11 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 801197740258196647, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 2404993454658661561, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1669965067}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: d4494e78d4d345d42b2c4ebace241f9b, type: 3}
 --- !u!1001 &5761227352215540232
 PrefabInstance:
@@ -19043,6 +19075,10 @@ PrefabInstance:
     - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
       propertyPath: allCards.Array.size
       value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: heldCards.Array.size
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
       propertyPath: 'allCards.Array.data[0]'
