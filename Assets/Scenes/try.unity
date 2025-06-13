@@ -5023,17 +5023,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 471103512}
   m_CullTransparentMesh: 1
---- !u!114 &483126798 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 4018721459530623314, guid: dbabd47e13bf09346a342f3697607528, type: 3}
-  m_PrefabInstance: {fileID: 806673206}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &508210233
 GameObject:
   m_ObjectHideFlags: 0
@@ -5293,7 +5282,7 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 0}
+      - m_Target: {fileID: 1748517719}
         m_TargetAssemblyTypeName: PlacementManager, Assembly-CSharp
         m_MethodName: CancelPlacement
         m_Mode: 1
@@ -7371,10 +7360,7 @@ PrefabInstance:
     - {fileID: 3649356333178618609, guid: dbabd47e13bf09346a342f3697607528, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 4515445269844136245, guid: dbabd47e13bf09346a342f3697607528, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 2110511854}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: dbabd47e13bf09346a342f3697607528, type: 3}
 --- !u!1 &813539391
 GameObject:
@@ -8358,17 +8344,6 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
---- !u!114 &942077294 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 3148609382290687349, guid: dbabd47e13bf09346a342f3697607528, type: 3}
-  m_PrefabInstance: {fileID: 806673206}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &956558047
 GameObject:
   m_ObjectHideFlags: 0
@@ -10989,7 +10964,8 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 7213857112434558611, guid: d649ff90d1409c74d883490fa830a36c, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
@@ -14322,17 +14298,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1635937825}
   m_CullTransparentMesh: 1
---- !u!114 &1636834859 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 7932424455724849530, guid: dbabd47e13bf09346a342f3697607528, type: 3}
-  m_PrefabInstance: {fileID: 806673206}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &1658035593
 GameObject:
   m_ObjectHideFlags: 0
@@ -14819,8 +14784,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bdf5e09663042054382e7f3fec408735, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gameWinPanel: {fileID: 0}
-  levelFailPanel: {fileID: 0}
+  gameWinPanel: {fileID: 4973536909048789358, guid: 6b01e7dc7b3d28347ae7b81242099d72, type: 3}
+  levelFailPanel: {fileID: 4973536909048789358, guid: 6b01e7dc7b3d28347ae7b81242099d72, type: 3}
   popupPanel: {fileID: 1118088603}
   messageText: {fileID: 791051081}
   displayTime: 2
@@ -18403,26 +18368,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2099973949}
   m_CullTransparentMesh: 1
---- !u!1 &2110511850 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 4515445269844136245, guid: dbabd47e13bf09346a342f3697607528, type: 3}
-  m_PrefabInstance: {fileID: 806673206}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &2110511854
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2110511850}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 54421ff8b72c6a046a3e50abb5c8c888, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  msgText: {fileID: 483126798}
-  btnConfirm: {fileID: 942077294}
-  btnCancel: {fileID: 1636834859}
 --- !u!1 &2117372274
 GameObject:
   m_ObjectHideFlags: 0
