@@ -30,6 +30,11 @@ public class MainMenuManager : MonoBehaviour
         SceneManager.LoadScene("Try");
     }
 
+    public void OnHistoryButtonClicked()
+    {
+        SceneManager.LoadScene("UIHistoryScene");
+    }
+
     // เรียกตอนกดปุ่ม Options
     public void OnOptionsButtonClicked()
     {

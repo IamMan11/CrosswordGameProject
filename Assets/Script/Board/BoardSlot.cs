@@ -29,9 +29,9 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
 
     public void Setup(int r, int c, SlotType t, int _manaGain)
     {
-        row = r;
-        col = c;
-        type = t;
+        row      = r;
+        col      = c;
+        type     = t;
         manaGain = _manaGain;              // ← เก็บค่าเข้า slot
         ApplyVisual();
     }

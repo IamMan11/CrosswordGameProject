@@ -45,7 +45,6 @@ public class TurnManager : MonoBehaviour
 
     void Start()
     {
-        TileBag.Instance.ResetPool();
         var prog = PlayerProgressSO.Instance.data;
         maxMana = prog.maxMana;
         currentMana = maxMana;
@@ -381,7 +380,7 @@ public class TurnManager : MonoBehaviour
         }
 
         foreach (var (t, _) in placed) t.Lock();
-        ShowMessage($"✓ +{moveScore}", Color.green);
+        ShowMessage($"Word Correct +{moveScore}", Color.green);
         BenchManager.Instance.RefillEmptySlots();
         UpdateBagUI();
         EnableConfirm();
