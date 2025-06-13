@@ -85,7 +85,7 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
         if (BoardManager.Instance != null && BoardManager.Instance.targetedFluxRemaining > 0)
         {
             BoardManager.Instance.HandleTargetedFluxClick(row, col);
-            return; 
+            return;
         }
         // ───────────────────────────────────────────────────────────────
 
@@ -111,4 +111,14 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
         // อาจเคลียร์ตัวแปรภายใน BoardSlot ถ้ามี
         return tile;
     }
+
+    [HideInInspector] public bool IsLocked = false;
+
+    public void Lock()
+    {
+        IsLocked = true;
+        bg.color = new Color32(120, 120, 120, 255); // สีช่องที่ถูกล็อก
+                                                    // คุณอาจ Flash ก็ได้: Flash(Color.black);
+    }
+
 }
