@@ -182,6 +182,26 @@ public class BenchManager : MonoBehaviour
         else
             Debug.Log("[BenchManager] OmniSpark: ไม่มีตัวอักษรใน Bench ให้แปลง");
     }
+    /// <summary>รับ LetterTile กลับเข้า Bench ที่ว่างซ้ายสุด</summary>
+    public void ReturnTileToBench(LetterTile tile)
+    {
+        foreach (Transform slot in slotTransforms)          // ซ้าย → ขวา
+        {
+            if (slot.childCount == 0)                       // เจอช่องว่าง
+            {
+                tile.transform.SetParent(slot, false);      // ย้ายเป็นลูกของ slot
+                tile.transform.localPosition = Vector3.zero;
+                tile.transform.localScale    = Vector3.one;
+                tile.AdjustSizeToParent();                       // (ถ้ามีเมธอดเซตสถานะ)
+                return;
+            }
+        }
+
+        // ถ้าม้านั่งเต็มจริง ๆ (ไม่ควรเกิด) – ค่อยคืนเข้า TileBag หรือทำลาย
+        TileBag.Instance.ReturnTile(tile.GetData());
+        Destroy(tile.gameObject);
+    }
+
     
 
     // ================================================================================
