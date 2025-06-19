@@ -7,5 +7,5 @@ public class LevelConfig
 
     public float timeLimit; // 🕒 เวลารวมของด่าน
     public bool enableAutoRemove = true; // ✅ ให้ลบอักษรอัตโนมัติ
-    public float autoRemoveInterval = 10f; // ⏱ ลบทุกกี่วินาที
+    public float autoRemoveInterval = 100f; // ⏱ ลบทุกกี่วินาที
 }

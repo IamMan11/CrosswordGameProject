@@ -2755,11 +2755,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   levels:
   - levelIndex: 1
-    requiredScore: 5
+    requiredScore: 10000
     requiredWords: 0
-    timeLimit: 10
-    enableAutoRemove: 1
-    autoRemoveInterval: 10
+    timeLimit: 10000
+    enableAutoRemove: 0
+    autoRemoveInterval: 10000
   - levelIndex: 2
     requiredScore: 5
     requiredWords: 0

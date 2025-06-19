@@ -321,22 +321,22 @@ public class TurnManager : MonoBehaviour
 
         if (wrongNew.Count > 0 || dupNew.Count > 0)
         {
-            if (wrongNew.Count > 0)
-            {
-                StartCoroutine(BlinkWords(wrongNew, Color.red));
-                RejectMove(placed, "invalid word", true);
-            }
-            else
-            {
-                StartCoroutine(BlinkWords(dupNew, Color.yellow));
-                RejectMove(placed, "duplicate word", false);
-            }
+            // เตรียม list ของคำที่ถูกต้องและคำที่ผิด
+            var correctList = newWords.Except(wrongNew).Except(dupNew).ToList();
+            var wrongList   = wrongNew.Concat(dupNew).ToList();
+
+            // เรียก Coroutine กระพริบคำถูกก่อน แล้วคำผิด
+            StartCoroutine(BlinkCorrectThenWrong(correctList, wrongList));
+
+            // หลังกระพริบเสร็จ จึงค่อยทำ RejectMove
+            StartCoroutine(DelayedReject(placed, wrongNew.Count>0 ? "invalid word" : "duplicate word",
+                                        wrongNew.Count>0, 2f + 0.2f));  
             return;
         }
 
         var wrongLink = linkWords.Where(w => !WordChecker.Instance.IsWordValid(w.word)).ToList();
         if (wrongLink.Count > 0)
-            StartCoroutine(BlinkWords(wrongLink, Color.red));
+            StartCoroutine(BlinkWordsForDuration(wrongLink, Color.red, 2f));
 
         foreach (var (tile, slot) in placed)
         {
@@ -429,6 +429,61 @@ public class TurnManager : MonoBehaviour
         }
         yield return null;
     }
+    // กระพริบชุดคำ (list) ด้วยสี col เป็นเวลา totalDuration วินาที
+// แต่ละตัวอักษรกระพริบวนทุก interval วินาที
+    IEnumerator BlinkWordsForDuration(IEnumerable<MoveValidator.WordInfo> list, Color col, float totalDuration, float interval = 0.2f)
+    {
+        // เก็บทุกช่องที่ต้องกระพริบ
+        var slots = new List<BoardSlot>();
+        foreach (var w in list)
+        {
+            int dr = w.r0 == w.r1 ? 0 : (w.r1 > w.r0 ? 1 : -1);
+            int dc = w.c0 == w.c1 ? 0 : (w.c1 > w.c0 ? 1 : -1);
+            int r = w.r0, c = w.c0;
+            while (true)
+            {
+                var slot = BoardManager.Instance.GetSlot(r, c);
+                if (slot != null) slots.Add(slot);
+                if (r == w.r1 && c == w.c1) break;
+                r += dr; c += dc;
+            }
+        }
+
+        float elapsed = 0f;
+        bool on = true;
+        while (elapsed < totalDuration)
+        {
+            foreach (var slot in slots)
+            {
+                if (on) slot.Flash(col);
+                else slot.HidePreview();  // สมมติให้ซ่อน effect ของ Flash
+            }
+            on = !on;
+            yield return new WaitForSeconds(interval);
+            elapsed += interval;
+        }
+        // ปิด highlight ให้เรียบร้อย
+        foreach (var slot in slots)
+            slot.HidePreview();
+    }
+
+    // กระพริบ correctWords นาน 2 วิ แล้วตามด้วย wrongWords อีก 2 วิ
+    IEnumerator BlinkCorrectThenWrong(IEnumerable<MoveValidator.WordInfo> correctWords, IEnumerable<MoveValidator.WordInfo> wrongWords)
+    {
+        if (correctWords.Any())
+            yield return StartCoroutine(BlinkWordsForDuration(correctWords, Color.green, 2f));
+        yield return new WaitForSeconds(0.2f);
+        if (wrongWords.Any())
+            yield return StartCoroutine(BlinkWordsForDuration(wrongWords, Color.red,   2f));
+    }
+        // รอ totalDelay วิ ก่อนเรียก RejectMove เพื่อให้กระพริบเสร็จ
+    IEnumerator DelayedReject(List<(LetterTile t, BoardSlot s)> tiles, string reason, bool applyPenalty, float totalDelay)
+    {
+        yield return new WaitForSeconds(totalDelay);
+        RejectMove(tiles, reason, applyPenalty);
+    }
+
+
 
     void RejectMove(List<(LetterTile t, BoardSlot s)> tiles, string reason, bool applyPenalty)
     {
