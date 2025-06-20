@@ -100,6 +100,12 @@ public static class MoveValidator
             error = "no word formed";
             return false;
         }
+        // ---------- G. เรียงคำจากซ้าย→ขวา บน→ล่าง ----------
+        words.Sort((a, b) =>
+        {
+            if (a.r0 != b.r0) return a.r0.CompareTo(b.r0);   // ① ตามแถว (row)
+            return a.c0.CompareTo(b.c0);                      // ② ตามคอลัมน์ (col)
+        });
         // อย่าทำ Distinct — ต้องเก็บคำซ้ำไว้ด้วย
         return true;
     }

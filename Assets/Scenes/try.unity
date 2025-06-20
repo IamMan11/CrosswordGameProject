@@ -2757,7 +2757,7 @@ MonoBehaviour:
   - levelIndex: 1
     requiredScore: 5
     requiredWords: 0
-    timeLimit: 10
+    timeLimit: 20
     enableAutoRemove: 1
     autoRemoveInterval: 10
   - levelIndex: 2
@@ -14185,7 +14185,7 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 0}
+      - m_Target: {fileID: 956558052}
         m_TargetAssemblyTypeName: DictionaryUI, Assembly-CSharp
         m_MethodName: Close
         m_Mode: 1

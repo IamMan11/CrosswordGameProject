@@ -268,6 +268,44 @@ public class TurnManager : MonoBehaviour
             null
         );
     }
+    List<BoardSlot> SlotsInWord(MoveValidator.WordInfo w)
+    {
+        var list = new List<BoardSlot>();
+        int dr = w.r0 == w.r1 ? 0 : (w.r1 > w.r0 ? 1 : -1);
+        int dc = w.c0 == w.c1 ? 0 : (w.c1 > w.c0 ? 1 : -1);
+        int r = w.r0, c = w.c0;
+        while (true)
+        {
+            list.Add(BoardManager.Instance.GetSlot(r, c));
+            if (r == w.r1 && c == w.c1) break;
+            r += dr; c += dc;
+        }
+        return list;
+    }
+
+    // เด้งตัวอักษรใน word กลับ Bench + กระพริบ (ถ้ามีสี)
+    void BounceWord(MoveValidator.WordInfo w,
+                    IEnumerable<(LetterTile t, BoardSlot s)> placed,
+                    Color? flashCol,
+                    HashSet<LetterTile> bouncedSet)          // ← เพิ่มพารามิเตอร์
+    {
+        var slots = SlotsInWord(w);
+        foreach (var (t, s) in placed)
+        {
+            if (!slots.Contains(s)) continue;
+
+            if (flashCol.HasValue) s.Flash(flashCol.Value, 3, 0.17f);
+
+            // ดึงออกก่อน
+            LetterTile tile = s.RemoveLetter();
+            if (tile == null) continue;
+
+            // ย้ายเข้า Bench ช่องว่างซ้ายสุด
+            BenchManager.Instance.ReturnTileToBench(tile);
+
+            bouncedSet.Add(tile);            // ← จดว่า “เด้งแล้ว”
+        }
+    }
 
     void OnConfirm()
     {
@@ -293,50 +331,116 @@ public class TurnManager : MonoBehaviour
             return;
         }
 
-        var newCoords = placed.Select(p => (p.s.row, p.s.col)).ToHashSet();
-        var newWords = new List<MoveValidator.WordInfo>();
-        var linkWords = new List<MoveValidator.WordInfo>();
-        foreach (var w in words)
+        // ---------- 1. แยกหมวดคำ ----------
+        var invalid   = words.Where(w => !WordChecker.Instance.IsWordValid(w.word)).ToList();
+        var duplicate = words.Where(w => boardWords.Contains(w.word)).ToList();
+        var correct   = words.Except(invalid).Except(duplicate).ToList();
+        var bounced = new HashSet<LetterTile>();
+
+        // ---------- 2. หา main-word ----------
+        var placedSet = placed.Select(p => (p.s.row, p.s.col)).ToHashSet();
+        var mainWord  = words.FirstOrDefault(w => CountNewInWord(w, placedSet) >= 2);
+        bool hasMain  = !string.IsNullOrEmpty(mainWord.word);
+        bool mainCorrect = hasMain
+                        && !invalid .Any(w => w.word == mainWord.word)
+                        && !duplicate.Any(w => w.word == mainWord.word);
+
+        // ---------- 3. เตรียมคำที่จะเด้ง + เก็บ penalty ----------
+
+        int penalty = 0;                               // โทษหักคะแนนรวม
+        var invalidToBounce   = new List<MoveValidator.WordInfo>();
+        var duplicateToBounce = new List<MoveValidator.WordInfo>();
+
+        // --- identify main status ---
+        bool mainInvalid   = invalid.Any(w   => w.word == mainWord.word);
+        bool mainDuplicate = duplicate.Any(w => w.word == mainWord.word);
+
+        // ---------- A) MAIN-word “ผิด” ----------
+        if (mainInvalid)          // ตรวจคำผิดก่อน
         {
-            int cnt = CountNewInWord(w, newCoords);
-            if (cnt >= 2) newWords.Add(w);
-            else linkWords.Add(w);
+            // คิดคะแนนก่อนเด้ง
+            int s = ScoreManager.CalcWord(mainWord.r0, mainWord.c0,
+                                        mainWord.r1, mainWord.c1);
+            penalty += Mathf.CeilToInt(s * 0.5f);          // หัก 50 %
+
+            invalidToBounce.Add(mainWord);                 // เด้งทีหลัง (แดง)
+            ShowMessage($"คำผิด -{penalty}", Color.red);  // แจ้งผล
+
+            // เอา main ออกจาก list invalid ไม่ให้วนซ้ำอีก
+            invalid.RemoveAll(w => w.word == mainWord.word);
+        }
+        // ---------- B) MAIN-word “ซ้ำ” ----------
+        else if (mainDuplicate)
+        {
+            duplicateToBounce.Add(mainWord);               // เด้งทีหลัง (เหลือง)
+            ShowMessage("คำซ้ำ", Color.yellow);
+
+            // เอา main ออกจาก list duplicate
+            duplicate.RemoveAll(w => w.word == mainWord.word);
         }
 
-        if (newWords.Count == 0 && linkWords.Count > 0)
+        // ---------- C) cross-word ที่เหลือ เมื่อ main “ผิด” ----------
+        if (mainInvalid)              // (ถ้า main ถูก → ข้ามตามกติกา)
         {
-            newWords.Add(linkWords[0]);
-            linkWords.RemoveAt(0);
-        }
-
-        var wrongNew = newWords.Where(w => !WordChecker.Instance.IsWordValid(w.word)).ToList();
-        var dupNew = newWords.Where(w => boardWords.Contains(w.word)).ToList();
-
-        if (isFirstWord && (wrongNew.Count > 0 || dupNew.Count > 0))
-        {
-            StartCoroutine(BlinkWords(wrongNew.Concat(dupNew), Color.red));
-            RejectMove(placed, "✗ คำแรกต้องเป็นคำใหม่ที่ถูกต้อง", true);
-            return;
-        }
-
-        if (wrongNew.Count > 0 || dupNew.Count > 0)
-        {
-            if (wrongNew.Count > 0)
+            // cross-word ผิด: หัก 50 % + เด้งแดง
+            foreach (var w in invalid)
             {
-                StartCoroutine(BlinkWords(wrongNew, Color.red));
-                RejectMove(placed, "invalid word", true);
+                int s = ScoreManager.CalcWord(w.r0, w.c0, w.r1, w.c1);
+                penalty += Mathf.CeilToInt(s * 0.5f);
+                invalidToBounce.Add(w);
             }
-            else
+
+            // cross-word ซ้ำ: เด้งเหลือง (ไม่หักคะแนน)
+            duplicateToBounce.AddRange(duplicate);
+        }
+        bool skipTurn = mainInvalid || mainDuplicate;
+        // ---------- 4. กระพริบคำถูก ----------
+        if (!skipTurn)
+        {
+            if (correct.Count > 0)
             {
-                StartCoroutine(BlinkWords(dupNew, Color.yellow));
-                RejectMove(placed, "duplicate word", false);
+                StartCoroutine(BlinkWordsSequential(correct, Color.green, 1f));
             }
-            return;
         }
 
-        var wrongLink = linkWords.Where(w => !WordChecker.Instance.IsWordValid(w.word)).ToList();
-        if (wrongLink.Count > 0)
-            StartCoroutine(BlinkWords(wrongLink, Color.red));
+        // ---------- 5. คิดคะแนนคำถูกใหม่ ----------
+
+        int moveScore = 0;
+        if (!skipTurn)                                         // main-word ถูกเท่านั้น
+        {
+            foreach (var w in correct)
+            {
+                if (!boardWords.Contains(w.word))
+                {
+                    moveScore += ScoreManager.CalcWord(w.r0, w.c0, w.r1, w.c1);
+                    boardWords.Add(w.word);
+                }
+            }
+        }
+
+        // ---------- 6. เด้งคำผิด/ซ้ำ หลังจากคิดคะแนนเสร็จ ----------
+        foreach (var w in invalidToBounce)
+            BounceWord(w, placed, Color.red, bounced);
+        foreach (var w in duplicateToBounce)
+            BounceWord(w, placed, Color.yellow, bounced);
+        
+        if (skipTurn)
+        {
+            if (penalty > 0)
+            {
+                Score = Mathf.Max(0, Score - penalty);
+                UpdateScoreUI();
+            }
+            ShowMessage("❌ คำหลักผิด/ซ้ำ – เสียเทิร์น", Color.red);
+
+            // รอให้แอนิเมชันเด้งจบก่อนเปลี่ยนเทิร์น
+            StartCoroutine(SkipTurnAfterBounce());         // ▶️ Coroutine ด้านล่าง
+            return;                                        // **ตัด flow ที่เหลือ**
+        }
+
+        // ---------- 7. สรุปคะแนน ----------
+        moveScore -= penalty;
+        if (moveScore < 0) moveScore = 0;
 
         foreach (var (tile, slot) in placed)
         {
@@ -347,16 +451,6 @@ public class TurnManager : MonoBehaviour
             }
             if (slot.manaGain > 0)
                 AddMana(slot.manaGain);
-        }
-
-        int moveScore = 0;
-        foreach (var w in newWords)
-        {
-            if (!boardWords.Contains(w.word))
-            {
-                moveScore += ScoreManager.CalcWord(w.r0, w.c0, w.r1, w.c1);
-                boardWords.Add(w.word);
-            }
         }
 
         if (usedDictionaryThisTurn)
@@ -379,8 +473,13 @@ public class TurnManager : MonoBehaviour
             LevelManager.Instance.OnFirstConfirm();
         }
 
-        foreach (var (t, _) in placed) t.Lock();
-        ShowMessage($"Word Correct +{moveScore}", Color.green);
+        foreach (var (t, _) in placed)
+        {
+            if (bounced.Contains(t)) continue;   // ข้ามไทล์ที่เด้ง
+            t.Lock();                            // ล็อกเฉพาะไทล์ที่ยังบนบอร์ด
+        }
+        if (!skipTurn)
+            ShowMessage($"Word Correct +{moveScore}", Color.green);
         BenchManager.Instance.RefillEmptySlots();
         UpdateBagUI();
         EnableConfirm();
@@ -429,6 +528,98 @@ public class TurnManager : MonoBehaviour
         }
         yield return null;
     }
+    // กระพริบชุดคำ (list) ด้วยสี col เป็นเวลา totalDuration วินาที
+// แต่ละตัวอักษรกระพริบวนทุก interval วินาที
+    IEnumerator BlinkWordsForDuration(IEnumerable<MoveValidator.WordInfo> list, Color col, float totalDuration, float interval = 0.2f)
+    {
+        // เก็บทุกช่องที่ต้องกระพริบ
+        var slots = new List<BoardSlot>();
+        foreach (var w in list)
+        {
+            int dr = w.r0 == w.r1 ? 0 : (w.r1 > w.r0 ? 1 : -1);
+            int dc = w.c0 == w.c1 ? 0 : (w.c1 > w.c0 ? 1 : -1);
+            int r = w.r0, c = w.c0;
+            while (true)
+            {
+                var slot = BoardManager.Instance.GetSlot(r, c);
+                if (slot != null) slots.Add(slot);
+                if (r == w.r1 && c == w.c1) break;
+                r += dr; c += dc;
+            }
+        }
+
+        float elapsed = 0f;
+        bool on = true;
+        while (elapsed < totalDuration)
+        {
+            foreach (var slot in slots)
+            {
+                if (on) slot.Flash(col);
+                else slot.HidePreview();  // สมมติให้ซ่อน effect ของ Flash
+            }
+            on = !on;
+            yield return new WaitForSeconds(interval);
+            elapsed += interval;
+        }
+        // ปิด highlight ให้เรียบร้อย
+        foreach (var slot in slots)
+            slot.HidePreview();
+    }
+
+    // กระพริบ correctWords นาน 2 วิ แล้วตามด้วย wrongWords อีก 2 วิ
+    IEnumerator BlinkCorrectThenWrong(
+            IEnumerable<MoveValidator.WordInfo> correctWords,
+            IEnumerable<MoveValidator.WordInfo> wrongWords)
+    {
+        if (correctWords.Any())
+            // กระพริบทีละคำ 1 วิ
+            yield return StartCoroutine(
+                BlinkWordsSequential(correctWords, Color.green, 1f));
+
+        // เว้น 0.2 วิ ระหว่างสองเฟส (เหมือนเดิม)
+        yield return new WaitForSeconds(0.2f);
+
+        if (wrongWords.Any())
+            // ยังใช้วิธีกระพริบพร้อมกัน 2 วิ
+            yield return StartCoroutine(
+                BlinkWordsForDuration(wrongWords, Color.red, 2f));
+    }
+        // รอ totalDelay วิ ก่อนเรียก RejectMove เพื่อให้กระพริบเสร็จ
+    IEnumerator DelayedReject(List<(LetterTile t, BoardSlot s)> tiles, string reason, bool applyPenalty, float totalDelay)
+    {
+        yield return new WaitForSeconds(totalDelay);
+        RejectMove(tiles, reason, applyPenalty);
+    }
+    /// <summary>กระพริบคำทีละคำ (sequential) ด้วยสีที่กำหนด</summary>
+    IEnumerator BlinkWordsSequential(
+            IEnumerable<MoveValidator.WordInfo> list,
+            Color col,
+            float perWordDur = 1f)
+    {
+        foreach (var w in list)
+        {
+            // ไล่ทุกช่องในคำนี้แล้วสั่ง Flash
+            int dr = w.r0 == w.r1 ? 0 : (w.r1 > w.r0 ? 1 : -1);
+            int dc = w.c0 == w.c1 ? 0 : (w.c1 > w.c0 ? 1 : -1);
+            int r  = w.r0, c = w.c0;
+            while (true)
+            {
+                var slot = BoardManager.Instance.GetSlot(r, c);
+                // 3 ครั้ง × 0.17 s ≈ 1 วินาที
+                slot?.Flash(col, times: 3, dur: 0.17f);
+                if (r == w.r1 && c == w.c1) break;
+                r += dr; c += dc;
+            }
+
+            // รอให้คำนี้กระพริบครบก่อนจะไปคำถัดไป
+            yield return new WaitForSeconds(perWordDur);
+        }
+    }
+    private IEnumerator SkipTurnAfterBounce()
+    {
+        yield return new WaitForSeconds(0.6f);   // ให้เวลาบลิ๊ง/เด้งตาม effect
+    }
+
 
     void RejectMove(List<(LetterTile t, BoardSlot s)> tiles, string reason, bool applyPenalty)
     {

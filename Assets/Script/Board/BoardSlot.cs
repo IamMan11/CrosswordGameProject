@@ -107,6 +107,8 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
     public LetterTile RemoveLetter()
     {
         var tile = GetLetterTile();
+        if (tile == null)          // <–– ป้องกัน NullReference
+        return null;
         tile.transform.SetParent(null);
         // อาจเคลียร์ตัวแปรภายใน BoardSlot ถ้ามี
         return tile;

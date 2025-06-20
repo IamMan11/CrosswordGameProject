@@ -43,12 +43,8 @@ public static class BoardAnalyzer
                 return false;
             }
 
-            // ป้องกัน Index / Component null
-            LetterTile tile = null;
-            if (g[r, c].transform.childCount > 1)
-            {
-                tile = g[r, c].transform.GetChild(1).GetComponent<LetterTile>();
-            }
+            // ปลอดภัยกว่า: เรียกเมธอดใน BoardSlot โดยตรง
+            LetterTile tile = g[r, c].GetLetterTile();
             if (tile == null)
             {
                 word = string.Empty;
