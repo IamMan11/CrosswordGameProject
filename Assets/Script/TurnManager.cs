@@ -372,10 +372,6 @@ public class TurnManager : MonoBehaviour
         // ---------- B) MAIN-word “ซ้ำ” ----------
         else if (mainDuplicate)
         {
-            // คิดคะแนนก่อนเด้ง
-            int s = ScoreManager.CalcWord(mainWord.r0, mainWord.c0,
-                                        mainWord.r1, mainWord.c1);
-            penalty += Mathf.CeilToInt(s * 0.5f);          // หัก 50 %
             duplicateToBounce.Add(mainWord);               // เด้งทีหลัง (เหลือง)
             ShowMessage("คำซ้ำ", Color.yellow);
 
@@ -430,6 +426,11 @@ public class TurnManager : MonoBehaviour
         
         if (skipTurn)
         {
+            if (penalty > 0)
+            {
+                Score = Mathf.Max(0, Score - penalty);
+                UpdateScoreUI();
+            }
             ShowMessage("❌ คำหลักผิด/ซ้ำ – เสียเทิร์น", Color.red);
 
             // รอให้แอนิเมชันเด้งจบก่อนเปลี่ยนเทิร์น
