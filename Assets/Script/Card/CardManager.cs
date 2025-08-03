@@ -181,14 +181,12 @@ public class CardManager : MonoBehaviour
         // อัปเดต UI การ์ดที่ถือ (เช่น UpdateCardSlots)
         UIManager.Instance.UpdateCardSlots(heldCards);
 
-        Debug.Log($"[MasterDraft] ผู้เล่นเลือกการ์ด {selected.displayName} แล้วใส่ลง heldCards");
     }
     public void GiveRandomCard()
     {
         var opts = BuildThreeWeightedRandom();
         optionsQueue.Enqueue(opts);
         totalQueuedCount++;
-        Debug.Log($"[CardManager] Enqueued options. Queue size: {optionsQueue.Count}, Total queued: {totalQueuedCount}");
         TryOpenNextSelection();
     }
     public void UpgradeMaxHeldCards(int newMax)
@@ -208,7 +206,6 @@ public class CardManager : MonoBehaviour
         if (optionsQueue.Count == 0) return;
 
         processedCount++;
-        Debug.Log($"[CardManager] Processing queue {processedCount}/{totalQueuedCount}. Remaining in queue: {optionsQueue.Count - 1}");
 
         lastOptions = optionsQueue.Dequeue();
         uiSelect.Open(lastOptions, OnCardPicked);

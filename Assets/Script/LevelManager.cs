@@ -43,7 +43,7 @@ public class LevelManager : MonoBehaviour
     {
         if (levels == null || levels.Length == 0)
         {
-            Debug.LogError("❌ No level configuration provided!");
+            Debug.LogError(" No level configuration provided!");
             return;
         }
 

@@ -46,14 +46,11 @@ public class SpaceManager : MonoBehaviour
                 tile.AdjustSizeToParent();
                 tile.IsInSpace = true;
 
-                if (debug) Debug.Log($"[Space] add '{tile.GetData().letter}' to slot {i}");
-                if (debug) Debug.Log($"[Space] Prepared count = {GetPreparedTiles().Count}");
                 UpdateDiscardButton();
                 return true;
             }
         }
 
-        if (debug) Debug.Log("❌ [Space] full, cannot add");
         return false;
     }
 

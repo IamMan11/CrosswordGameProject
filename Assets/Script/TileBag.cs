@@ -142,7 +142,6 @@ public class TileBag : MonoBehaviour
         {
             dataNorm.isSpecial = true;
             drawsSinceSpecial = 0;
-            Debug.Log($"[TileBag] สร้างตัวอักษรพิเศษ: '{dataNorm.letter}'");
         }
         return dataNorm;
     }
@@ -174,7 +173,6 @@ public class TileBag : MonoBehaviour
         // 6) รีเซ็ต counter พิเศษ
         drawsSinceSpecial = 0;
 
-        Debug.Log($"🔁 RefillTileBag → Remaining/Total = {pool.Count}/{TotalInitial}");
         // 7) อัปเดต UI ถุงให้ทันที
         TurnManager.Instance?.UpdateBagUI();
     }
