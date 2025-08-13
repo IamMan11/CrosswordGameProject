@@ -35,7 +35,6 @@ public class LetterTile : MonoBehaviour,
     public void OnPointerClick(PointerEventData eventData)
     {
         if (isLocked) return;
-        Debug.Log($"[Tile] click {data.letter}  IsInSpace={IsInSpace}");
 
         if (IsInSpace && data.letter.Equals("Blank", StringComparison.OrdinalIgnoreCase))
         {
@@ -66,20 +65,17 @@ public class LetterTile : MonoBehaviour,
                         rtIcon.localScale  = Vector3.one;
                     }
                 }
-
-                Debug.Log($"[Blank] Changed to {chosen}");
             });
             return;
         }
         else if (!IsInSpace)
         {
             bool success = SpaceManager.Instance.AddTile(this);
-            Debug.Log($"   → AddTile success={success}");
+
         }
         else
         {
             SpaceManager.Instance.RemoveTile(this);
-            Debug.Log("   → remove from Space");
         }
     }
 
@@ -148,8 +144,6 @@ public class LetterTile : MonoBehaviour,
         scoreText.text = data.score.ToString();
 
         specialMark.enabled = isSpecialTile;   // เปิด/ปิดกรอบ
-        if (isSpecialTile)
-        Debug.Log($"[LetterTile] Instantiate ตัวพิเศษ '{data.letter}' ที่ตำแหน่ง {transform.parent.name}");
     }
     public LetterData GetData() => data;
 

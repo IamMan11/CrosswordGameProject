@@ -319,6 +319,5 @@ public class BoardManager : MonoBehaviour
 
         var randomSlot = unlockable[Random.Range(0, unlockable.Count)];
         randomSlot.Lock();
-        Debug.Log($"🔒 ล็อกช่อง ({randomSlot.row}, {randomSlot.col}) แล้ว");
     }
 }

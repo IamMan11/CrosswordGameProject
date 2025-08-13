@@ -35,6 +35,8 @@ public class TurnManager : MonoBehaviour
     private bool infiniteManaMode = false;
     private Coroutine manaInfiniteCoroutine = null;
     private Dictionary<string, int> usageCountThisTurn = new Dictionary<string, int>();
+    public string LastConfirmedWord { get; private set; }
+    bool inConfirmProcess = false;
 
     void Awake()
     {
@@ -57,6 +59,18 @@ public class TurnManager : MonoBehaviour
     public void ResetTotalScore()
     {
         TotalScore = 0;
+    }
+    void Update()
+    {
+        // ถ้าไม่มี BoardManager หรือกำลังประมวลผล ก็ข้าม
+        if (inConfirmProcess || BoardManager.Instance == null) return;
+
+        // ตรวจว่ามีตัวอักษรบนบอร์ดหรือไม่
+        bool hasTile = BoardManager.Instance.grid
+                        .Cast<BoardSlot>()
+                        .Any(s => s.HasLetterTile());
+
+        confirmBtn.interactable = hasTile;
     }
 
     public void ResetForNewLevel()
@@ -196,7 +210,7 @@ public class TurnManager : MonoBehaviour
             int penalty = tile.GetData().score;
             Score = Mathf.Max(0, Score - penalty);
             UpdateScoreUI();
-            ShowMessage($"✗ Auto remove '{tile.GetData().letter}' -{penalty}", Color.red);
+            ShowMessage($"Auto remove '{tile.GetData().letter}' -{penalty}", Color.red);
         }
     }
 
@@ -258,7 +272,16 @@ public class TurnManager : MonoBehaviour
         messageText.text = string.Empty;
     }
 
-    public void EnableConfirm() => confirmBtn.interactable = true;
+    public void EnableConfirm()
+    {
+        inConfirmProcess = false;
+
+        // ถ้ามีตัวอักษรบนบอร์ด จึงเปิดกด
+        bool hasTile = BoardManager.Instance.grid
+                        .Cast<BoardSlot>()
+                        .Any(s => s.HasLetterTile());
+        confirmBtn.interactable = hasTile;
+    }
 
     public void OnClickDictionaryButton()
     {
@@ -306,11 +329,10 @@ public class TurnManager : MonoBehaviour
             bouncedSet.Add(tile);            // ← จดว่า “เด้งแล้ว”
         }
     }
-
     void OnConfirm()
     {
+        inConfirmProcess = true;
         confirmBtn.interactable = false;
-
         var placed = new List<(LetterTile t, BoardSlot s)>();
         foreach (BoardSlot sl in BoardManager.Instance.grid.Cast<BoardSlot>())
         {
@@ -324,13 +346,11 @@ public class TurnManager : MonoBehaviour
             EnableConfirm();
             return;
         }
-
         if (!MoveValidator.ValidateMove(placed, out var words, out string err))
         {
             RejectMove(placed, err, true);
             return;
         }
-
         // ---------- 1. แยกหมวดคำ ----------
         var invalid   = words.Where(w => !WordChecker.Instance.IsWordValid(w.word)).ToList();
         var duplicate = words.Where(w => boardWords.Contains(w.word)).ToList();
@@ -340,6 +360,7 @@ public class TurnManager : MonoBehaviour
         // ---------- 2. หา main-word ----------
         var placedSet = placed.Select(p => (p.s.row, p.s.col)).ToHashSet();
         var mainWord  = words.FirstOrDefault(w => CountNewInWord(w, placedSet) >= 2);
+        LastConfirmedWord = mainWord.word;
         bool hasMain  = !string.IsNullOrEmpty(mainWord.word);
         bool mainCorrect = hasMain
                         && !invalid .Any(w => w.word == mainWord.word)
@@ -431,7 +452,7 @@ public class TurnManager : MonoBehaviour
                 Score = Mathf.Max(0, Score - penalty);
                 UpdateScoreUI();
             }
-            ShowMessage("❌ คำหลักผิด/ซ้ำ – เสียเทิร์น", Color.red);
+            ShowMessage("คำหลักผิด/ซ้ำ – เสียเทิร์น", Color.red);
 
             // รอให้แอนิเมชันเด้งจบก่อนเปลี่ยนเทิร์น
             StartCoroutine(SkipTurnAfterBounce());         // ▶️ Coroutine ด้านล่าง

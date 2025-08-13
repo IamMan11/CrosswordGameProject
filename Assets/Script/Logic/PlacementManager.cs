@@ -154,7 +154,6 @@ public class PlacementManager : MonoBehaviour
             return;
         }
 
-        if (debug) Debug.Log("✓ Placement complete");
         ClearPreview();
         startSlot = null;
         
