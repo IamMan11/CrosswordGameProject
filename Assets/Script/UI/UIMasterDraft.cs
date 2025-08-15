@@ -63,7 +63,8 @@ public class UIMasterDraft : MonoBehaviour
     public void Open(List<CardData> allCards, OnCardSelectedDelegate callback)
     {
         filteredCards = allCards
-            .Where(cd => cd.category != CardCategory.Wildcard)
+            .Where(cd => cd.category != CardCategory.Wildcard
+                    && cd.category != CardCategory.FusionCard)   // 🆕
             .OrderBy(cd => cd.category)
             .ToList();
 
@@ -81,7 +82,9 @@ public class UIMasterDraft : MonoBehaviour
     private void OnCategoryButtonClicked(CardCategory category)
     {
         filteredCards = CardManager.Instance.allCards
-            .Where(cd => cd.category == category && cd.category != CardCategory.Wildcard)
+            .Where(cd => cd.category == category
+                    && cd.category != CardCategory.Wildcard
+                    && cd.category != CardCategory.FusionCard)   // 🆕
             .ToList();
 
         currentPage = 0;
