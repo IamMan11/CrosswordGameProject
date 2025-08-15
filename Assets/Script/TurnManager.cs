@@ -425,10 +425,15 @@ public class TurnManager : MonoBehaviour
         }
 
         // ---------- 5. คิดคะแนนคำถูกใหม่ ----------
-
         int moveScore = 0;
-        if (!skipTurn)                                         // main-word ถูกเท่านั้น
+        // COMBO: นับจำนวนคำใหม่ของเทิร์นนี้ (คำถูก + ไม่ซ้ำ)
+        int newWordCountThisMove = 0;
+
+        if (!skipTurn) // main-word ถูกเท่านั้น
         {
+            // จำนวนคำใหม่ = จำนวน "correct" ทั้งหมด (เพราะถูกกรองซ้ำ/ผิดออกแล้ว)
+            newWordCountThisMove = correct.Count;
+
             foreach (var w in correct)
             {
                 if (!boardWords.Contains(w.word))
@@ -462,6 +467,13 @@ public class TurnManager : MonoBehaviour
         // ---------- 7. สรุปคะแนน ----------
         moveScore -= penalty;
         if (moveScore < 0) moveScore = 0;
+
+        // COMBO: คูณคะแนนตามจำนวนคำใหม่ (สูงสุด x4)
+        int comboMul = Mathf.Clamp(newWordCountThisMove, 1, 4);
+        if (comboMul > 1)
+        {
+            moveScore = Mathf.CeilToInt(moveScore * comboMul);
+        }
 
         foreach (var (tile, slot) in placed)
         {
@@ -500,7 +512,10 @@ public class TurnManager : MonoBehaviour
             t.Lock();                            // ล็อกเฉพาะไทล์ที่ยังบนบอร์ด
         }
         if (!skipTurn)
-            ShowMessage($"Word Correct +{moveScore}", Color.green);
+        {
+            string comboText = comboMul > 1 ? $" x{comboMul}" : "";
+            ShowMessage($"Word Correct{comboText} +{moveScore}", Color.green);
+        }
         BenchManager.Instance.RefillEmptySlots();
         UpdateBagUI();
         EnableConfirm();

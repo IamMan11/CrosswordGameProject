@@ -27,6 +27,8 @@ public class CardManager : MonoBehaviour
         public CardCategory category;
         public int weight;
     }
+    [Header("Fusion")]
+    public CardFusionTable fusionTable;
 
     // คิวเก็บแต่ละชุดตัวเลือกการ์ด
     private Queue<List<CardData>> optionsQueue = new Queue<List<CardData>>();
@@ -110,8 +112,8 @@ public class CardManager : MonoBehaviour
 
         if (cardsInCategory.Count == 0)
         {
-            // ถ้าไม่มีการ์ดใน Category นี้ ให้ fallback ไปสุ่มจาก allCards ปกติ
-            return allCards[Random.Range(0, allCards.Count)];
+            var pool = allCards.Where(cd => cd.category != CardCategory.FusionCard).ToList();
+            return pool[Random.Range(0, pool.Count)];
         }
 
         // 6) คำนวณผลรวม weight ภายใน Category
@@ -151,9 +153,9 @@ public class CardManager : MonoBehaviour
         // หากยังไม่ครบ 3 ใบ (เช่น หาก weight จัดไว้ผิดพลาด) ให้สุ่มเพิ่มเติมจาก allCards ปกติ
         while (opts.Count < 3)
         {
-            var fallback = allCards[Random.Range(0, allCards.Count)];
-            if (!opts.Contains(fallback))
-                opts.Add(fallback);
+            var fallbackPool = allCards.Where(cd => cd.category != CardCategory.FusionCard).ToList();
+            var fallback = fallbackPool[Random.Range(0, fallbackPool.Count)];
+            if (!opts.Contains(fallback)) opts.Add(fallback);
         }
 
         return opts;
@@ -307,6 +309,48 @@ public class CardManager : MonoBehaviour
                 // แต่โค้ดนี้ยังไม่หัก Mana ตั้งแต่ก่อน confirm จึงไม่ต้องคืน
             }
         );
+    }
+    public bool TryFuseByIndex(int fromIndex, int toIndex)
+    {
+        if (fromIndex == toIndex) return false;
+        if (fromIndex < 0 || fromIndex >= heldCards.Count ||
+            toIndex   < 0 || toIndex   >= heldCards.Count)
+        {
+            UIManager.Instance.ShowMessage("ไม่สามารถ fusion ได้", 1.2f);
+            return false;
+        }
+
+        var a = heldCards[fromIndex];
+        var b = heldCards[toIndex];
+        var result = (fusionTable != null) ? fusionTable.TryFuse(a, b) : null;
+
+        if (result == null)
+        {
+            UIManager.Instance.ShowMessage("ไม่สามารถ fusion ได้", 1.2f);
+            return false;
+        }
+
+        // ใส่ผลลัพธ์ไว้ที่ช่องเป้าหมาย แล้วลบการ์ดต้นทางอีกใบ
+        heldCards[toIndex] = result;
+        heldCards.RemoveAt(fromIndex > toIndex ? fromIndex : fromIndex); // ลบใบ A ออก (index ขยับไม่เป็นปัญหาเพราะเรา set ช่อง B แล้ว)
+
+        UIManager.Instance.UpdateCardSlots(heldCards);
+        UIManager.Instance.ShowMessage($"Fusion: {a.displayName} + {b.displayName} → {result.displayName}", 2f);
+        return true;
+    }
+    public void MoveCard(int fromIndex, int toIndex)
+    {
+        if (fromIndex == toIndex) return;
+        if (fromIndex < 0 || fromIndex >= heldCards.Count) return;
+        if (toIndex < 0) return;
+
+        var card = heldCards[fromIndex];
+        heldCards.RemoveAt(fromIndex);
+
+        if (toIndex > heldCards.Count) toIndex = heldCards.Count;
+        heldCards.Insert(toIndex, card);
+
+        UIManager.Instance.UpdateCardSlots(heldCards);
     }
 
     private void ApplyEffect(CardData card)

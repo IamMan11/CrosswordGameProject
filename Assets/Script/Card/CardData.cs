@@ -26,7 +26,8 @@ public enum CardCategory
     Buff,        // ออกง่ายสุด
     Dispell,     // ออกง่าย
     Neutral,     // ออกปานกลาง
-    Wildcard     // ออกยากสุด
+    Wildcard,
+    FusionCard    // ออกยากสุด
 }
 
 public enum CardEffectType

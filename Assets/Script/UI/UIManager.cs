@@ -111,34 +111,49 @@ public class UIManager : MonoBehaviour
         {
             var btn   = cardSlotButtons[i];
             var icon  = cardSlotIcons[i];
-            var hover = btn.GetComponent<CardSlotUI>();     // ← 🆕 ดึง Hover-Script
+            var hover = btn.GetComponent<CardSlotUI>();
+
+            int index = i; // ✅ ประกาศก่อนใช้
 
             if (i < cards.Count)
             {
                 var data = cards[i];
 
-                    // --- กำหนดกราฟิก ---
+                // กราฟิก
                 icon.sprite  = data.icon;
                 icon.enabled = true;
                 btn.gameObject.SetActive(true);
 
-                    // --- ใส่ข้อมูลให้ Hover ---
-                if (hover != null) hover.cardInSlot = data; // ← 🆕 สำคัญมาก!
+                // ใส่ข้อมูลให้ Slot (สำหรับ hover และ drop)
+                if (hover != null)
+                {
+                    hover.cardInSlot = data;
+                    hover.slotIndex  = index;
+                }
 
-                    // --- คลิกใช้ / แทนที่ ---
+                // 🆕 ผูกตัวลาก
+                var drag = icon.GetComponent<CardDraggable>();
+                if (drag == null) drag = icon.gameObject.AddComponent<CardDraggable>();
+                drag.SetData(index, data); // ให้รู้ว่าอยู่ช่องไหนและเป็นการ์ดอะไร
+
+                // คลิก (ยังใช้ได้ตามเดิม)
                 btn.onClick.RemoveAllListeners();
-                int index = i;
                 if (replaceMode)
                     btn.onClick.AddListener(() => CardManager.Instance.ReplaceSlot(index));
                 else
                     btn.onClick.AddListener(() => CardManager.Instance.UseCard(index));
             }
-                else
-                {
-                    // ช่องว่าง
+            else
+            {
                 btn.gameObject.SetActive(false);
-                if (hover != null) hover.cardInSlot = null; // ← 🆕 เคลียร์ข้อมูล
+                if (hover != null)
+                {
+                    hover.cardInSlot = null;
+                    hover.slotIndex  = index; // เผื่อกรณี drop ใส่ช่องว่าง
                 }
+                var drag = icon.GetComponent<CardDraggable>();
+                if (drag != null) drag.SetData(index, null);
+            }
         }
     }
 }

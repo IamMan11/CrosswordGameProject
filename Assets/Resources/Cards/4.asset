@@ -13,13 +13,13 @@ MonoBehaviour:
   m_Name: 4
   m_EditorClassIdentifier: 
   id: 4
-  displayName: Glyph Spark
-  description: wwwwww
-  icon: {fileID: 21300000, guid: 69d6ac52d5876a44aba4566e7f77ee98, type: 3}
-  effectType: 1
-  Mana: 5
+  displayName: C
+  description: dwwddwwdwd
+  icon: {fileID: 21300000, guid: e18d2b666f1974e49b414fd6e408a9be, type: 3}
+  effectType: 0
+  Mana: 1
   maxUsagePerTurn: 1
   category: 0
   weight: 1
   requirePurchase: 0
-  price: 30
+  price: 0
