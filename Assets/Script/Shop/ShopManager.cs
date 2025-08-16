@@ -57,6 +57,18 @@ public class ShopManager : MonoBehaviour
         RefreshUI();        // ของเดิม
         TryRerollAtStart();
     }
+    List<CardData> BuildPurchasablePool()
+    {
+        // โหลดการ์ดทั้งหมดจาก Resources/Cards
+        var all = Resources.LoadAll<CardData>("Cards");
+
+        // กรอง: requirePurchase = true และยังไม่เป็นเจ้าของ
+        var pool = all.Where(c => c != null
+                            && c.requirePurchase
+                            && !PlayerProgressSO.Instance.HasCard(c.id))
+                    .ToList();
+        return pool;
+    }
     void TryRerollAtStart() {
         if (CardManager.Instance == null) {
             Debug.LogError("[Shop] CardManager.Instance = null (ยังไม่ได้วาง CardManager ในซีน)");
@@ -156,22 +168,25 @@ public class ShopManager : MonoBehaviour
     }
     void RerollShop() {
     // เซฟการ์ดพูล
-        var pool = CardManager.Instance.allCards;
-        if (pool == null || pool.Count == 0) {
-            Debug.LogError("[Shop] Card pool ว่าง (CardManager.allCards ไม่มีของ)");
-            return;
-        }
+        var pool = BuildPurchasablePool();
 
-        // สุ่มกระจายลงทุกสลอต (กันซ้ำคร่าว ๆ)
-        var used = new System.Collections.Generic.HashSet<CardData>();
-        for (int i = 0; i < shopSlots.Length; i++) {
-            var pick = pool[Random.Range(0, pool.Count)];
-            int guard = 0;
-            while (used.Contains(pick) && guard++ < 20) {
-                pick = pool[Random.Range(0, pool.Count)];
+        for (int i = 0; i < shopSlots.Length; i++)
+        {
+            CardData pick = null;
+
+            if (pool.Count > 0)
+            {
+                // ดึงแบบสุ่ม (และไม่ซ้ำ)
+                int idx = Random.Range(0, pool.Count);
+                pick = pool[idx];
+                pool.RemoveAt(idx);
             }
-            used.Add(pick);
+
+            // ใส่การ์ดลงช่อง (หรือ null ถ้าพูลหมด)
             shopSlots[i].SetCard(pick);
+
+            // ถ้าอยากซ่อนช่องว่าง ให้ใช้:
+            // shopSlots[i].gameObject.SetActive(pick != null);
         }
     }
 
