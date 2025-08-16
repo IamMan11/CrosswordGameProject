@@ -46,11 +46,18 @@ public class CardManager : MonoBehaviour
     void Awake()
     {
         if (Instance == null) Instance = this; else { Destroy(gameObject); return; }
+        DontDestroyOnLoad(gameObject);
 
-        maxHeldCards = PlayerProgressSO.Instance.data.maxCardSlots;   // ✨
-        DontDestroyOnLoad(gameObject);       // 🟢 ต้องมี เพื่ออยู่ข้าม Scene
-        LoadAllCards();                      // 🟢 เมธอดที่จะโหลด CardData ทั้งหมด
+        maxHeldCards = 2; // ค่า default กันพัง
+        var prog = PlayerProgressSO.Instance;
+        if (prog != null && prog.data != null)
+            maxHeldCards = Mathf.Max(1, prog.data.maxCardSlots);
+        else
+            Debug.LogWarning("[CardManager] PlayerProgressSO ยังไม่พร้อม ใช้ค่า default 2 ชั่วคราว");
+
+        LoadAllCards();
     }
+
     void LoadAllCards()
     {
         // ดึง CardData ทั้งหมดจาก Resources/Cards เหมือนตัวอย่างก่อนหน้า
