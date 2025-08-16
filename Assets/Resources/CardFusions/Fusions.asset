@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: Fusions
   m_EditorClassIdentifier: 
   recipes:
-  - a: {fileID: 11400000, guid: aef414b6a550f274aa5863f13f138cd9, type: 2}
-    b: {fileID: 11400000, guid: c814c5c78d3a1c94fa882273a5fe29b5, type: 2}
-    result: {fileID: 11400000, guid: 789eb4634b033dd4f9a53a458a8e49c4, type: 2}
+  - a: {fileID: 11400000, guid: a9792e4bd5125eb4698f372ba82deca1, type: 2}
+    b: {fileID: 11400000, guid: e428e4d2bfdbd3c4796b3399c4f9beca, type: 2}
+    result: {fileID: 11400000, guid: 10121a11b404bfb4995489e1565a9cb4, type: 2}

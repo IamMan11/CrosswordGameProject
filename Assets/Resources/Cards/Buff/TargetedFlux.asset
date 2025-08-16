@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b93f30633ee9c0a478ba730363e01632, type: 3}
+  m_Name: TargetedFlux
+  m_EditorClassIdentifier: 
+  id: 23
+  displayName: Targeted Flux
+  description: Can Chose 5 Special Slot in Board by Click
+  icon: {fileID: 0}
+  effectType: 18
+  Mana: 5
+  maxUsagePerTurn: 5
+  category: 0
+  weight: 3
+  requirePurchase: 1
+  price: 500
