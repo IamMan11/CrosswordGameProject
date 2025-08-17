@@ -1114,6 +1114,111 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &1532260360
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 2630831873994330924, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 487.74625
+      objectReference: {fileID: 0}
+    - target: {fileID: 2630831873994330924, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 796.3121
+      objectReference: {fileID: 0}
+    - target: {fileID: 2630831873994330924, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -7.196937
+      objectReference: {fileID: 0}
+    - target: {fileID: 2630831873994330924, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2630831873994330924, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2630831873994330924, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2630831873994330924, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2630831873994330924, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2630831873994330924, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2630831873994330924, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5789031543709071634, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: m_Name
+      value: CardManager
+      objectReference: {fileID: 0}
+    - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: fusionPath
+      value: CardFusions/Fusions
+      objectReference: {fileID: 0}
+    - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: testFolder
+      value: Card_Tests
+      objectReference: {fileID: 0}
+    - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: fusionTable
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: useTestFolder
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: fusionPath_Test
+      value: CardFusions/Fusions
+      objectReference: {fileID: 0}
+    - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: cardsFolder_Test
+      value: Card_Tests
+      objectReference: {fileID: 0}
+    - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: useTestInThisScene
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: allCards.Array.size
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: 'allCards.Array.data[0]'
+      value: 
+      objectReference: {fileID: 11400000, guid: a9792e4bd5125eb4698f372ba82deca1, type: 2}
+    - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: 'allCards.Array.data[1]'
+      value: 
+      objectReference: {fileID: 11400000, guid: e428e4d2bfdbd3c4796b3399c4f9beca, type: 2}
+    - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: 'allCards.Array.data[2]'
+      value: 
+      objectReference: {fileID: 11400000, guid: cd1a0df017dd43f4d8bbf1e1df6e2558, type: 2}
+    - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: useTestFolderInThisScene
+      value: 1
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
 --- !u!1 &1708467204
 GameObject:
   m_ObjectHideFlags: 0
@@ -1434,3 +1539,4 @@ SceneRoots:
   - {fileID: 182440402}
   - {fileID: 8316886177658362911}
   - {fileID: 5773249362523465148}
+  - {fileID: 1532260360}

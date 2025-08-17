@@ -42,26 +42,80 @@ public class CardManager : MonoBehaviour
 
     [Header("UI")]
     public UICardSelect uiSelect;
+    // ====== เพิ่มฟิลด์ด้านบนคลาส CardManager ======
+    [SerializeField] string cardsFolder       = "Cards";        // โฟลเดอร์การ์ดหลัก (Resources/Cards)
+    [SerializeField] string cardsFolder_Test  = "Card_Tests";   // โฟลเดอร์การ์ดเทสต์ (Resources/Cards_Test)
+    [SerializeField] string fusionPath        = "CardFusions/Fusions";       // Resources/Fusion/CardFusionTable.asset
+    [SerializeField] string fusionPath_Test   = "CardFusions/Fusions";  // Resources/Fusion/CardFusionTable_Test.asset
+    [SerializeField] bool   useTestInThisScene = false; // ติ๊กในซีนแรกถ้าจะเทสต์
+
+    // ค่าที่คงอยู่ข้ามซีน
+    static bool   sInited;
+    static string sActiveCardsFolder;
+    static string sActiveFusionPath;
 
     void Awake()
     {
         if (Instance == null) Instance = this; else { Destroy(gameObject); return; }
         DontDestroyOnLoad(gameObject);
 
-        maxHeldCards = 2; // ค่า default กันพัง
+        maxHeldCards = 2;
         var prog = PlayerProgressSO.Instance;
         if (prog != null && prog.data != null)
             maxHeldCards = Mathf.Max(1, prog.data.maxCardSlots);
         else
             Debug.LogWarning("[CardManager] PlayerProgressSO ยังไม่พร้อม ใช้ค่า default 2 ชั่วคราว");
 
+        // ตั้งค่าเส้นทางใช้งานครั้งเดียวต่อแอป
+        if (!sInited)
+        {
+            bool useTest = useTestInThisScene;
+            sActiveCardsFolder = useTest ? cardsFolder_Test : cardsFolder;
+            sActiveFusionPath  = useTest ? fusionPath_Test  : fusionPath;
+            sInited = true;
+        }
+
         LoadAllCards();
+        LoadFusionTable();   // 🆕 โหลดตารางฟิวชันด้วย
     }
 
+    
     void LoadAllCards()
     {
-        // ดึง CardData ทั้งหมดจาก Resources/Cards เหมือนตัวอย่างก่อนหน้า
-        allCards = Resources.LoadAll<CardData>("Cards").ToList();
+        var folder = string.IsNullOrEmpty(sActiveCardsFolder) ? cardsFolder : sActiveCardsFolder;
+        allCards = Resources.LoadAll<CardData>(folder).ToList();
+        Debug.Log($"[CardManager] Loaded {allCards.Count} cards from Resources/{folder}");
+    }
+// ====== เพิ่มเมธอดโหลด CardFusionTable ======
+    void LoadFusionTable()
+    {
+        var path = string.IsNullOrEmpty(sActiveFusionPath) ? fusionPath : sActiveFusionPath;
+
+        // ถ้า Inspector ไม่ได้เซ็ต fusionTable ไว้ จะพยายามโหลดจาก Resources
+        if (fusionTable == null)
+            fusionTable = Resources.Load<CardFusionTable>(path);
+
+        // กันพลาด: ถ้าโหลดได้ ให้ build map ทันที
+        if (fusionTable != null)
+        {
+            fusionTable.BuildMap();
+            Debug.Log($"[CardManager] FusionTable loaded from Resources/{path}");
+        }
+        else
+        {
+            Debug.LogWarning($"[CardManager] ไม่พบ FusionTable ที่ Resources/{path} (จะใช้ค่าที่ผูกใน Inspector ถ้ามี)");
+        }
+    }
+    // ==== เมธอดสลับตอนรัน/จากเมนู ====
+    // ====== เมธอดสลับโหมดระหว่างรัน (ถ้าต้องการ) ======
+    public void UseTestMode(bool on)
+    {
+        sActiveCardsFolder = on ? cardsFolder_Test : cardsFolder;
+        sActiveFusionPath  = on ? fusionPath_Test  : fusionPath;
+        LoadAllCards();
+        fusionTable = null;          // บังคับให้โหลดใหม่จาก Resources
+        LoadFusionTable();
+        UIManager.Instance?.UpdateCardSlots(heldCards);
     }
     void OnEnable()
     {

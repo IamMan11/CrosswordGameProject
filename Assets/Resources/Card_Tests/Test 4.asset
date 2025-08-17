@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b93f30633ee9c0a478ba730363e01632, type: 3}
-  m_Name: Text 4
+  m_Name: Test 4
   m_EditorClassIdentifier: 
-  id: 102
-  displayName: Twin Draw
+  id: 103
+  displayName: echo brust
   description: 
   icon: {fileID: 0}
-  effectType: 5
+  effectType: 4
   Mana: 0
-  maxUsagePerTurn: 100
+  maxUsagePerTurn: 1
   category: 0
   weight: 1
   requirePurchase: 0
