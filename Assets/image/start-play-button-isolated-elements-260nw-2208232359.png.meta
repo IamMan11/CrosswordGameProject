@@ -147,7 +147,8 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      start-play-button-isolated-elements-260nw-2208232359_0: -5460515251464224122
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
