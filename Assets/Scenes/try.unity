@@ -2759,7 +2759,7 @@ MonoBehaviour:
     requiredWords: 0
     timeLimit: 1000
     enableAutoRemove: 1
-    autoRemoveInterval: 10
+    autoRemoveInterval: 10000
   - levelIndex: 2
     requiredScore: 5
     requiredWords: 0

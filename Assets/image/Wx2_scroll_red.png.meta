@@ -147,7 +147,8 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      Wx2_scroll_red_0: 2063970205673326240
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

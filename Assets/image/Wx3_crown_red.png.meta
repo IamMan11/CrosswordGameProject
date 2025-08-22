@@ -147,7 +147,8 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      Wx3_crown_red_0: -800832439792541508
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

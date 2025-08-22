@@ -147,7 +147,8 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      tilebackbut-Photoroom_0: 617129717573400577
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

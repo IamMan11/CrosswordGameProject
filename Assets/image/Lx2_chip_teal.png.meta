@@ -147,7 +147,8 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      Lx2_chip_teal_0: -4080982987432193030
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

@@ -147,7 +147,8 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      Lx3_bolt_teal_0: 4426214514080435957
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
