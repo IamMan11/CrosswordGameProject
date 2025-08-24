@@ -30,6 +30,11 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
     [HideInInspector] public int row;
     [HideInInspector] public int col;
     [HideInInspector] public SlotType type = SlotType.Normal;
+    void Awake()
+    {
+        if (highlight != null) highlight.raycastTarget = false;
+        if (icon != null)      icon.raycastTarget      = false;
+    }
 
     public void Setup(int r, int c, SlotType t, int _manaGain, Sprite overlaySprite = null)
     {
@@ -55,22 +60,22 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
     public void SetIcon(Sprite s)
     {
         if (icon == null) return;
+
         icon.sprite = s;
         icon.enabled = s != null;
+        icon.raycastTarget = false;            // สำคัญ: ไม่รับเมาส์
+
         if (s != null)
         {
-            // ให้ไอคอนยืดตามขนาดช่อง
-            icon.preserveAspect = false;   // <-- เปลี่ยนจาก true เป็น false
-            icon.raycastTarget = false;
-
-            // กันพลาด: บังคับให้ RectTransform ของ Icon กางเต็มช่อง
+            icon.preserveAspect = false;
             var rt = icon.rectTransform;
-            rt.anchorMin = Vector2.zero; 
+            rt.anchorMin = Vector2.zero;
             rt.anchorMax = Vector2.one;
-            rt.offsetMin = Vector2.zero; 
+            rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
 
-            icon.type = Image.Type.Simple; // ให้เป็น Simple ปกติ
+            icon.type = Image.Type.Simple;
+            icon.transform.SetAsFirstSibling(); // ไอคอนอยู่ล่างสุด
         }
     }
 
@@ -120,7 +125,12 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
     }
 
     // ---------- ให้ PlacementManager เรียก ----------
-    public void ShowPreview(Color color) { highlight.enabled = true; highlight.color = color; }
+    public void ShowPreview(Color color)
+    {
+        highlight.transform.SetAsLastSibling(); // บนสุด
+        highlight.enabled = true;
+        highlight.color = color;
+    }
     public void HidePreview() { highlight.enabled = false; }
 
     public bool HasLetterTile()

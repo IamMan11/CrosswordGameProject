@@ -2784,6 +2784,81 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &272039406
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 272039407}
+  - component: {fileID: 272039409}
+  - component: {fileID: 272039408}
+  m_Layer: 5
+  m_Name: Backgroud
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &272039407
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 272039406}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 420713075}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &272039408
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 272039406}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 0
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: -5955160511585536394, guid: 9832ac1de0b74b94ba242b6ec9f5ea90, type: 3}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &272039409
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 272039406}
+  m_CullTransparentMesh: 1
 --- !u!1 &274578234
 GameObject:
   m_ObjectHideFlags: 0
@@ -4538,12 +4613,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0cd44c1031e13a943bb63640046fad76, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_UiScaleMode: 0
+  m_UiScaleMode: 1
   m_ReferencePixelsPerUnit: 100
   m_ScaleFactor: 1
-  m_ReferenceResolution: {x: 800, y: 600}
+  m_ReferenceResolution: {x: 1920, y: 1080}
   m_ScreenMatchMode: 0
-  m_MatchWidthOrHeight: 0
+  m_MatchWidthOrHeight: 0.5
   m_PhysicalUnit: 3
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
@@ -4584,9 +4659,10 @@ RectTransform:
   m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 1745993520}
-  - {fileID: 1480716708}
+  - {fileID: 272039407}
   - {fileID: 2146283255}
+  - {fileID: 1480716708}
+  - {fileID: 1745993520}
   - {fileID: 544769946}
   - {fileID: 1930296279}
   - {fileID: 1336419181}
@@ -9182,282 +9258,282 @@ MonoBehaviour:
     col: 5
     type: 2
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 4426214514080435957, guid: d1d7db8e5dc304a45991d2e8d091f6fe, type: 3}
   - row: 8
     col: 6
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 6
     col: 8
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 5
     col: 9
     type: 2
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 4426214514080435957, guid: d1d7db8e5dc304a45991d2e8d091f6fe, type: 3}
   - row: 4
     col: 10
     type: 3
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 2063970205673326240, guid: c6246ff80a2799c429e001e08b2f6ef3, type: 3}
   - row: 3
     col: 11
     type: 3
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 2063970205673326240, guid: c6246ff80a2799c429e001e08b2f6ef3, type: 3}
   - row: 2
     col: 12
     type: 3
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 2063970205673326240, guid: c6246ff80a2799c429e001e08b2f6ef3, type: 3}
   - row: 1
     col: 13
     type: 3
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 2063970205673326240, guid: c6246ff80a2799c429e001e08b2f6ef3, type: 3}
   - row: 14
     col: 14
     type: 4
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -800832439792541508, guid: 2e99160d0e3d00241a06ac592e92aa41, type: 3}
   - row: 13
     col: 13
     type: 3
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 2063970205673326240, guid: c6246ff80a2799c429e001e08b2f6ef3, type: 3}
   - row: 12
     col: 12
     type: 3
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 2063970205673326240, guid: c6246ff80a2799c429e001e08b2f6ef3, type: 3}
   - row: 11
     col: 11
     type: 3
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 2063970205673326240, guid: c6246ff80a2799c429e001e08b2f6ef3, type: 3}
   - row: 10
     col: 10
     type: 3
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 2063970205673326240, guid: c6246ff80a2799c429e001e08b2f6ef3, type: 3}
   - row: 9
     col: 9
     type: 2
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 4426214514080435957, guid: d1d7db8e5dc304a45991d2e8d091f6fe, type: 3}
   - row: 8
     col: 8
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 6
     col: 6
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 5
     col: 5
     type: 2
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 4426214514080435957, guid: d1d7db8e5dc304a45991d2e8d091f6fe, type: 3}
   - row: 4
     col: 4
     type: 3
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 2063970205673326240, guid: c6246ff80a2799c429e001e08b2f6ef3, type: 3}
   - row: 3
     col: 3
     type: 3
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 2063970205673326240, guid: c6246ff80a2799c429e001e08b2f6ef3, type: 3}
   - row: 2
     col: 2
     type: 3
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 2063970205673326240, guid: c6246ff80a2799c429e001e08b2f6ef3, type: 3}
   - row: 1
     col: 1
     type: 3
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 2063970205673326240, guid: c6246ff80a2799c429e001e08b2f6ef3, type: 3}
   - row: 0
     col: 0
     type: 4
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -800832439792541508, guid: 2e99160d0e3d00241a06ac592e92aa41, type: 3}
   - row: 7
     col: 7
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 0
     col: 3
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 0
     col: 7
     type: 4
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -800832439792541508, guid: 2e99160d0e3d00241a06ac592e92aa41, type: 3}
   - row: 0
     col: 11
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 0
     col: 14
     type: 4
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -800832439792541508, guid: 2e99160d0e3d00241a06ac592e92aa41, type: 3}
   - row: 14
     col: 3
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 14
     col: 7
     type: 4
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -800832439792541508, guid: 2e99160d0e3d00241a06ac592e92aa41, type: 3}
   - row: 14
     col: 11
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 3
     col: 0
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 7
     col: 0
     type: 4
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -800832439792541508, guid: 2e99160d0e3d00241a06ac592e92aa41, type: 3}
   - row: 11
     col: 0
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 3
     col: 14
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 7
     col: 14
     type: 4
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -800832439792541508, guid: 2e99160d0e3d00241a06ac592e92aa41, type: 3}
   - row: 11
     col: 14
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 5
     col: 13
     type: 2
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 4426214514080435957, guid: d1d7db8e5dc304a45991d2e8d091f6fe, type: 3}
   - row: 9
     col: 13
     type: 2
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 4426214514080435957, guid: d1d7db8e5dc304a45991d2e8d091f6fe, type: 3}
   - row: 5
     col: 1
     type: 2
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 4426214514080435957, guid: d1d7db8e5dc304a45991d2e8d091f6fe, type: 3}
   - row: 9
     col: 1
     type: 2
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 4426214514080435957, guid: d1d7db8e5dc304a45991d2e8d091f6fe, type: 3}
   - row: 1
     col: 5
     type: 2
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 4426214514080435957, guid: d1d7db8e5dc304a45991d2e8d091f6fe, type: 3}
   - row: 13
     col: 5
     type: 2
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 4426214514080435957, guid: d1d7db8e5dc304a45991d2e8d091f6fe, type: 3}
   - row: 1
     col: 9
     type: 2
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 4426214514080435957, guid: d1d7db8e5dc304a45991d2e8d091f6fe, type: 3}
   - row: 13
     col: 9
     type: 2
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: 4426214514080435957, guid: d1d7db8e5dc304a45991d2e8d091f6fe, type: 3}
   - row: 6
     col: 2
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 8
     col: 2
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 6
     col: 12
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 8
     col: 12
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 2
     col: 6
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 2
     col: 8
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 12
     col: 6
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 12
     col: 8
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 3
     col: 7
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 11
     col: 7
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 7
     col: 3
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   - row: 7
     col: 11
     type: 1
     manaGain: 3
-    sprite: {fileID: 0}
+    sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   centerSlotSprite: {fileID: 3980168229369012863, guid: 9f53eab0fe030f040843ebb0b9fcc8e8, type: 3}
   manaGain: 0
   targetedFluxRemaining: 0
