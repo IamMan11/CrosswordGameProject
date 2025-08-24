@@ -1,3 +1,5 @@
+// BoardSlot.cs
+
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
@@ -21,21 +23,28 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
         }
         return null;        // none found
     }
-    [HideInInspector] public int manaGain;   // ← เพิ่มบรรทัดนี้
-
+    // ⬇️ เพิ่มบรรทัดนี้
+    [Header("Icon")]
+    public Image icon;   // Image สำหรับโชว์รูปพิเศษ/รูปช่องกลาง
+    [HideInInspector] public int manaGain;
     [HideInInspector] public int row;
     [HideInInspector] public int col;
     [HideInInspector] public SlotType type = SlotType.Normal;
-
-    public void Setup(int r, int c, SlotType t, int _manaGain)
+    void Awake()
     {
-        row      = r;
-        col      = c;
-        type     = t;
-        manaGain = _manaGain;              // ← เก็บค่าเข้า slot
-        ApplyVisual();
+        if (highlight != null) highlight.raycastTarget = false;
+        if (icon != null)      icon.raycastTarget      = false;
     }
 
+    public void Setup(int r, int c, SlotType t, int _manaGain, Sprite overlaySprite = null)
+    {
+        row = r;
+        col = c;
+        type = t;
+        manaGain = _manaGain;
+        ApplyVisual();
+        SetIcon(overlaySprite);
+    }
     public void ApplyVisual()
     {
         bg.color = type switch
@@ -46,6 +55,28 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
             SlotType.TripleWord => new Color32(255, 64, 64, 255),
             _ => Color.white
         };
+    }
+     // ⬇️ เมธอดใหม่สำหรับตั้ง/เอารูปออก
+    public void SetIcon(Sprite s)
+    {
+        if (icon == null) return;
+
+        icon.sprite = s;
+        icon.enabled = s != null;
+        icon.raycastTarget = false;            // สำคัญ: ไม่รับเมาส์
+
+        if (s != null)
+        {
+            icon.preserveAspect = false;
+            var rt = icon.rectTransform;
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+
+            icon.type = Image.Type.Simple;
+            icon.transform.SetAsFirstSibling(); // ไอคอนอยู่ล่างสุด
+        }
     }
 
     // ---------- Hover ส่งต่อให้ PlacementManager ----------
@@ -94,13 +125,18 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
     }
 
     // ---------- ให้ PlacementManager เรียก ----------
-    public void ShowPreview(Color color) { highlight.enabled = true; highlight.color = color; }
+    public void ShowPreview(Color color)
+    {
+        highlight.transform.SetAsLastSibling(); // บนสุด
+        highlight.enabled = true;
+        highlight.color = color;
+    }
     public void HidePreview() { highlight.enabled = false; }
 
     public bool HasLetterTile()
     {
-        if (transform.childCount > 1) return true;
-        return GetComponentInChildren<LetterTile>() != null;
+        // ⬇️ ปรับให้เช็คเฉพาะ LetterTile จริง ๆ (ไม่หลงนับ Icon/Highlight)
+        return GetLetterTile() != null;
     }
 
     // ลบตัวอักษรออกจากช่องและคืนวัตถุ LetterTile

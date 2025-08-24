@@ -16,12 +16,25 @@ public class ShopManager : MonoBehaviour
     [SerializeField] Button tileBtn;
     [SerializeField] Button RerollBtn;
 
+    // ⬇⬇⬇ เพิ่มช่องแสดงผลตามที่ต้องการ
+    [Header("UI - Upgrade Progress (n/MAX or Max)")]
+    [SerializeField] TMP_Text manaProgressText;
+    [SerializeField] TMP_Text slotProgressText;
+    [SerializeField] TMP_Text tileProgressText;
+
+    [Header("UI - Current Stats")]
+    [SerializeField] TMP_Text manaStatText;   // data.maxMana
+    [SerializeField] TMP_Text slotStatText;   // data.maxCardSlots
+    [SerializeField] TMP_Text tileStatText;  // ← ใช้ตัวนี้แสดง TileBack (ความจุถุง)
+    [Header("TileBag Base")]
+    [SerializeField] int baseTileBack = 100;
+
     /* === ราคาต่อครั้ง  ======================================== */
     [Header("Upgrade Cost / ครั้ง")]
     [SerializeField] int manaUpgradeCost = 50;
     [SerializeField] int slotUpgradeCost = 75;
-    [SerializeField] int tilepackCost = 40;
-    [SerializeField] int rerollCost = 50;
+    [SerializeField] int tilepackCost   = 40;
+    [SerializeField] int rerollCost     = 50;
 
     /* === จำนวนครั้งซื้อสูงสุด  ================================ */
     [Header("Upgrade Limits (ครั้ง)")]
@@ -43,18 +56,29 @@ public class ShopManager : MonoBehaviour
     /* ----------------------------------------------------------- */
     void Awake()
     {
-        if (Instance != null && Instance != this) { Destroy(gameObject); return; }  // 🆕
-        Instance = this;                                                            // 🆕
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        Instance = this;
 
-        // ของเดิม
+        // โหลดจำนวนที่ซื้อไว้แล้ว
         manaBought = PlayerPrefs.GetInt(PREF_MANA, 0);
         slotBought = PlayerPrefs.GetInt(PREF_SLOT, 0);
         tileBought = PlayerPrefs.GetInt(PREF_TILE, 0);
+
+        // ซิงก์ค่าตัวนับไปที่ ScriptableObject ด้วย (เผื่อไปแสดงที่อื่น)
+        if (PlayerProgressSO.Instance != null && PlayerProgressSO.Instance.data != null)
+        {
+            var so = PlayerProgressSO.Instance.data;
+            so.manaUpCount = manaBought;
+            so.slotUpCount = slotBought;
+            so.tileUpCount = tileBought;
+        }
     }
+
+    void OnEnable() => RefreshUI();
 
     void Start()
     {
-        RefreshUI();        // ของเดิม
+        RefreshUI();
         TryRerollAtStart();
     }
     List<CardData> BuildPurchasablePool()
@@ -97,63 +121,62 @@ public class ShopManager : MonoBehaviour
         // จากนั้นค่อยโหลด Scene เกมหลัก
         SceneManager.LoadScene("Try");
     }
+    int GetTileBackCapacity()
+    {
+        // ถ้ามี TileBag ในซีน ใช้ค่าจริงจากถุง (TotalInitial = base + extraTiles)
+        if (TileBag.Instance != null)
+            return TileBag.Instance.TotalInitial; // :contentReference[oaicite:2]{index=2}
+
+        // ถ้าไม่มี TileBag (เช่นอยู่หน้า Shop) ให้คำนวณจาก Progress: base + extraTiles
+        var so = PlayerProgressSO.Instance?.data;         // extraTiles เก็บใน Progress :contentReference[oaicite:3]{index=3}
+        int extra = (so != null) ? so.extraTiles : 0;
+        return baseTileBack + extra;
+    }
 
     /* ---------- ปุ่มอัปเกรดแต่ละอย่าง ---------- */
     public void OnBuyMana()
     {
-        if (manaBought >= manaUpgradeMaxTimes)
-        {
-            ShowMsg("อัปเกรด Mana เต็มแล้ว!");
-            return;
-        }
-
+        if (manaBought >= manaUpgradeMaxTimes) { ShowMsg("อัปเกรด Mana เต็มแล้ว!"); return; }
         if (!Spend(manaUpgradeCost)) return;
 
         PlayerProgressSO.Instance.data.maxMana += 2;
+
         manaBought++;
         PlayerPrefs.SetInt(PREF_MANA, manaBought);
+        PlayerProgressSO.Instance.data.manaUpCount = manaBought;   // ซิงก์ตัวนับ
+
         RefreshUI();
         ShowMsg("+2 Mana สำเร็จ");
     }
 
     public void OnBuyCardSlot()
     {
-        if (slotBought >= slotUpgradeMaxTimes)
-        {
-            ShowMsg("อัปเกรด Slot เต็มแล้ว!");
-            return;
-        }
-
+        if (slotBought >= slotUpgradeMaxTimes) { ShowMsg("อัปเกรด Slot เต็มแล้ว!"); return; }
         if (!Spend(slotUpgradeCost)) return;
 
-        // อัปเดต Progress
         PlayerProgressSO.Instance.data.maxCardSlots += 1;
 
-        // อัปเดตจำนวนช่องการ์ดที่ถือได้ใน CardManager ให้ตรงกับ Progress ใหม่
         if (CardManager.Instance != null)
             CardManager.Instance.UpgradeMaxHeldCards(PlayerProgressSO.Instance.data.maxCardSlots);
 
-        // บันทึกจำนวนครั้งซื้อ และอัปเดต UI
         slotBought++;
         PlayerPrefs.SetInt(PREF_SLOT, slotBought);
+        PlayerProgressSO.Instance.data.slotUpCount = slotBought;   // ซิงก์ตัวนับ
+
         RefreshUI();
         ShowMsg("+1 Card Slot สำเร็จ");
     }
 
     public void OnBuyTilePack()
     {
-        if (tileBought >= tileUpgradeMaxTimes)
-        {
-            ShowMsg("อัปเกรด TilePack เต็มแล้ว!");
-            return;
-        }
+        if (tileBought >= tileUpgradeMaxTimes) { ShowMsg("อัปเกรด TilePack เต็มแล้ว!"); return; }
         if (!Spend(tilepackCost)) return;
 
-        // 1) อัปเดต ProgressSO ก่อน
         PlayerProgressSO.Instance.data.extraTiles += 10;
+
         tileBought++;
         PlayerPrefs.SetInt(PREF_TILE, tileBought);
-
+        PlayerProgressSO.Instance.data.tileUpCount = tileBought;   // ซิงก์ตัวนับ
 
         RefreshUI();
         ShowMsg("+10 Tiles สำเร็จ");
@@ -202,13 +225,31 @@ public class ShopManager : MonoBehaviour
     }
 
     /* ---------- อัปเดต UI / ล็อกปุ่ม ---------- */
+    /* ---------- อัปเดต UI ---------- */
+    string ProgressText(int bought, int max) => (bought >= max) ? "Max" : $"{bought}/{max}";
+
     public void RefreshUI()
     {
-        coinText.text = $"Coins : {CurrencyManager.Instance.Coins}";
+        if (coinText) coinText.text = $"Coins : {CurrencyManager.Instance.Coins}";
 
-        manaBtn.interactable = manaBought < manaUpgradeMaxTimes;
-        slotBtn.interactable = slotBought < slotUpgradeMaxTimes;
-        tileBtn.interactable = tileBought < tileUpgradeMaxTimes;
+        // เปิด/ปิดปุ่มตามเพดานอัปเกรด
+        if (manaBtn) manaBtn.interactable = manaBought < manaUpgradeMaxTimes;
+        if (slotBtn) slotBtn.interactable = slotBought < slotUpgradeMaxTimes;
+        if (tileBtn) tileBtn.interactable = tileBought < tileUpgradeMaxTimes;
+
+        // แสดงความคืบหน้า n/MAX หรือ Max
+        if (manaProgressText) manaProgressText.text = ProgressText(manaBought, manaUpgradeMaxTimes);
+        if (slotProgressText) slotProgressText.text = ProgressText(slotBought, slotUpgradeMaxTimes);
+        if (tileProgressText) tileProgressText.text = ProgressText(tileBought, tileUpgradeMaxTimes);
+
+        // แสดงค่าสถานะปัจจุบัน
+        var so = PlayerProgressSO.Instance?.data;
+        if (so != null)
+        {
+            if (manaStatText) manaStatText.text = so.maxMana.ToString();         // MaxMana ปัจจุบัน
+            if (slotStatText) slotStatText.text = so.maxCardSlots.ToString();    // Card Slot ปัจจุบัน
+            if (tileStatText) tileStatText.text = GetTileBackCapacity().ToString();      // TileBack/Extra Tiles ปัจจุบัน
+        }
     }
 
     /* ---------- แสดงข้อความแบบง่าย ---------- */
