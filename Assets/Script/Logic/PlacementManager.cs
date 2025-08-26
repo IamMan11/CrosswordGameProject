@@ -22,6 +22,7 @@ public class PlacementManager : MonoBehaviour
     // preview
     private readonly List<BoardSlot> currentPreview = new();
     private bool previewIsValid = false;
+    bool _isRefreshing = false;
 
     // สำหรับ Undo (ในโหมดเล่นคนเดียวอาจไม่ใช้ แต่เผื่อไว้)
     private readonly List<(LetterTile tile, BoardSlot slot)> lastPlacedTiles = new();
@@ -44,8 +45,38 @@ public class PlacementManager : MonoBehaviour
     // ---------------- PUBLIC API ----------------
     public void HoverSlot(BoardSlot slot)
     {
+        if (_isRefreshing) return;        // กัน re-entrant
+        if (startSlot == slot) return;    // เมาส์อยู่ช่องเดิม ไม่ต้องคำนวณซ้ำ
         startSlot = slot;
         RefreshPreview();
+    }
+    void MoveTileToSlot(LetterTile tile, BoardSlot slot)
+    {
+        tile.transform.SetParent(slot.transform, false);
+        tile.transform.localPosition = Vector3.zero;
+
+        // ⬇️ เดิมเคย fix เป็น index 1; เปลี่ยนเป็นอยู่ "บนสุด"
+        tile.transform.SetAsLastSibling();
+
+        // กันพลาด: ย้ำให้ไอคอนอยู่ล่างสุดเสมอ (ถ้ามี)
+        if (slot.icon != null) slot.icon.transform.SetAsFirstSibling();
+
+        tile.IsInSpace = false;
+
+        RectTransform rtTile = tile.GetComponent<RectTransform>();
+        RectTransform rtSlot = slot.GetComponent<RectTransform>();
+        rtTile.anchorMin = rtTile.anchorMax = new Vector2(0.5f, 0.5f);
+        rtTile.pivot     = new Vector2(0.5f, 0.5f);
+        rtTile.sizeDelta = rtSlot.sizeDelta;
+        rtTile.localScale = Vector3.one;
+        if (tile.GetData().letter == "BLANK")
+        {
+            var letters = Enumerable.Range('A',26).Select(c=>(char)c+"").ToArray();
+            string newL = letters[Random.Range(0,letters.Length)];
+            tile.GetData().letter = newL;
+            tile.letterText.text  = newL;
+            tile.scoreText.text   = "0";  // คะแนน 0 
+        }
     }
 
     public void CancelPlacement()
@@ -72,41 +103,48 @@ public class PlacementManager : MonoBehaviour
     // =========================================================
     void RefreshPreview()
     {
-        ClearPreview();
-        previewIsValid = true;
-
-        if (startSlot == null) return;
-
-        List<LetterTile> tiles = SpaceManager.Instance.GetPreparedTiles();
-        if (tiles.Count == 0)  return;
-
-        int r0 = startSlot.row;
-        int c0 = startSlot.col;
-        int boardLimit = BoardManager.Instance.rows + BoardManager.Instance.cols;  // 30-40 พอ
-
-        int step = 0, placed = 0;
-        while (placed < tiles.Count && step < boardLimit)
+        if (_isRefreshing) return;
+        _isRefreshing = true;
+        try
         {
-            int rr = r0 + (orient == Orient.Vertical   ? step : 0);
-            int cc = c0 + (orient == Orient.Horizontal ? step : 0);
+            ClearPreview();
+            previewIsValid = true;
+            if (startSlot == null) return;
 
-            if (!InBounds(rr, cc))
+            var tiles = SpaceManager.Instance.GetPreparedTiles();
+            int need = tiles.Count;
+            if (need == 0) return;
+
+            int r = startSlot.row;
+            int c = startSlot.col;
+            int dr = (orient == Orient.Vertical)   ? 1 : 0;
+            int dc = (orient == Orient.Horizontal) ? 1 : 0;
+
+            int placed = 0, steps = 0;
+            int maxSteps = BoardManager.Instance.rows * BoardManager.Instance.cols + 5;
+
+            while (placed < need && steps < maxSteps)
             {
-                previewIsValid = false;
-                break;                      // ⬅︎ เบรกแน่นอน
+                if (!InBounds(r, c)) { previewIsValid = false; break; }
+
+                var s = BoardManager.Instance.GetSlot(r, c);
+
+                // ไฮไลต์เฉพาะช่องว่าง (ข้ามช่องที่มีตัวอักษรแล้ว)
+                if (!s.HasLetterTile() && !s.IsLocked)
+                {
+                    currentPreview.Add(s);
+                    placed++;
+                }
+
+                r += dr; c += dc; steps++; // เดินไปข้างหน้าทุกครั้ง
             }
 
-            BoardSlot s = BoardManager.Instance.grid[rr, cc];
-            currentPreview.Add(s);
+            if (placed < need) previewIsValid = false;
 
-            if (!s.HasLetterTile()) placed++;
-            step++;
+            var col = previewIsValid ? validColor : invalidColor;
+            foreach (var s in currentPreview) s.ShowPreview(col);
         }
-
-        if (placed < tiles.Count) previewIsValid = false;
-
-        Color c = previewIsValid ? validColor : invalidColor;
-        foreach (var s in currentPreview) s.ShowPreview(c);
+        finally { _isRefreshing = false; }
     }
 
 
@@ -161,28 +199,4 @@ public class PlacementManager : MonoBehaviour
     }
 
     // ---------------- helper ----------------
-    void MoveTileToSlot(LetterTile tile, BoardSlot slot)
-    {
-        tile.transform.SetParent(slot.transform, false);
-        tile.transform.localPosition = Vector3.zero;
-        tile.transform.SetSiblingIndex(1);   // ต่อจาก highlight
-        tile.IsInSpace = false;
-
-        // ปรับขนาดให้พอดีช่อง
-        RectTransform rtTile = tile.GetComponent<RectTransform>();
-        RectTransform rtSlot = slot.GetComponent<RectTransform>();
-        rtTile.anchorMin = rtTile.anchorMax = new Vector2(0.5f, 0.5f);
-        rtTile.pivot     = new Vector2(0.5f, 0.5f);
-        rtTile.sizeDelta = rtSlot.sizeDelta;
-        rtTile.localScale = Vector3.one;
-
-        if (tile.GetData().letter == "BLANK")
-        {
-            var letters = Enumerable.Range('A',26).Select(c=>(char)c+"").ToArray();
-            string newL = letters[Random.Range(0,letters.Length)];
-            tile.GetData().letter = newL;
-            tile.letterText.text  = newL;
-            tile.scoreText.text   = "0";  // คะแนน 0 
-        }
-    }
 }
