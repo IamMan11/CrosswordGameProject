@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -6,11 +7,18 @@ using UnityEngine;
 /// </summary>
 public class BenchManager : MonoBehaviour
 {
+    private readonly Dictionary<LetterTile, Coroutine> _moving = new();
     [Header("Prefabs & Pool")]
     public GameObject letterTilePrefab;
 
     [Header("Slot Positions (10)")]
     public List<Transform> slotTransforms = new List<Transform>();
+    [HideInInspector] public LetterTile draggingTile;
+    private int emptyIndex = -1;
+
+    [Header("Lerp Settings")]
+    public float shiftDuration = 0.12f;
+    public AnimationCurve ease = AnimationCurve.EaseInOut(0,0,1,1);
 
     public static BenchManager Instance { get; private set; }
 
@@ -19,7 +27,123 @@ public class BenchManager : MonoBehaviour
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
     }
+    public int IndexOfSlot(Transform t) => slotTransforms.IndexOf(t);
+    public void BeginDrag(LetterTile tile, int fromIndex)
+    {
+        draggingTile = tile;
+        emptyIndex = fromIndex; // ช่องว่างเริ่มต้นคือช่องที่ดึงออกมา
+    }
+    // เรียกจาก OnDrop/OnHover: บังคับให้ "ช่อง target" กลายเป็นช่องว่าง
+    public void EnsureEmptyAt(Transform targetSlot)
+    {
+        if (draggingTile == null) return;
+        int target = IndexOfSlot(targetSlot);
+        if (target < 0 || target == emptyIndex) return;
 
+        if (target > emptyIndex)
+        {
+            for (int k = emptyIndex + 1; k <= target; k++)
+                MoveChildToSlot(slotTransforms[k], slotTransforms[k - 1]);
+        }
+        else
+        {
+            for (int k = emptyIndex - 1; k >= target; k--)
+                MoveChildToSlot(slotTransforms[k], slotTransforms[k + 1]);
+        }
+        emptyIndex = target;
+    }
+
+    // กันพลาด: ถ้าช่องปลายทางยังมีลูกอยู่ ให้ย้ายลูกนั้นไป "ช่องว่างที่ใกล้ที่สุด"
+    public void KickOutExistingToNearestEmpty(Transform slot)
+    {
+        if (slot.childCount == 0) return;
+
+        int i = IndexOfSlot(slot);
+        int best = -1;
+        for (int step = 1; step < slotTransforms.Count; step++)
+        {
+            int L = i - step, R = i + step;
+            if (L >= 0 && slotTransforms[L].childCount == 0) { best = L; break; }
+            if (R < slotTransforms.Count && slotTransforms[R].childCount == 0) { best = R; break; }
+        }
+        if (best >= 0) MoveChildToSlot(slot, slotTransforms[best]);
+    }
+    public void OnHoverSlot(Transform targetSlot)
+    {
+        if (draggingTile == null) return;
+
+        int hover = IndexOfSlot(targetSlot);
+        if (hover < 0 || hover == emptyIndex) return;
+
+        // ถ้าโฮเวอร์ไปทางขวา: เลื่อนเพื่อนบ้านไปซ้าย
+        if (hover > emptyIndex)
+        {
+            for (int k = emptyIndex + 1; k <= hover; k++)
+                MoveChildToSlot(slotTransforms[k], slotTransforms[k - 1]);
+        }
+        // ถ้าโฮเวอร์ไปทางซ้าย: เลื่อนเพื่อนบ้านไปขวา
+        else
+        {
+            for (int k = emptyIndex - 1; k >= hover; k--)
+                MoveChildToSlot(slotTransforms[k], slotTransforms[k + 1]);
+        }
+
+        emptyIndex = hover;
+    }
+    public Transform GetCurrentEmptySlot()
+    {
+        if (emptyIndex >= 0 && emptyIndex < slotTransforms.Count)
+            return slotTransforms[emptyIndex];
+        return null;
+    }
+    public void EndDrag(bool placed)
+    {
+        draggingTile = null;
+        emptyIndex = -1;
+    }
+    private void MoveChildToSlot(Transform from, Transform to)
+    {
+        if (from.childCount == 0) return;
+
+        var tile = from.GetChild(0).GetComponent<LetterTile>();
+        if (!tile) return;
+
+        if (_moving.TryGetValue(tile, out var running))
+        {
+            StopCoroutine(running);     // ยกเลิก lerp เก่า (กันซ้อน)
+            _moving.Remove(tile);
+        }
+        _moving[tile] = StartCoroutine(AnimateToSlot(tile, to));
+    }
+    private IEnumerator AnimateToSlot(LetterTile tile, Transform targetSlot)
+    {
+        var rt = tile.GetComponent<RectTransform>();
+        Vector3 worldStart = rt.position;
+
+        tile.transform.SetParent(targetSlot, worldPositionStays:true);
+
+        Vector3 startLocal = rt.localPosition;
+        Vector3 endLocal   = Vector3.zero;
+
+        float t = 0f, dur = Mathf.Max(0.0001f, shiftDuration);
+        while (t < 1f)
+        {
+            t += Time.unscaledDeltaTime / dur;
+            float a = ease.Evaluate(Mathf.Clamp01(t));
+            rt.localPosition = Vector3.LerpUnclamped(startLocal, endLocal, a);
+            yield return null;
+        }
+        rt.localPosition = endLocal;
+        tile.AdjustSizeToParent();
+
+        _moving.Remove(tile); // เคลียร์สถานะว่าเลิกเลื่อนไทล์นี้แล้ว
+    }
+    public void CollapseFrom(int removedIndex)
+    {
+        for (int k = removedIndex + 1; k < slotTransforms.Count; k++)
+            MoveChildToSlot(slotTransforms[k], slotTransforms[k - 1]);
+        // ช่องสุดท้ายจะว่าง
+    }
     private void Start() => RefillEmptySlots();
 
     /// <summary>เติมทุกช่องว่าง (initial หรือเมื่อใช้ Bench Blitz)</summary>

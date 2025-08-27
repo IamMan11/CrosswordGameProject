@@ -359,6 +359,7 @@ GameObject:
   - component: {fileID: 1051120802499293902}
   - component: {fileID: 604053045338733320}
   - component: {fileID: 7642126956220534543}
+  - component: {fileID: 5192042116673106632}
   m_Layer: 0
   m_Name: Lettertile
   m_TagString: Untagged
@@ -442,6 +443,29 @@ MonoBehaviour:
   letterText: {fileID: 4245157064495115131}
   scoreText: {fileID: 7231654151831777163}
   specialMark: {fileID: 7317386691125481591}
+  visualPivot: {fileID: 7015826721956423592}
   OriginalParent: {fileID: 0}
   IsInSpace: 0
   isLocked: 0
+--- !u!95 &5192042116673106632
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7611389272195252624}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: bea3a5f03f01e554bb28b15a142a4a57, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0

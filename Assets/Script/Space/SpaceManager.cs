@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 public class SpaceManager : MonoBehaviour
@@ -6,10 +7,20 @@ public class SpaceManager : MonoBehaviour
     public static SpaceManager Instance { get; private set; }
 
     [Header("Slot Positions (10)")]
-    public List<Transform> spaceSlots = new();
+
+    [Header("Slots (ซ้าย→ขวา)")]
+    public List<Transform> slotTransforms = new List<Transform>();
 
     [Header("Bench Slots")]
     public List<Transform> benchSlots = new();  // ลาก slotTransforms จาก BenchManager มาที่นี่
+    [HideInInspector] public LetterTile draggingTile;
+    private int emptyIndex = -1;
+
+    private readonly Dictionary<LetterTile, Coroutine> _moving = new();
+
+    [Header("Lerp Settings")]
+    public float shiftDuration = 0.12f;
+    public AnimationCurve ease = AnimationCurve.EaseInOut(0,0,1,1);
 
     [Header("Debug")]
     public bool debug = true;        // เปิด‑ปิด Console log ที่ Inspector
@@ -30,15 +41,135 @@ public class SpaceManager : MonoBehaviour
             discardButton.gameObject.SetActive(false);
         }
     }
+    public int IndexOfSlot(Transform t) => slotTransforms.IndexOf(t);
 
-    /// <summary>
-    /// เพิ่ม LetterTile เข้า Space (ซ้ายสุดที่ว่าง) — คืน true ถ้าสำเร็จ
-    /// </summary>
+    public Transform GetFirstEmptySlot()
+    {
+        foreach (var t in slotTransforms)
+            if (t.childCount == 0) return t;
+        return null;
+    }
+
+    public Transform GetCurrentEmptySlot()
+    {
+        if (emptyIndex >= 0 && emptyIndex < slotTransforms.Count)
+            return slotTransforms[emptyIndex];
+        return null;
+    }
+
+    public void BeginDrag(LetterTile tile, int fromIndex)
+    {
+        draggingTile = tile;
+        emptyIndex = fromIndex;
+    }
+
+    public void EndDrag(bool placed)
+    {
+        draggingTile = null;
+        emptyIndex = -1;
+    }
+    public void OnHoverSlot(Transform targetSlot)
+    {
+        if (draggingTile == null) return;
+
+        int hover = IndexOfSlot(targetSlot);
+        if (hover < 0 || hover == emptyIndex) return;
+
+        if (hover > emptyIndex)
+        {
+            for (int k = emptyIndex + 1; k <= hover; k++)
+                MoveChildToSlot(slotTransforms[k], slotTransforms[k - 1]);
+        }
+        else
+        {
+            for (int k = emptyIndex - 1; k >= hover; k--)
+                MoveChildToSlot(slotTransforms[k], slotTransforms[k + 1]);
+        }
+        emptyIndex = hover;
+    }
+
+    public void EnsureEmptyAt(Transform targetSlot)
+    {
+        if (draggingTile == null) return;
+        int target = IndexOfSlot(targetSlot);
+        if (target < 0 || target == emptyIndex) return;
+
+        if (target > emptyIndex)
+        {
+            for (int k = emptyIndex + 1; k <= target; k++)
+                MoveChildToSlot(slotTransforms[k], slotTransforms[k - 1]);
+        }
+        else
+        {
+            for (int k = emptyIndex - 1; k >= target; k--)
+                MoveChildToSlot(slotTransforms[k], slotTransforms[k + 1]);
+        }
+        emptyIndex = target;
+    }
+    public void KickOutExistingToNearestEmpty(Transform slot)
+    {
+        if (slot.childCount == 0) return;
+
+        int i = IndexOfSlot(slot);
+        int best = -1;
+        for (int step = 1; step < slotTransforms.Count; step++)
+        {
+            int L = i - step, R = i + step;
+            if (L >= 0 && slotTransforms[L].childCount == 0) { best = L; break; }
+            if (R < slotTransforms.Count && slotTransforms[R].childCount == 0) { best = R; break; }
+        }
+        if (best >= 0) MoveChildToSlot(slot, slotTransforms[best]);
+    }
+
+    public void CollapseFrom(int removedIndex)
+    {
+        // รูดปิดช่อง: ขยับทั้งหมดทางขวาเข้าซ้ายทีละ 1
+        for (int k = removedIndex + 1; k < slotTransforms.Count; k++)
+            MoveChildToSlot(slotTransforms[k], slotTransforms[k - 1]);
+        // ช่องสุดท้ายจะว่าง
+    }
+
+    private void MoveChildToSlot(Transform from, Transform to)
+    {
+        if (from.childCount == 0) return;
+        var tile = from.GetChild(0).GetComponent<LetterTile>();
+        if (!tile) return;
+
+        if (_moving.TryGetValue(tile, out var running))
+        {
+            StopCoroutine(running);
+            _moving.Remove(tile);
+        }
+        _moving[tile] = StartCoroutine(AnimateToSlot(tile, to));
+    }
+
+    private IEnumerator AnimateToSlot(LetterTile tile, Transform targetSlot)
+    {
+        var rt = tile.GetComponent<RectTransform>();
+        Vector3 worldStart = rt.position;
+
+        tile.transform.SetParent(targetSlot, worldPositionStays:true);
+        Vector3 startLocal = rt.localPosition;
+        Vector3 endLocal   = Vector3.zero;
+
+        float t = 0f, dur = Mathf.Max(0.0001f, shiftDuration);
+        while (t < 1f)
+        {
+            t += Time.unscaledDeltaTime / dur;
+            float a = ease.Evaluate(Mathf.Clamp01(t));
+            rt.localPosition = Vector3.LerpUnclamped(startLocal, endLocal, a);
+            yield return null;
+        }
+        rt.localPosition = endLocal;
+        tile.AdjustSizeToParent();
+
+        _moving.Remove(tile);
+    }
     public bool AddTile(LetterTile tile)
     {
-        for (int i = 0; i < spaceSlots.Count; i++)
+        for (int i = 0; i < slotTransforms.Count; i++)
         {
-            Transform slot = spaceSlots[i];
+            Transform slot = slotTransforms[i];
             if (slot.childCount == 0)
             {
                 tile.transform.SetParent(slot);
@@ -89,7 +220,7 @@ public class SpaceManager : MonoBehaviour
     public List<LetterTile> GetPreparedTiles()
     {
         var list = new List<LetterTile>();
-        foreach (var slot in spaceSlots)
+        foreach (var slot in slotTransforms)
             if (slot.childCount > 0)
                 list.Add(slot.GetChild(0).GetComponent<LetterTile>());
         return list;
