@@ -35,7 +35,6 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
         if (highlight != null) highlight.raycastTarget = false;
         if (icon != null)      icon.raycastTarget      = false;
     }
-
     public void Setup(int r, int c, SlotType t, int _manaGain, Sprite overlaySprite = null)
     {
         row = r;

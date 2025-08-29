@@ -132,23 +132,30 @@ public class SpaceManager : MonoBehaviour
     private void MoveChildToSlot(Transform from, Transform to)
     {
         if (from.childCount == 0) return;
+
         var tile = from.GetChild(0).GetComponent<LetterTile>();
         if (!tile) return;
 
+        // ถ้ามีคอร์รุตีนเก่า → ยกเลิกแล้ว "Pop" ด้วย (ป้องกัน UiGuard ค้าง)
         if (_moving.TryGetValue(tile, out var running))
         {
             StopCoroutine(running);
             _moving.Remove(tile);
+            UiGuard.Pop();                   // <<< เพิ่มบรรทัดนี้
         }
+
+        UiGuard.Push();                      // <<< เริ่มเลื่อนครั้งใหม่: Push
         _moving[tile] = StartCoroutine(AnimateToSlot(tile, to));
     }
 
     private IEnumerator AnimateToSlot(LetterTile tile, Transform targetSlot)
     {
         var rt = tile.GetComponent<RectTransform>();
-        Vector3 worldStart = rt.position;
 
+        // จัดลำดับให้ tile อยู่บน BG เสมอ
         tile.transform.SetParent(targetSlot, worldPositionStays:true);
+        tile.transform.SetAsLastSibling();
+
         Vector3 startLocal = rt.localPosition;
         Vector3 endLocal   = Vector3.zero;
 
@@ -160,10 +167,13 @@ public class SpaceManager : MonoBehaviour
             rt.localPosition = Vector3.LerpUnclamped(startLocal, endLocal, a);
             yield return null;
         }
+
         rt.localPosition = endLocal;
         tile.AdjustSizeToParent();
+        tile.transform.SetAsLastSibling();
 
         _moving.Remove(tile);
+        UiGuard.Pop();                       // <<< ปลดล็อกเมื่อเลื่อนจบจริง
     }
     public bool AddTile(LetterTile tile)
     {

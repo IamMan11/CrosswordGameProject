@@ -21,7 +21,20 @@ public class LetterTile : MonoBehaviour,
     public float flyDuration = 0.2f;
     public AnimationCurve flyEase = AnimationCurve.EaseInOut(0,0,1,1);
 
+    // ==== Animator Helpers ====
     private Animator visualAnimator;
+    // เปลี่ยนชื่อตามที่ตั้งใน Animator Controller ของคุณ
+    [SerializeField] private string STATE_IDLE   = "Idle";
+    [SerializeField] private string STATE_DRAG   = "Draggloop";
+    [SerializeField] private string STATE_SETTLE = "Settle";
+    // กันสั่ง Settle รัว ๆ
+    [SerializeField] private float settleDuration = 0.22f;   // ให้เท่ากับความยาวคลิป Settle จริง
+    [SerializeField] private float settleDebounce = 0.10f;   // ช่วงกันสั่งซ้ำ
+    private bool animLock = false;
+    private float lastSettleTime = -999f;
+    private Coroutine settleLockCo;
+
+    private static readonly int HASH_DRAGGING = Animator.StringToHash("Dragging");
     private Canvas canvas;           // หา Canvas หลัก (สำหรับคำนวณตำแหน่ง)
     private CanvasGroup canvasGroup; // ใช้ปิด Raycast ระหว่างลาก
     private RectTransform rectTf;
@@ -46,7 +59,7 @@ public class LetterTile : MonoBehaviour,
     // ================= Drag =================
     public void OnBeginDrag(PointerEventData eventData)
     {
-        if (isLocked || isBusy) return;
+        if (isLocked || isBusy || UiGuard.IsBusy) return;
 
         OriginalParent = transform.parent;
 
@@ -122,26 +135,61 @@ public class LetterTile : MonoBehaviour,
     private void SnapTo(Transform parent)
     {
         transform.SetParent(parent, false);
+        transform.SetAsLastSibling();
         transform.localPosition = Vector3.zero;
         AdjustSizeToParent();
     }
 
     private void SetDragging(bool v)
     {
-        if (visualAnimator != null)
-            visualAnimator.SetBool("Dragging", v);
+        if (!visualAnimator) return;
+
+        if (v)
+        {
+            // ถ้ากำลังเล่น Settle อยู่ ให้ "สั่งทับ" ไป Drag โดยตรง (ไม่ปล่อยให้ทับกัน)
+            var st = visualAnimator.GetCurrentAnimatorStateInfo(0);
+            if (st.IsName(STATE_SETTLE))
+                visualAnimator.CrossFadeInFixedTime(STATE_DRAG, 0.02f, 0, 0f);
+
+            visualAnimator.SetBool(HASH_DRAGGING, true);
+        }
+        else
+        {
+            visualAnimator.SetBool(HASH_DRAGGING, false);
+            // ไม่ต้องบังคับกลับ Idle ทันที ปล่อยให้ทรานซิชันเอง
+        }
     }
 
     public void PlaySettle()
     {
-        if (visualAnimator != null)
-            visualAnimator.SetTrigger("Settle");
+        if (!visualAnimator) return;
+
+        // Debounce: ถ้าพึ่งสั่งไปไม่นาน ให้เพิกเฉย
+        if (Time.unscaledTime - lastSettleTime < settleDebounce) return;
+        lastSettleTime = Time.unscaledTime;
+
+        // ปิดสถานะ Drag ให้ชัดเจนก่อน
+        visualAnimator.SetBool(HASH_DRAGGING, false);
+
+        // "สั่งทับ" ไปยังคลิป Settle ทันที (ไม่ใช้ Trigger เพื่อตัดแถวชัดเจน)
+        visualAnimator.CrossFadeInFixedTime(STATE_SETTLE, 0.02f, 0, 0f);
+
+        // ล็อกช่วงสั้นๆ ไม่ให้มีคำสั่งอนิเมชันอื่นมาชน (กันทับ)
+        if (settleLockCo != null) StopCoroutine(settleLockCo);
+        settleLockCo = StartCoroutine(SettleLockFor(settleDuration));
+    }
+
+    private System.Collections.IEnumerator SettleLockFor(float dur)
+    {
+        animLock = true;
+        yield return new WaitForSecondsRealtime(Mathf.Max(0.01f, dur));
+        animLock = false;
     }
 
     // ================= Click to Move =================
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (isLocked || isBusy) return;
+        if (isLocked || isBusy || UiGuard.IsBusy) return;
         // คลิกซ้ายเท่านั้น (กัน double tap ขวา)
         if (eventData.button != PointerEventData.InputButton.Left) return;
 
@@ -177,32 +225,50 @@ public class LetterTile : MonoBehaviour,
     private IEnumerator FlyToSlot(Transform targetSlot)
     {
         isBusy = true;
+        UiGuard.Push();
         canvasGroup.blocksRaycasts = false;
 
-        // ย้ายขึ้น Canvas เพื่ออนิเมตแบบ worldPosition
         transform.SetParent(canvas.transform, true);
         transform.SetAsLastSibling();
 
         Vector3 start = rectTf.position;
-        Vector3 end   = (targetSlot as RectTransform).TransformPoint(Vector3.zero); // center
+        Vector3 end   = (targetSlot as RectTransform).TransformPoint(Vector3.zero);
 
         float t = 0f, dur = Mathf.Max(0.0001f, flyDuration);
-        while (t < 1f)
+
+        // ใช้ try/finally ให้แน่ใจว่า Pop() เสมอ
+        try
         {
-            t += Time.unscaledDeltaTime / dur;
-            float a = flyEase.Evaluate(Mathf.Clamp01(t));
-            rectTf.position = Vector3.LerpUnclamped(start, end, a);
-            yield return null;
+            while (t < 1f)
+            {
+                t += Time.unscaledDeltaTime / dur;
+                float a = flyEase.Evaluate(Mathf.Clamp01(t));
+                rectTf.position = Vector3.LerpUnclamped(start, end, a);
+                yield return null;
+            }
+
+            // เคลียร์ผู้โดยสารเก่า ถ้ามี
+            if (targetSlot.childCount > 0)
+            {
+                if (BenchManager.Instance && BenchManager.Instance.IndexOfSlot(targetSlot) >= 0)
+                    BenchManager.Instance.KickOutExistingToNearestEmpty(targetSlot);
+                else if (SpaceManager.Instance && SpaceManager.Instance.IndexOfSlot(targetSlot) >= 0)
+                    SpaceManager.Instance.KickOutExistingToNearestEmpty(targetSlot);
+            }
+
+            // เข้าช่องและอยู่บนสุด
+            transform.SetParent(targetSlot, false);
+            transform.SetAsLastSibling();
+            transform.localPosition = Vector3.zero;
+            AdjustSizeToParent();
+            PlaySettle();
         }
-
-        // เข้าช่องปลายทาง
-        transform.SetParent(targetSlot, false);
-        transform.localPosition = Vector3.zero;
-        AdjustSizeToParent();
-        PlaySettle();
-
-        canvasGroup.blocksRaycasts = true;
-        isBusy = false;
+        finally
+        {
+            canvasGroup.blocksRaycasts = true;
+            isBusy = false;
+            UiGuard.Pop();   // <<< ปลดล็อกเสมอ ต่อให้มี exception
+        }
     }
 
     // ====== Data & Utils (ของเดิม) ======
@@ -213,7 +279,14 @@ public class LetterTile : MonoBehaviour,
         icon.sprite     = data.sprite;
         letterText.text = data.letter;
         scoreText.text  = data.score.ToString();
+        isSpecialTile = data.isSpecial;
         specialMark.enabled = data.isSpecial;
+    }
+    public void SetSpecial(bool v)
+    {
+        isSpecialTile = v;
+        if (data != null) data.isSpecial = v;
+        if (specialMark != null) specialMark.enabled = v;
     }
     public LetterData GetData() => data;
 
