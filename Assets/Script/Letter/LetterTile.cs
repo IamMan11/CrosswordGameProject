@@ -30,6 +30,23 @@ public class LetterTile : MonoBehaviour,
     // กันสั่ง Settle รัว ๆ
     [SerializeField] private float settleDuration = 0.22f;   // ให้เท่ากับความยาวคลิป Settle จริง
     [SerializeField] private float settleDebounce = 0.10f;   // ช่วงกันสั่งซ้ำ
+    // === Drag snapshot ===
+    Transform dragPrevParent;
+    int      dragPrevSibling;
+    Vector2  dragPrevAnchorMin, dragPrevAnchorMax, dragPrevPivot, dragPrevSizeDelta;
+    Vector3  dragPrevScale;
+    bool     dragging;
+
+    RectTransform CanvasRect => canvas.rootCanvas.transform as RectTransform;
+    Camera UICam => canvas.rootCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null
+                : canvas.rootCanvas.worldCamera;
+
+    Vector2 ScreenToCanvasLocal(Vector2 screenPos)
+    {
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(CanvasRect, screenPos, UICam, out var lp);
+        return lp;
+    }
+
     private bool animLock = false;
     private float lastSettleTime = -999f;
     private Coroutine settleLockCo;
@@ -53,95 +70,94 @@ public class LetterTile : MonoBehaviour,
         rectTf = GetComponent<RectTransform>();
         canvas = GetComponentInParent<Canvas>();
         canvasGroup = gameObject.AddComponent<CanvasGroup>();
-        if (visualPivot != null) visualAnimator = visualPivot.GetComponent<Animator>();
+
+        // เดิม: if (visualPivot != null) visualAnimator = visualPivot.GetComponent<Animator>();
+        if (visualPivot != null)
+            visualAnimator = visualPivot.GetComponent<Animator>();
+        else
+            visualAnimator = GetComponent<Animator>() ?? GetComponentInChildren<Animator>();
     }
+    // เดิมใช้แค่ parent → บางกรณีคืนค่าเพี้ยน
     private bool IsOnBoard()
     {
-        var p = transform.parent;
-        return p != null && p.GetComponent<BoardSlot>() != null;
+        // ถ้ากำลังบินอยู่ parent จะเป็น Canvas ให้ถือว่า "ไม่อยู่บนบอร์ด"
+        if (transform.parent == canvas.transform) return false;
+
+        // ดูทั้ง ancestor เพื่อรองรับกรณีมีคอนเทนเนอร์ขั้นกลาง
+        return GetComponentInParent<BoardSlot>() != null;
     }
 
+
     // ================= Drag =================
-    public void OnBeginDrag(PointerEventData eventData)
+    public void OnBeginDrag(PointerEventData e)
     {
-        if (IsOnBoard()) return;
-        if (isLocked || isBusy || UiGuard.IsBusy) return;
+        // ห้ามลากบนบอร์ด แต่ Bench/Space ให้ลากได้
+        if (IsOnBoard()) { dragging = false; return; }     // << กันตั้งแต่เริ่ม
+        if (isLocked || isBusy || UiGuard.IsBusy) { dragging = false; return; }
+
+        dragging = true;                                    // << เริ่มลากจริง
 
         OriginalParent = transform.parent;
 
+        // แจ้งให้ manager รู้ว่าลากจากที่ไหน (เพื่อให้ช่องเลื่อน)
         int benchIdx = BenchManager.Instance ? BenchManager.Instance.IndexOfSlot(OriginalParent) : -1;
         int spaceIdx = SpaceManager.Instance ? SpaceManager.Instance.IndexOfSlot(OriginalParent) : -1;
+        if (benchIdx >= 0) { _fromBenchDrag = true;  BenchManager.Instance.BeginDrag(this, benchIdx); }
+        else if (spaceIdx >= 0) { _fromBenchDrag = false; SpaceManager.Instance.BeginDrag(this, spaceIdx); }
 
-        // ถ้าเริ่มจาก Bench/Space ให้แจ้ง Manager ที่ถูกต้อง
-        if (benchIdx >= 0)
-        {
-            _fromBenchDrag = true;
-            BenchManager.Instance.BeginDrag(this, benchIdx);
-        }
-        else if (spaceIdx >= 0)
-        {
-            _fromBenchDrag = false;
-            SpaceManager.Instance.BeginDrag(this, spaceIdx);
-        }
-
+        // ย้ายไปอยู่ใต้ Canvas ชั่วคราว + ลอยตามเมาส์
         transform.SetParent(canvas.transform, true);
         transform.SetAsLastSibling();
-        canvasGroup.blocksRaycasts = false;
-        SetDragging(true);
-    }
-    private void OnTransformParentChanged()
-    {
-        SpaceManager.Instance?.UpdateDiscardButton();
+        canvasGroup.blocksRaycasts = false;                 // ให้ช่องปลายทางรับ Drop/Enter ได้
+        SetDragging(true);                                  // เล่นอนิเมชัน “กำลังลาก” (ถ้ามี)
     }
 
-    public void OnDrag(PointerEventData eventData)
+    public void OnDrag(PointerEventData e)
     {
+        // *** สำคัญ: ถ้าไม่ใช่การลากจริง (หรือยังอยู่ใต้ slot เดิม) ห้ามขยับ ***
+        if (!dragging) return;
         if (isLocked || isBusy) return;
+        if (transform.parent != canvas.transform) return;   // ยังไม่ได้ย้ายมา Canvas = ไม่ใช่ state ลาก
 
-        Vector2 pos;
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            canvas.transform as RectTransform,
-            eventData.position,
-            eventData.pressEventCamera,
-            out pos);
-        rectTf.localPosition = pos;
+            canvas.transform as RectTransform, e.position, e.pressEventCamera, out var pos);
+        rectTf.localPosition = pos;                         // ลอยตามเมาส์
     }
 
-    public void OnEndDrag(PointerEventData eventData)
+    public void OnEndDrag(PointerEventData e)
     {
-        if (isLocked) return;
+        if (!dragging) return;                              // << ถ้าไม่ได้ลากจริง ไม่ต้องทำอะไร
+        dragging = false;
+
         canvasGroup.blocksRaycasts = true;
 
-        bool placed = transform.parent != canvas.transform; // มีใครรับ drop แล้วหรือยัง
+        // ถ้าโดนช่องรับวาง OnDrop จะ reparent ให้แล้ว → parent จะไม่ใช่ canvas อีกต่อไป
+        bool placed = transform.parent != canvas.transform;
 
         if (!placed)
         {
-            // วางไม่โดนช่อง → กลับ "ช่องว่างปัจจุบัน" ของ manager ต้นทาง
-            if (_fromBenchDrag && BenchManager.Instance != null)
-            {
-                var empty = BenchManager.Instance.GetCurrentEmptySlot();
-                if (empty != null) SnapTo(empty.transform);
-                else SnapTo(OriginalParent);
-            }
-            else if (!_fromBenchDrag && SpaceManager.Instance != null)
-            {
-                var empty = SpaceManager.Instance.GetCurrentEmptySlot();
-                if (empty != null) SnapTo(empty.transform);
-                else SnapTo(OriginalParent);
-            }
-            else SnapTo(OriginalParent);
+            // ไม่โดนอะไรเลย → กลับช่องว่างของ manager ต้นทาง (หรือที่เดิม)
+            if (_fromBenchDrag && BenchManager.Instance)
+                SnapTo(BenchManager.Instance.GetCurrentEmptySlot()?.transform ?? OriginalParent);
+            else if (!_fromBenchDrag && SpaceManager.Instance)
+                SnapTo(SpaceManager.Instance.GetCurrentEmptySlot()?.transform ?? OriginalParent);
+            else
+                SnapTo(OriginalParent);
 
             PlaySettle();
         }
 
         SetDragging(false);
 
-        if (_fromBenchDrag && BenchManager.Instance != null)
-            BenchManager.Instance.EndDrag(placed);
-        else if (SpaceManager.Instance != null)
-            SpaceManager.Instance.EndDrag(placed);
+        // เคลียร์สถานะ drag ให้ manager (เพื่อเลื่อนช่องรอบต่อไปได้)
+        if (_fromBenchDrag) BenchManager.Instance?.EndDrag(placed);
+        else                SpaceManager.Instance?.EndDrag(placed);
     }
 
+    private void OnTransformParentChanged()
+    {
+        SpaceManager.Instance?.UpdateDiscardButton();
+    }
     private void SnapTo(Transform parent)
     {
         transform.SetParent(parent, false);
@@ -249,56 +265,72 @@ public class LetterTile : MonoBehaviour,
         // ใช้คอร์รุตีนบินที่มีอยู่แล้ว
         StartCoroutine(FlyToSlot(targetSlot));
     }
-
     private IEnumerator FlyToSlot(Transform targetSlot)
     {
         isBusy = true;
         UiGuard.Push();
         canvasGroup.blocksRaycasts = false;
 
+        // บินข้ามเลเยอร์: เอาออกมาอยู่ใต้ Canvas ชั่วคราว
         transform.SetParent(canvas.transform, true);
         transform.SetAsLastSibling();
 
-        Vector3 start = rectTf.position;
-        Vector3 end = (targetSlot as RectTransform).TransformPoint(Vector3.zero);
+        // จุดเริ่ม-ปลาย (world)
+        Vector3 startPos = rectTf.position;
+        Vector3 endPos   = (targetSlot as RectTransform).TransformPoint(Vector3.zero);
+
+        // คำนวณ "ขนาดโลก" เพื่อให้สเกลปลายทางเท่าช่อง
+        Vector2 GetWorldSize(RectTransform rt) {
+            var c = new Vector3[4]; rt.GetWorldCorners(c);
+            return new Vector2(Vector3.Distance(c[0], c[3]), Vector3.Distance(c[0], c[1]));
+        }
+        Vector2 startWS  = GetWorldSize(rectTf);
+        Vector2 targetWS = GetWorldSize(targetSlot as RectTransform);
+
+        Transform scaleTarget = transform;
+        Vector3 startScale = scaleTarget.localScale;
+        Vector3 endScale   = startScale;
+        if (startWS.x > 1e-3f && startWS.y > 1e-3f) {
+            float sx = targetWS.x / startWS.x, sy = targetWS.y / startWS.y;
+            endScale = new Vector3(startScale.x * sx, startScale.y * sy, startScale.z);
+        }
 
         float t = 0f, dur = Mathf.Max(0.0001f, flyDuration);
-
-        // ใช้ try/finally ให้แน่ใจว่า Pop() เสมอ
-        try
-        {
-            while (t < 1f)
-            {
+        try {
+            while (t < 1f) {
                 t += Time.unscaledDeltaTime / dur;
                 float a = flyEase.Evaluate(Mathf.Clamp01(t));
-                rectTf.position = Vector3.LerpUnclamped(start, end, a);
+                rectTf.position        = Vector3.LerpUnclamped(startPos, endPos, a);
+                scaleTarget.localScale = Vector3.LerpUnclamped(startScale, endScale, a);
                 yield return null;
             }
 
-            // เคลียร์ผู้โดยสารเก่า ถ้ามี
-            if (targetSlot.childCount > 0)
-            {
+            // เคลียร์ของค้างในช่องปลายทาง (มี helper ใน Bench/Space อยู่แล้ว)
+            if (targetSlot.childCount > 0) {
                 if (BenchManager.Instance && BenchManager.Instance.IndexOfSlot(targetSlot) >= 0)
                     BenchManager.Instance.KickOutExistingToNearestEmpty(targetSlot);
                 else if (SpaceManager.Instance && SpaceManager.Instance.IndexOfSlot(targetSlot) >= 0)
                     SpaceManager.Instance.KickOutExistingToNearestEmpty(targetSlot);
             }
 
-            // เข้าช่องและอยู่บนสุด
+            // ลงจอดจริง + snap ให้พอดีช่อง + รีเซ็ตสเกลภายใน
             transform.SetParent(targetSlot, false);
             transform.SetAsLastSibling();
             transform.localPosition = Vector3.zero;
+            scaleTarget.localScale = Vector3.one;
             AdjustSizeToParent();
             PlaySettle();
             SpaceManager.Instance?.UpdateDiscardButton();
         }
-        finally
-        {
+        finally {
             canvasGroup.blocksRaycasts = true;
             isBusy = false;
-            UiGuard.Pop();   // <<< ปลดล็อกเสมอ ต่อให้มี exception
+            UiGuard.Pop();
         }
     }
+
+
+
     // ช่วยเช็คว่ามีพารามิเตอร์ชื่อนี้อยู่จริงไหม
     
     static bool AnimatorHasParam(Animator anim, string name, AnimatorControllerParameterType type)

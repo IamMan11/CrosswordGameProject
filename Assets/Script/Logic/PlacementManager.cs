@@ -50,34 +50,6 @@ public class PlacementManager : MonoBehaviour
         startSlot = slot;
         RefreshPreview();
     }
-    void MoveTileToSlot(LetterTile tile, BoardSlot slot)
-    {
-        tile.transform.SetParent(slot.transform, false);
-        tile.transform.localPosition = Vector3.zero;
-
-        // ⬇️ เดิมเคย fix เป็น index 1; เปลี่ยนเป็นอยู่ "บนสุด"
-        tile.transform.SetAsLastSibling();
-
-        // กันพลาด: ย้ำให้ไอคอนอยู่ล่างสุดเสมอ (ถ้ามี)
-        if (slot.icon != null) slot.icon.transform.SetAsFirstSibling();
-
-        tile.IsInSpace = false;
-
-        RectTransform rtTile = tile.GetComponent<RectTransform>();
-        RectTransform rtSlot = slot.GetComponent<RectTransform>();
-        rtTile.anchorMin = rtTile.anchorMax = new Vector2(0.5f, 0.5f);
-        rtTile.pivot     = new Vector2(0.5f, 0.5f);
-        rtTile.sizeDelta = rtSlot.sizeDelta;
-        rtTile.localScale = Vector3.one;
-        if (tile.GetData().letter == "BLANK")
-        {
-            var letters = Enumerable.Range('A',26).Select(c=>(char)c+"").ToArray();
-            string newL = letters[Random.Range(0,letters.Length)];
-            tile.GetData().letter = newL;
-            tile.letterText.text  = newL;
-            tile.scoreText.text   = "0";  // คะแนน 0 
-        }
-    }
 
     public void CancelPlacement()
     {
@@ -216,6 +188,16 @@ public class PlacementManager : MonoBehaviour
         startSlot = null;
         
         TurnManager.Instance.EnableConfirm();
+    }
+    void MoveTileToSlot(LetterTile tile, BoardSlot slot)
+    {
+        // บินเข้าไป (ขณะบิน parent จะเป็น Canvas; จบแล้วจะเข้า slot เอง)
+        tile.FlyTo(slot.transform);
+
+        // กันไอคอนของช่องทับไทล์: ดันไอคอนไปล่างสุดไว้ก่อน
+        if (slot.icon != null) slot.icon.transform.SetAsFirstSibling();
+
+        tile.IsInSpace = false;
     }
 
     // ---------------- helper ----------------

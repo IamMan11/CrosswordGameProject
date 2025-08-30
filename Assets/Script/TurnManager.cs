@@ -400,6 +400,22 @@ public class TurnManager : MonoBehaviour
         }
         return adds;
     }
+    // รวมลิสต์ (ไทล์, สล็อต, แต้มเพิ่มของไทล์นั้น) ตามลำดับที่ใช้ตรวจคำ
+    List<(LetterTile t, BoardSlot s, int add)> BuildLetterSteps(List<MoveValidator.WordInfo> correct)
+    {
+        var steps = new List<(LetterTile, BoardSlot, int)>();
+        foreach (var w in correct)
+        {
+            foreach (var s in SlotsInWord(w))
+            {
+                var t = s.GetLetterTile(); if (!t) continue;
+                int baseSc = Mathf.Max(0, t.GetData().score);
+                int lm = ScoreManager.EffectiveLetterMulFor(s.type); // DL/TL
+                steps.Add((t, s, baseSc * Mathf.Max(1, lm)));
+            }
+        }
+        return steps;
+    }
 
     ScorePopUI SpawnPop(RectTransform anchor, int startValue = 0)
     {
@@ -442,12 +458,19 @@ public class TurnManager : MonoBehaviour
         int mulRunning     = 0;
 
         // ---------- Part 1: ตัวอักษร (จุด A) ----------
+        var steps = BuildLetterSteps(correct);
         var uiA = SpawnPop(anchorLetters, 0);
-        foreach (var add in letterAdds)
+
+        foreach (var step in steps)
         {
-            lettersRunning += add;
+            // เอฟเฟกต์ภาพ: ไฮไลต์ช่อง + เด้งตัวอักษร (ใช้เวลาแบบ unscaled ได้)
+            step.s.Flash(Color.white, 1, 0.08f);  // แถบสว่างสั้น ๆ
+            step.t.Pulse();                        // ขยายเล็กน้อย (มี fallback โค้ดถ้าไม่มี Trigger)
+
+            lettersRunning += step.add;
             uiA.SetValue(lettersRunning);
-            uiA.PopByDelta(add, tier2Min, tier3Min);
+            uiA.PopByDelta(step.add, tier2Min, tier3Min);
+
             yield return new WaitForSecondsRealtime(stepDelay);
         }
         yield return new WaitForSecondsRealtime(sectionDelay);
