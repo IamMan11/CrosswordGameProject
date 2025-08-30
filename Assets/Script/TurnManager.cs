@@ -44,6 +44,19 @@ public class TurnManager : MonoBehaviour
     public float setDelay        = 0.20f;
     public float phaseDelay      = 0.25f;
     public bool  pauseTimeDuringScoring = true;
+    [Header("Score Pop (Anchors & Prefab)")]
+    public RectTransform anchorLetters;   // จุด A
+    public RectTransform anchorMults;     // จุด B
+    public RectTransform anchorTotal;     // จุด C
+    public RectTransform scoreHud;        // RectTransform ของข้อความ Score HUD
+    public ScorePopUI scorePopPrefab;
+
+    [Header("Score Pop Settings")]
+    public int tier2Min = 3;   // ✅ เกณฑ์เด้งระดับกลาง (ปรับได้)
+    public int tier3Min = 6;   // ✅ เกณฑ์เด้งระดับใหญ่ (ปรับได้)
+    public float stepDelay = 0.08f;
+    public float sectionDelay = 0.20f;
+    public float flyDur = 0.6f;
 
     void Awake()
     {
@@ -145,6 +158,20 @@ public class TurnManager : MonoBehaviour
         ShowMessage("Mana Infinity – ใช้มานาไม่จำกัด 1 นาที!", Color.cyan);
 
         manaInfiniteCoroutine = StartCoroutine(DeactivateInfiniteManaAfter(duration));
+    }
+
+    // ระหว่างลอยเข้าหา HUD ให้เลขบน HUD “ไหล” ไปยังค่าเป้าหมาย (แต่ยังไม่ commit ตัวแปร Score จริง)
+    System.Collections.IEnumerator TweenHudScoreTemp(int start, int target, float dur)
+    {
+        float t = 0f; int last = -1;
+        while (t < 1f)
+        {
+            t += Time.unscaledDeltaTime / Mathf.Max(0.001f, dur);
+            int v = Mathf.RoundToInt(Mathf.Lerp(start, target, 1 - Mathf.Pow(1 - t, 3)));
+            if (v != last) { scoreText.text = $"Score : {v}"; last = v; }
+            yield return null;
+        }
+        scoreText.text = $"Score : {target}";
     }
 
     private IEnumerator DeactivateInfiniteManaAfter(float duration)
@@ -330,6 +357,58 @@ public class TurnManager : MonoBehaviour
             null
         );
     }
+    // รวมแฟคเตอร์ตัวคูณแบบ "บวกกัน" ตามที่ต้องการ
+    List<int> BuildMultiplierFactors(List<MoveValidator.WordInfo> correct)
+    {
+        var factors = new List<int>();
+
+        // 2.1 ช่องพิเศษแบบคูณคำ (DW/TW) ต่อ "แต่ละคำ"
+        foreach (var w in correct)
+        {
+            int wordMul = 1;
+            foreach (var s in SlotsInWord(w))
+            {
+                int wm = ScoreManager.EffectiveWordMulFor(s.type);
+                if (wm > 1) wordMul *= wm;
+            }
+            if (wordMul > 1) factors.Add(wordMul);
+        }
+
+        // 2.2 การ์ดคูณคำ (ถ้ามีใช้งานรอบนี้)
+        if (ScoreManager.GetWordOverride() > 1) factors.Add(ScoreManager.GetWordOverride());
+
+        // 2.3 คอมโบจำนวนคำใหม่ (x2..x4) — เอามาเป็นแฟคเตอร์เดียว
+        int combo = Mathf.Clamp(correct.Count, 1, 4);
+        if (combo > 1) factors.Add(combo);
+
+        return factors;
+    }
+
+    // รวมแต้มตัวอักษร (รวมคูณ "ตัวอักษร" L2/L3 แล้ว) เป็นทีละก้อนเพื่ออนิเมชัน Part 1
+    List<int> BuildLetterAdds(List<MoveValidator.WordInfo> correct)
+    {
+        var adds = new List<int>();
+        foreach (var w in correct)
+        {
+            foreach (var s in SlotsInWord(w))
+            {
+                var t = s.GetLetterTile(); if (!t) continue;
+                int baseSc = Mathf.Max(0, t.GetData().score);
+                int lm = ScoreManager.EffectiveLetterMulFor(s.type); // L2/L3
+                adds.Add(baseSc * Mathf.Max(1, lm));
+            }
+        }
+        return adds;
+    }
+
+    ScorePopUI SpawnPop(RectTransform anchor, int startValue = 0)
+    {
+        var ui = Instantiate(scorePopPrefab, anchor);
+        ui.transform.localPosition = Vector3.zero;
+        ui.transform.localScale = Vector3.one;
+        ui.SetValue(startValue);
+        return ui;
+    }
     List<BoardSlot> SlotsInWord(MoveValidator.WordInfo w)
     {
         var list = new List<BoardSlot>();
@@ -352,130 +431,82 @@ public class TurnManager : MonoBehaviour
         HashSet<LetterTile> bounced
     )
     {
+        // เริ่มโหมดนับคะแนน (บล็อกอินพุต/หยุดเวลา ถ้าคุณมีฟังก์ชันนี้)
         BeginScoreSequence();
 
-        int startScore = Score, shown = startScore;
-        scoreText.text = $"Score : {shown}";
+        // ===== ใช้เวอร์ชันใหม่อย่างเดียว =====
+        var letterAdds = BuildLetterAdds(correct);        // คะแนนฐานที่คิด L2/L3 แล้ว
+        var mulFactors = BuildMultiplierFactors(correct); // แฟคเตอร์คูณแบบ "บวกกัน" (x2+x3=x5)
 
-        // =============== เฟส 1: บวก "คะแนนดิบ" ทีละตัวอักษร ===============
-        foreach (var w in correct)
+        int lettersRunning = 0;
+        int mulRunning     = 0;
+
+        // ---------- Part 1: ตัวอักษร (จุด A) ----------
+        var uiA = SpawnPop(anchorLetters, 0);
+        foreach (var add in letterAdds)
         {
-            var slots = SlotsInWord(w);
-            foreach (var slot in slots)
-            {
-                var tile = slot.GetLetterTile();
-                if (!tile) continue;
-                tile.Pulse();                // Animator Trigger (หรือ fallback)
-                slot.Flash(Color.green, 1, 0.08f);
-                shown += Mathf.Max(0, tile.GetData().score);
-                scoreText.text = $"Score : {shown}";
-                yield return new WaitForSecondsRealtime(letterStepDelay);
-            }
-            yield return new WaitForSecondsRealtime(setDelay);
+            lettersRunning += add;
+            uiA.SetValue(lettersRunning);
+            uiA.PopByDelta(add, tier2Min, tier3Min);
+            yield return new WaitForSecondsRealtime(stepDelay);
         }
-        yield return new WaitForSecondsRealtime(phaseDelay);
+        yield return new WaitForSecondsRealtime(sectionDelay);
 
-        // =============== เฟส 2: ช่องพิเศษ (DL/TL/DW/TW) ===============
-        bool usedLetterOverride = false, usedWordOverride = false;
-        foreach (var w in correct)
+        // ---------- Part 2: ตัวคูณ (จุด B) ----------
+        var uiB = SpawnPop(anchorMults, 0);
+        foreach (var f in mulFactors)
         {
-            var slots = SlotsInWord(w);
-
-            // 2.1 DL/TL – บวก “ส่วนเพิ่ม” ของแต่ละตัวอักษร
-            foreach (var slot in slots)
-            {
-                var tile = slot.GetLetterTile();
-                if (!tile) continue;
-                int baseSc = Mathf.Max(0, tile.GetData().score);
-                int mul = ScoreManager.EffectiveLetterMulFor(slot.type);
-                if (mul > 1 && (slot.type == SlotType.DoubleLetter || slot.type == SlotType.TripleLetter))
-                {
-                    slot.Flash(new Color(0.2f,0.6f,1f,1f), 1, 0.1f);
-                    tile.Pulse();
-                    int extra = baseSc * (mul - 1);
-                    shown += extra;
-                    scoreText.text = $"Score : {shown}";
-                    if (ScoreManager.GetLetterOverride() > 0) usedLetterOverride = true;
-                    yield return new WaitForSecondsRealtime(letterStepDelay);
-                }
-            }
-
-            // 2.2 DW/TW – บวก “ส่วนเพิ่มทั้งคำ”
-            int subtotal = 0, wordMul = 1;
-            foreach (var slot in slots)
-            {
-                var tile = slot.GetLetterTile(); if (!tile) continue;
-                int baseSc = Mathf.Max(0, tile.GetData().score);
-                subtotal += baseSc * Mathf.Max(1, ScoreManager.EffectiveLetterMulFor(slot.type));
-                int wm = ScoreManager.EffectiveWordMulFor(slot.type);
-                if (wm > 1) wordMul *= wm;
-            }
-            if (wordMul > 1)
-            {
-                foreach (var s in slots)
-                    if (s.type == SlotType.DoubleWord || s.type == SlotType.TripleWord)
-                        s.Flash(new Color(1f,0.25f,0.25f,1f), 2, 0.1f);
-
-                int extra = subtotal * (wordMul - 1);
-                shown += extra;
-                scoreText.text = $"Score : {shown}";
-                if (ScoreManager.GetWordOverride() > 0) usedWordOverride = true;
-                yield return new WaitForSecondsRealtime(setDelay);
-            }
+            mulRunning += f;                   // ✅ x2+x3=x5
+            uiB.SetText("x" + mulRunning);
+            uiB.PopByDelta(f, tier2Min, tier3Min);
+            yield return new WaitForSecondsRealtime(stepDelay);
         }
-        yield return new WaitForSecondsRealtime(phaseDelay);
+        yield return new WaitForSecondsRealtime(sectionDelay);
 
-        // =============== เฟส 3: ป้ายตัวคูณจากการ์ด (โชว์เฉย ๆ ถ้ามีใช้จริง) ===============
-        if (usedLetterOverride || usedWordOverride)
+        if (mulRunning <= 0) mulRunning = 1;   // กันเคสไม่มีตัวคูณเลย
+
+        // ---------- รวมสองอันเข้ากลาง ----------
+        float joinDur = 0.35f;
+        var flyA = uiA.FlyTo(anchorTotal, joinDur);
+        var flyB = uiB.FlyTo(anchorTotal, joinDur);
+        StartCoroutine(flyA);
+        yield return StartCoroutine(flyB);
+
+        int displayedTotal = lettersRunning * mulRunning;
+        var uiC = SpawnPop(anchorTotal, displayedTotal);
+        uiC.transform.localScale = uiA.transform.localScale;
+        uiC.PopByDelta(displayedTotal, tier2Min, tier3Min);
+        yield return new WaitForSecondsRealtime(0.15f);
+
+        // ---------- ส่งเข้า Score HUD ----------
+        int hudStart  = Score;
+        int hudTarget = hudStart + displayedTotal;
+        var fly = uiC.FlyTo(scoreHud, flyDur);
+        var tweenHud = TweenHudScoreTemp(hudStart, hudTarget, flyDur);
+        StartCoroutine(tweenHud);
+        yield return StartCoroutine(fly);
+
+        // ---------- Commit คะแนนจริง ----------
+        AddScore(displayedTotal);
+
+        // ถ้าคะแนนพรีเซนต์ไม่เท่ากับคะแนนระบบ (moveScore) ให้ปรับ HUD ให้ตรง
+        if (displayedTotal != moveScore)
         {
-            if (phaseLabel)
-            {
-                string msg = "Card Multiplier:";
-                if (usedLetterOverride) msg += $" Letter x{ScoreManager.GetLetterOverride()}";
-                if (usedWordOverride)   msg += $" Word x{ScoreManager.GetWordOverride()}";
-                phaseLabel.text = msg;
-            }
-            yield return new WaitForSecondsRealtime(0.6f);
+            yield return StartCoroutine(
+                TweenHudScoreTemp(hudStart + displayedTotal, hudStart + moveScore, 0.15f)
+            );
+            AddScore(moveScore - displayedTotal);
         }
 
-        // =============== เฟส 4: คอมโบจำนวนคำใหม่ (x2→x3→... สูงสุด x4) ===============
-        if (comboMul > 1)
-        {
-            int baseAfterSpecial = shown - startScore;
-            int highlightLimit = Mathf.Min(4, correct.Count);
-            for (int m = 2; m <= comboMul; m++)
-            {
-                // ไฮไลต์ทีละคำ (ไม่เกิน 4)
-                for (int i = 0; i < Mathf.Min(m, highlightLimit); i++)
-                    foreach (var s in SlotsInWord(correct[i]))
-                        s.Flash(new Color(0.2f,1f,1f,1f), 1, 0.08f);
-
-                if (phaseLabel) phaseLabel.text = $"Combo x{m}";
-                shown += baseAfterSpecial;                  //ดันตัวเลขขึ้นทีละก้อน
-                scoreText.text = $"Score : {shown}";
-                yield return new WaitForSecondsRealtime(0.4f);
-            }
-        }
-
-        // ===== Snap เข้าผลลัพธ์จริงจากระบบเดิม (กันปัดเศษ/โทษ) =====
-        int target = startScore + moveScore;
-        if (shown != target)
-        {
-            shown = target;
-            scoreText.text = $"Score : {shown}";
-            yield return new WaitForSecondsRealtime(0.1f);
-        }
-
-        // ===== จบพิธี: คืนระบบเดิมทั้งหมด =====
-        EndScoreSequence();
-
-        // อัปคะแนนจริง, ล็อกไทล์, รีเฟรชตาม flow เดิม
-        AddScore(moveScore);
+        // เก็บงานท้ายเทิร์น (ล็อกไทล์/รีฟิล/ฯลฯ ตามของคุณ)
         foreach (var (t, _) in placed) if (!bounced.Contains(t)) t.Lock();
         BenchManager.Instance.RefillEmptySlots();
         UpdateBagUI();
         EnableConfirm();
+
+        EndScoreSequence(); // ถ้าไม่มีฟังก์ชันนี้ในโปรเจกต์ ให้ลบบรรทัดนี้ได้
     }
+
 
     // เด้งตัวอักษรใน word กลับ Bench + กระพริบ (ถ้ามีสี)
     void BounceWord(MoveValidator.WordInfo w,
@@ -609,7 +640,13 @@ public class TurnManager : MonoBehaviour
             {
                 if (!boardWords.Contains(w.word))
                 {
-                    moveScore += ScoreManager.CalcWord(w.r0, w.c0, w.r1, w.c1);
+                    int s = ScoreManager.CalcWord(w.r0, w.c0, w.r1, w.c1);  // คะแนนพื้นฐานของคำ
+
+                    // ✅ โบนัสพิเศษ: คำยาว 7 ตัวอักษร
+                    if (w.word.Length == 7)
+                        s += ScoreManager.GetSevenLetterBonus();
+
+                    moveScore += s;
                     boardWords.Add(w.word);
                 }
             }

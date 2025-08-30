@@ -78,7 +78,7 @@ public static class ScoreManager
         return total * wordMul;
     }
     public static int GetLetterOverride() => doubleLetterOverride;
-    public static int GetWordOverride()   => doubleWordOverride;
+    public static int GetWordOverride() => doubleWordOverride;
 
     public static int EffectiveLetterMulFor(SlotType slotType)
     {
@@ -96,4 +96,9 @@ public static class ScoreManager
             return doubleWordOverride > 0 ? doubleWordOverride : 3;
         return 1;
     }
+    // ===== Special Bonuses =====
+    public static int sevenLetterBonus = 50;                // ✅ ปรับแต้มเองได้ที่นี่
+    public static void SetSevenLetterBonus(int v)           // ใช้ตั้งค่าขณะรันก็ได้ (ถ้ามีระบบปรับ)
+        => sevenLetterBonus = Mathf.Max(0, v);
+    public static int GetSevenLetterBonus() => sevenLetterBonus;
     }
