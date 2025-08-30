@@ -39,6 +39,7 @@ public class SpaceManager : MonoBehaviour
         {
             discardButton.onClick.AddListener(DiscardAll);
             discardButton.gameObject.SetActive(false);
+            RefreshDiscardButton();
         }
     }
     public int IndexOfSlot(Transform t) => slotTransforms.IndexOf(t);
@@ -274,7 +275,7 @@ public class SpaceManager : MonoBehaviour
     /// <summary>
     /// อัปเดตสถานะปุ่ม Discard: แสดงถ้ามีตัวอักษร ≥1 ใน Space, ซ่อนถ้าไม่มี
     /// </summary>
-    private void UpdateDiscardButton()
+    public void UpdateDiscardButton()
     {
         if (discardButton == null) return;
         bool hasAny = GetPreparedTiles().Count > 0;

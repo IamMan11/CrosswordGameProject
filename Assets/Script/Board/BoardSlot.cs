@@ -30,6 +30,7 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
     [HideInInspector] public int row;
     [HideInInspector] public int col;
     [HideInInspector] public SlotType type = SlotType.Normal;
+    private Coroutine _flashCo;
     void Awake()
     {
         if (highlight != null) highlight.raycastTarget = false;
@@ -84,25 +85,33 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
         if (PlacementManager.Instance != null)
             PlacementManager.Instance.HoverSlot(this);
     }
-    public void Flash(Color col, int times = 4, float dur = 0.15f)
+    public void Flash(Color col, int times = 1, float dur = 0.1f)
     {
-        StartCoroutine(FlashCo(col, times, dur));
+        if (_flashCo != null) { StopCoroutine(_flashCo); _flashCo = null; }
+        _flashCo = StartCoroutine(FlashCo(col, times, dur));
     }
 
+    // ใช้หยุดและปิดไฟทันที
+    public void CancelFlash()
+    {
+        if (_flashCo != null) { StopCoroutine(_flashCo); _flashCo = null; }
+        if (highlight != null) highlight.enabled = false;
+    }
+
+    // ใช้เวลาจริง (รองรับ timeScale=0)
     IEnumerator FlashCo(Color col, int times, float dur)
     {
-        highlight.transform.SetAsLastSibling();     // ⬅︎ ย้ายมาวาดบนสุด
-        Color c = col; c.a = 0.6f;                  // ⬅︎ ปรับความทึบ (อยากได้เท่าไรลองเล่นดู)
-
+        highlight.transform.SetAsLastSibling();
+        var c = col; c.a = 0.6f;
         for (int i = 0; i < times; i++)
         {
-            highlight.enabled = true;
-            highlight.color = c;
-            yield return new WaitForSeconds(dur);
-
+            highlight.enabled = true;  highlight.color = c;
+            yield return new WaitForSecondsRealtime(dur);
             highlight.enabled = false;
-            yield return new WaitForSeconds(dur);
+            yield return new WaitForSecondsRealtime(dur);
         }
+        highlight.enabled = false;
+        _flashCo = null;
     }
     //:contentReference[oaicite:0]{index=0}&#8203;:contentReference[oaicite:1]{index=1}  
 

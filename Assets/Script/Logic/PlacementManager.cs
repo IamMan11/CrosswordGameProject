@@ -81,16 +81,36 @@ public class PlacementManager : MonoBehaviour
 
     public void CancelPlacement()
     {
-        foreach (var tile in SpaceManager.Instance.GetPreparedTiles())
-            SpaceManager.Instance.RemoveTile(tile);
+        // 1) รวบรวม tile ทั้งหมดที่ต้องคืน (Space + ที่เพิ่งวางลงบอร์ดในเทิร์นนี้)
+        var spaceTiles = SpaceManager.Instance.GetPreparedTiles();                  // จาก Space
+        var boardTiles = lastPlacedTiles.Select(p => p.tile).ToList();              // ที่เพิ่งย้ายไปบอร์ด
+        var all = new List<LetterTile>(spaceTiles.Count + boardTiles.Count);
+        all.AddRange(spaceTiles);
+        all.AddRange(boardTiles);
 
-        foreach (var (tile, _) in lastPlacedTiles)
-            SpaceManager.Instance.RemoveTile(tile);
+        // 2) หา bench slots ว่างจากซ้าย→ขวา
+        var empties = new List<Transform>();
+        foreach (var t in SpaceManager.Instance.benchSlots)                         // อาศัยลิสต์ Bench ของ SpaceManager
+            if (t.childCount == 0) empties.Add(t);
+
+        // 3) จับคู่ 1:1 แล้ว "บินกลับ"
+        int n = Mathf.Min(all.Count, empties.Count);
+        for (int i = 0; i < n; i++)
+        {
+            var tile = all[i];
+            var slot = empties[i];
+            tile.FlyTo(slot);                                                       // <<< อนิเมชันบินกลับ
+        }
+
+        // 4) Fallback (กรณีพิเศษถ้าช่องว่างไม่พอ)
+        for (int i = n; i < all.Count; i++)
+            SpaceManager.Instance.RemoveTile(all[i]);                               // snap กลับแบบเดิม
 
         lastPlacedTiles.Clear();
         ClearPreview();
         startSlot = null;
     }
+
 
     public void TryPlaceFromSlot(BoardSlot clicked)
     {

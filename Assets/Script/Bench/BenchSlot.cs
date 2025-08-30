@@ -31,5 +31,6 @@ public class BenchSlot : MonoBehaviour, IDropHandler, IPointerEnterHandler
 
         // ดึ้งเล็กน้อย
         tile.PlaySettle();
+        SpaceManager.Instance?.UpdateDiscardButton();
     }
 }

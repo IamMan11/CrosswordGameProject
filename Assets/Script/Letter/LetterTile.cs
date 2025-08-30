@@ -55,10 +55,16 @@ public class LetterTile : MonoBehaviour,
         canvasGroup = gameObject.AddComponent<CanvasGroup>();
         if (visualPivot != null) visualAnimator = visualPivot.GetComponent<Animator>();
     }
+    private bool IsOnBoard()
+    {
+        var p = transform.parent;
+        return p != null && p.GetComponent<BoardSlot>() != null;
+    }
 
     // ================= Drag =================
     public void OnBeginDrag(PointerEventData eventData)
     {
+        if (IsOnBoard()) return;
         if (isLocked || isBusy || UiGuard.IsBusy) return;
 
         OriginalParent = transform.parent;
@@ -82,6 +88,10 @@ public class LetterTile : MonoBehaviour,
         transform.SetAsLastSibling();
         canvasGroup.blocksRaycasts = false;
         SetDragging(true);
+    }
+    private void OnTransformParentChanged()
+    {
+        SpaceManager.Instance?.UpdateDiscardButton();
     }
 
     public void OnDrag(PointerEventData eventData)
@@ -192,6 +202,19 @@ public class LetterTile : MonoBehaviour,
         if (isLocked || isBusy || UiGuard.IsBusy) return;
         // คลิกซ้ายเท่านั้น (กัน double tap ขวา)
         if (eventData.button != PointerEventData.InputButton.Left) return;
+        if (IsOnBoard())
+        {
+            var target = SpaceManager.Instance?.GetFirstEmptySlot(); // หา SpaceSlot ว่างตัวแรก
+            if (target == null) return; // ถ้า Space เต็มก็ไม่ทำอะไร (จะให้เด้งเตือนค่อยใส่เพิ่มทีหลัง)
+
+            // ใช้แอนิเมชันบินกลับ (มีอยู่แล้วในคลาส)
+            StartCoroutine(FlyToSlot(target.transform));
+
+            // อัปเดตปุ่ม Discard ทันทีให้สะท้อนว่ามีตัวใน Space แล้ว
+            SpaceManager.Instance?.RefreshDiscardButton(); // ถ้าไม่มีเมธอดนี้ ให้ดูข้อ 2 ด้านล่าง
+
+            return;
+        }
 
         Transform curParent = transform.parent;
 
@@ -221,6 +244,11 @@ public class LetterTile : MonoBehaviour,
             return;
         }
     }
+    public void FlyTo(Transform targetSlot)
+    {
+        // ใช้คอร์รุตีนบินที่มีอยู่แล้ว
+        StartCoroutine(FlyToSlot(targetSlot));
+    }
 
     private IEnumerator FlyToSlot(Transform targetSlot)
     {
@@ -232,7 +260,7 @@ public class LetterTile : MonoBehaviour,
         transform.SetAsLastSibling();
 
         Vector3 start = rectTf.position;
-        Vector3 end   = (targetSlot as RectTransform).TransformPoint(Vector3.zero);
+        Vector3 end = (targetSlot as RectTransform).TransformPoint(Vector3.zero);
 
         float t = 0f, dur = Mathf.Max(0.0001f, flyDuration);
 
@@ -262,6 +290,7 @@ public class LetterTile : MonoBehaviour,
             transform.localPosition = Vector3.zero;
             AdjustSizeToParent();
             PlaySettle();
+            SpaceManager.Instance?.UpdateDiscardButton();
         }
         finally
         {
@@ -269,6 +298,88 @@ public class LetterTile : MonoBehaviour,
             isBusy = false;
             UiGuard.Pop();   // <<< ปลดล็อกเสมอ ต่อให้มี exception
         }
+    }
+    // ช่วยเช็คว่ามีพารามิเตอร์ชื่อนี้อยู่จริงไหม
+    
+    static bool AnimatorHasParam(Animator anim, string name, AnimatorControllerParameterType type)
+    {
+        if (!anim) return false;
+        foreach (var p in anim.parameters)
+            if (p.type == type && p.name == name) return true;
+        return false;
+    }
+
+    static readonly System.Collections.Generic.HashSet<Animator> _warned = new();
+
+    // ดึง Transform เป้าหมายสำหรับเด้ง: ถ้าไม่ตั้ง visualPivot จะใช้ตัวเอง
+    Transform GetBounceTarget()
+    {
+        return visualPivot ? visualPivot : transform;
+    }
+
+    Animator FindAnimatorForPulse()
+    {
+        // ลองที่เป้าหมายเด้งก่อน (รากกรณีคุณ)
+        var target = GetBounceTarget();
+        var anim = target.GetComponent<Animator>();
+        if (!anim) anim = GetComponent<Animator>();
+        if (!anim) anim = target.GetComponentInChildren<Animator>();
+        return anim;
+    }
+
+    public void Pulse()
+    {
+        var anim = FindAnimatorForPulse();
+        if (anim)
+        {
+            anim.updateMode = AnimatorUpdateMode.UnscaledTime;
+
+            // รองรับชื่อ Trigger ยอดฮิต ถ้าไม่มีจะ fallback เป็นเด้งด้วยโค้ด
+            if (AnimatorHasParam(anim, "Pulse", AnimatorControllerParameterType.Trigger))
+            {
+                anim.ResetTrigger("Pulse");
+                anim.SetTrigger("Pulse");
+                return;
+            }
+            if (AnimatorHasParam(anim, "Bounce", AnimatorControllerParameterType.Trigger))
+            {
+                anim.ResetTrigger("Bounce");
+                anim.SetTrigger("Bounce");
+                return;
+            }
+            if (AnimatorHasParam(anim, "BounceFast", AnimatorControllerParameterType.Trigger))
+            {
+                anim.ResetTrigger("BounceFast");
+                anim.SetTrigger("BounceFast");
+                return;
+            }
+
+            if (!_warned.Contains(anim))
+            {
+                _warned.Add(anim);
+                Debug.LogWarning($"[LetterTile] Animator '{anim.runtimeAnimatorController?.name}' ไม่มี Trigger 'Pulse/Bounce/BounceFast' — ใช้โค้ดเด้งแทน");
+            }
+        }
+
+        // ไม่มี/ไม่พบ Trigger → เด้งด้วยโค้ดแทน
+        StartCoroutine(QuickBounceCo());
+    }
+
+    IEnumerator QuickBounceCo(float dur = 0.12f, float scale = 1.15f)
+    {
+        var target = GetBounceTarget();
+        if (!target) yield break;
+
+        Vector3 a = Vector3.one, b = Vector3.one * scale;
+        float t = 0f;
+        while (t < 1f)
+        {
+            t += Time.unscaledDeltaTime / Mathf.Max(0.0001f, dur);
+            float k = t < 0.5f ? (t / 0.5f) : (1f - (t - 0.5f) / 0.5f);
+            target.localScale = Vector3.LerpUnclamped(a, b, k);
+            yield return null;
+        }
+        target.localScale = Vector3.one;
     }
 
     // ====== Data & Utils (ของเดิม) ======

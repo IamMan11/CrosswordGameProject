@@ -28,5 +28,6 @@ public class SpaceSlot : MonoBehaviour, IDropHandler, IPointerEnterHandler
         go.transform.SetParent(transform, false);
         tile.AdjustSizeToParent();
         tile.PlaySettle();
+        SpaceManager.Instance?.UpdateDiscardButton();
     }
 }

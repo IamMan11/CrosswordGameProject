@@ -14,7 +14,7 @@ public static class ScoreManager
     }
     public static void SetDoubleWordOverride(int multiplier)
     {
-        doubleLetterOverride = Mathf.Max(multiplier, 0);
+        doubleWordOverride = Mathf.Max(multiplier, 0); // << แก้บรรทัดนี้
     }
     // ── เพิ่มเมธอดเพื่อเปิดใช้ “ตัวอักษรทั้งหมด ×2” เป็นเวลา duration วินาที ──
     public static void ActivateGlobalLetterMultiplier(int multiplier, float duration)
@@ -77,4 +77,23 @@ public static class ScoreManager
         doubleWordOverride = 0;
         return total * wordMul;
     }
-}
+    public static int GetLetterOverride() => doubleLetterOverride;
+    public static int GetWordOverride()   => doubleWordOverride;
+
+    public static int EffectiveLetterMulFor(SlotType slotType)
+    {
+        if (slotType == SlotType.DoubleLetter)
+            return doubleLetterOverride > 0 ? doubleLetterOverride : 2;
+        if (slotType == SlotType.TripleLetter)
+            return doubleLetterOverride > 0 ? doubleLetterOverride : 3;
+        return 1;
+    }
+    public static int EffectiveWordMulFor(SlotType slotType)
+    {
+        if (slotType == SlotType.DoubleWord)
+            return doubleWordOverride > 0 ? doubleWordOverride : 2;
+        if (slotType == SlotType.TripleWord)
+            return doubleWordOverride > 0 ? doubleWordOverride : 3;
+        return 1;
+    }
+    }
