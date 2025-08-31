@@ -667,7 +667,6 @@ public class TurnManager : MonoBehaviour
         yield return new WaitForSeconds(totalDelay);
         RejectMove(tiles, reason, applyPenalty);
     }
-
     private IEnumerator SkipTurnAfterBounce()
     {
         yield return WFS_06;   // ให้เวลาแอนิเมชันเด้ง/แฟลช
