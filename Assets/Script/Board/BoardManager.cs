@@ -8,7 +8,7 @@ public class SpecialSlotData
     public int row;
     public int col;
     public SlotType type;
-    // ✅ เพิ่มฟิลด์นี้เพื่อให้ใช้งาน sp.manaGain ใน specials ได้จริง
+    // ✅ ใช้กับ specials ได้จริง
     [Tooltip("จำนวนมานาที่จะได้เมื่อวางตัวอักษรที่นี่")]
     public int manaGain = 0;
 }
@@ -23,7 +23,7 @@ public class BoardManager : MonoBehaviour
 
     [Header("Slot Visual")]
     public float slotSize = 64f;      // ขนาดช่อง
-    public float slotGap = 4f;       // ระยะห่างช่อง (0 = ชิดกัน)
+    public float slotGap = 4f;        // ระยะห่างช่อง (0 = ชิดกัน)
 
     [Header("Board Position (เพิ่ม)")]
     public Vector2 boardOffset = Vector2.zero; // เลื่อนบอร์ด (x=ขวา, y=ขึ้น)
@@ -33,8 +33,9 @@ public class BoardManager : MonoBehaviour
     public RectTransform boardParent;          // RectTransform เท่านั้น
 
     [Header("Special Slots")]
-    public List<SpecialSlotData> specials = new List<SpecialSlotData>();  // ← เพิ่มตรงนี้
-    // ⬇️ เพิ่ม Sprite ช่องกลาง
+    public List<SpecialSlotData> specials = new List<SpecialSlotData>();  // ← ใช้ชนิดเดียวกับคลาสซ้อนด้านล่าง
+
+    // ⬇️ เพิ่ม Sprite ช่องกลาง (เผื่ออนาคต)
     [Header("Center Slot")]
     public Sprite centerSlotSprite;
 
@@ -47,15 +48,16 @@ public class BoardManager : MonoBehaviour
         public SlotType type;
         [Tooltip("จำนวนมานาที่จะได้เมื่อวางตัวอักษรที่นี่")]
         public int manaGain = 0;
-        // ⬇️ เพิ่มรูปสำหรับช่องพิเศษรายช่อง
+        // ⬇️ รูปสำหรับช่องพิเศษรายช่อง (ปล่อยว่างได้)
         [Tooltip("รูปไอคอนสำหรับช่องพิเศษนี้ (ปล่อยว่างได้)")]
         public Sprite sprite;
     }
-    [HideInInspector] public int manaGain;
+    [HideInInspector] public int manaGain; // (ของเดิม) คงไว้
 
     [HideInInspector] public BoardSlot[,] grid;
     public int targetedFluxRemaining = 0;
-    // ── เพิ่ม fields สำหรับเก็บ backup ก่อนเปลี่ยนเป็น all-random-special ──
+
+    // ── backup สำหรับโหมด All-Random-Special ──
     private List<BackupSlot> backupSlots = new List<BackupSlot>();
     private bool isAllRandomActive = false;
 
@@ -74,6 +76,13 @@ public class BoardManager : MonoBehaviour
     // ---------- MAIN ---------- //
     public void GenerateBoard()
     {
+        // ✅ กันพังถ้าไม่ได้ผูกใน Inspector
+        if (boardParent == null || boardSlotPrefab == null)
+        {
+            Debug.LogError("[BoardManager] Missing boardParent or boardSlotPrefab.");
+            return;
+        }
+
         // เคลียร์เก่า
         foreach (Transform child in boardParent) Destroy(child.gameObject);
 
@@ -82,11 +91,13 @@ public class BoardManager : MonoBehaviour
         float totalW = cols * slotSize + (cols - 1) * slotGap;
         float totalH = rows * slotSize + (rows - 1) * slotGap;
 
+        // ตั้งขนาด parent ให้พอดี และจัดกึ่งกลาง
         boardParent.sizeDelta = new Vector2(totalW, totalH);
         boardParent.pivot = new Vector2(0.5f, 0.5f);
         boardParent.anchorMin = boardParent.anchorMax = new Vector2(0.5f, 0.5f);
         boardParent.anchoredPosition = boardOffset;
 
+        // คำนวณจุดเริ่มซ้าย-บน (Pivot อยู่กลาง)
         float startX = -totalW / 2f;
         float startY =  totalH / 2f;
 
@@ -99,8 +110,8 @@ public class BoardManager : MonoBehaviour
             {
                 // ค่าเริ่มต้น
                 SlotType st = SlotType.Normal;
-                int manaGain = 0;
-                Sprite overlaySprite = null;
+                int manaGainLocal = 0;
+                Sprite overlaySprite = null; // เผื่ออนาคต (ตอนนี้ยังไม่ส่งเข้า Setup)
 
                 // ช่องพิเศษจากลิสต์
                 foreach (var sp in specials)
@@ -108,7 +119,7 @@ public class BoardManager : MonoBehaviour
                     if (sp.row == r && sp.col == c)
                     {
                         st = sp.type;
-                        manaGain = sp.manaGain;
+                        manaGainLocal = sp.manaGain;
                         if (sp.sprite != null) overlaySprite = sp.sprite;
                         break;
                     }
@@ -125,7 +136,7 @@ public class BoardManager : MonoBehaviour
 
                 float posX = startX + c * (slotSize + slotGap) + slotSize / 2f;
                 float posY = startY - r * (slotSize + slotGap) - slotSize / 2f;
-                if (rt != null) // ✅ ป้องกัน prefab ไม่มี RectTransform (กรณีผิดพลาด)
+                if (rt != null) // ✅ กัน prefab ไม่มี RectTransform (กรณีผิดพลาด)
                 {
                     rt.sizeDelta = new Vector2(slotSize, slotSize);
                     rt.anchoredPosition = new Vector2(posX, posY);
@@ -139,7 +150,8 @@ public class BoardManager : MonoBehaviour
                     continue;
                 }
 
-                slot.Setup(r, c, st, manaGain);
+                // ✅ ยึดซิกเนเจอร์เดิมเพื่อไม่พังไฟล์อื่น
+                slot.Setup(r, c, st, manaGainLocal);
                 grid[r, c] = slot;
             }
         }
@@ -171,7 +183,7 @@ public class BoardManager : MonoBehaviour
             var (rr, cc) = normals[idx];
             normals.RemoveAt(idx);
 
-            // กำหนด special type แบบสุ่ม (ตัวอย่าง: DL, TL, DW, TW)
+            // กำหนด special type แบบสุ่ม (DL/TL/DW/TW)
             SlotType newType;
             int roll = Random.Range(0, 4);
             switch (roll)
@@ -182,14 +194,14 @@ public class BoardManager : MonoBehaviour
                 default: newType = SlotType.TripleWord; break;
             }
 
-            // เปลี่ยน type ใน data และอัพเดตสี
+            // เปลี่ยน type และอัปเดตสี
             var slot = grid[rr, cc];
             if (slot == null) continue; // ✅ กัน null
             slot.type = newType;
             slot.ApplyVisual();
 
-            // ✅ ใช้ global::SpecialSlotData เพื่อไม่ชนกับคลาสซ้อนชื่อเดียวกัน
-            specials.Add(new global::SpecialSlotData { row = rr, col = cc, type = newType, manaGain = 0 });
+            // ✅ ใช้ชนิดเดียวกับลิสต์ (คลาสซ้อน)
+            specials.Add(new SpecialSlotData { row = rr, col = cc, type = newType, manaGain = 0 });
         }
     }
 
@@ -225,8 +237,8 @@ public class BoardManager : MonoBehaviour
             slot.type = newType;
             slot.ApplyVisual();
 
-            // ✅ ใช้ global::SpecialSlotData เพื่อไม่ชนกับคลาสซ้อน
-            specials.Add(new global::SpecialSlotData { row = row, col = col, type = newType, manaGain = 0 });
+            // ✅ ใช้ชนิดเดียวกับลิสต์ (คลาสซ้อน)
+            specials.Add(new SpecialSlotData { row = row, col = col, type = newType, manaGain = 0 });
 
             targetedFluxRemaining--;
             UIManager.Instance.ShowMessage($"เลือกช่อง ({row},{col}) เป็น {newType}", 1.5f);
@@ -268,7 +280,7 @@ public class BoardManager : MonoBehaviour
         if (isAllRandomActive) return;
         if (grid == null) return; // ✅
 
-        // เก็บ backup ของทุกช่องปัจจุบัน (row, col, type, manaGain)
+        // เก็บ backup ของทุกช่อง (row, col, type, manaGain)
         backupSlots.Clear();
         for (int r = 0; r < rows; r++)
         {
@@ -286,7 +298,7 @@ public class BoardManager : MonoBehaviour
             }
         }
 
-        // สุ่มเปลี่ยนทุกช่องใน board เป็น special type ใหม่แบบสุ่ม
+        // สุ่มเปลี่ยนทุกช่องเป็น special ใหม่
         for (int r = 0; r < rows; r++)
         {
             for (int c = 0; c < cols; c++)
@@ -294,7 +306,6 @@ public class BoardManager : MonoBehaviour
                 var slot = grid[r, c];
                 if (slot == null) continue; // ✅
 
-                // สุ่ม special type (DoubleLetter / TripleLetter / DoubleWord / TripleWord)
                 SlotType newType;
                 int roll = Random.Range(0, 4);
                 switch (roll)
@@ -306,12 +317,11 @@ public class BoardManager : MonoBehaviour
                 }
                 slot.type = newType;
                 slot.ApplyVisual();
-                slot.manaGain = 0; // สมมติช่องพิเศษชั่วคราวไม่ให้มานาเพิ่ม
+                slot.manaGain = 0; // โหมดชั่วคราวไม่แจกมานา
             }
         }
 
         isAllRandomActive = true;
-        // เริ่ม Coroutine เพื่อ revert หลังผ่านไป duration วินาที
         StartCoroutine(RevertAllRandomSpecialAfter(duration));
         UIManager.Instance.ShowMessage("All Random Special – ทุกช่องกลายเป็นพิเศษชั่วคราว!", 2f);
     }
