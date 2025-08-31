@@ -8,6 +8,9 @@ public class SpecialSlotData
     public int row;
     public int col;
     public SlotType type;
+    // ✅ ใช้กับ specials ได้จริง
+    [Tooltip("จำนวนมานาที่จะได้เมื่อวางตัวอักษรที่นี่")]
+    public int manaGain = 0;
 }
 
 public class BoardManager : MonoBehaviour
@@ -20,7 +23,7 @@ public class BoardManager : MonoBehaviour
 
     [Header("Slot Visual")]
     public float slotSize = 64f;      // ขนาดช่อง
-    public float slotGap = 4f;       // ระยะห่างช่อง (0 = ชิดกัน)
+    public float slotGap = 4f;        // ระยะห่างช่อง (0 = ชิดกัน)
 
     [Header("Board Position (เพิ่ม)")]
     public Vector2 boardOffset = Vector2.zero; // เลื่อนบอร์ด (x=ขวา, y=ขึ้น)
@@ -30,12 +33,13 @@ public class BoardManager : MonoBehaviour
     public RectTransform boardParent;          // RectTransform เท่านั้น
 
     [Header("Special Slots")]
-    public List<SpecialSlotData> specials = new List<SpecialSlotData>();  // ← เพิ่มตรงนี้
-    // ⬇️ เพิ่ม Sprite ช่องกลาง
+    public List<SpecialSlotData> specials = new List<SpecialSlotData>();  // ← ใช้ชนิดเดียวกับคลาสซ้อนด้านล่าง
+
+    // ⬇️ เพิ่ม Sprite ช่องกลาง (เผื่ออนาคต)
     [Header("Center Slot")]
     public Sprite centerSlotSprite;
 
-
+    // ----- (ของเดิม) คลาสซ้อนชื่อเดียวกัน — คงไว้ไม่ลบ -----
     [System.Serializable]
     public class SpecialSlotData
     {
@@ -44,17 +48,22 @@ public class BoardManager : MonoBehaviour
         public SlotType type;
         [Tooltip("จำนวนมานาที่จะได้เมื่อวางตัวอักษรที่นี่")]
         public int manaGain = 0;
-        // ⬇️ เพิ่มรูปสำหรับช่องพิเศษรายช่อง
+        // ⬇️ รูปสำหรับช่องพิเศษรายช่อง (ปล่อยว่างได้)
         [Tooltip("รูปไอคอนสำหรับช่องพิเศษนี้ (ปล่อยว่างได้)")]
         public Sprite sprite;
     }
-    [HideInInspector] public int manaGain;
+    [HideInInspector] public int manaGain; // (ของเดิม) คงไว้
 
     [HideInInspector] public BoardSlot[,] grid;
     public int targetedFluxRemaining = 0;
-    // ── เพิ่ม fields สำหรับเก็บ backup ก่อนเปลี่ยนเป็น all-random-special ──
+
+    // ── backup สำหรับโหมด All-Random-Special ──
     private List<BackupSlot> backupSlots = new List<BackupSlot>();
     private bool isAllRandomActive = false;
+
+    // ✅ helper properties สำหรับระบบด่าน/เทิร์น
+    public int RowCount => grid != null ? grid.GetLength(0) : rows;
+    public int ColCount => grid != null ? grid.GetLength(1) : cols;
 
     void Awake()
     {
@@ -67,6 +76,14 @@ public class BoardManager : MonoBehaviour
     // ---------- MAIN ---------- //
     public void GenerateBoard()
     {
+        // ✅ กันพังถ้าไม่ได้ผูกใน Inspector
+        if (boardParent == null || boardSlotPrefab == null)
+        {
+            Debug.LogError("[BoardManager] Missing boardParent or boardSlotPrefab.");
+            return;
+        }
+
+        // เคลียร์เก่า
         foreach (Transform child in boardParent) Destroy(child.gameObject);
 
         grid = new BoardSlot[rows, cols];
@@ -74,11 +91,13 @@ public class BoardManager : MonoBehaviour
         float totalW = cols * slotSize + (cols - 1) * slotGap;
         float totalH = rows * slotSize + (rows - 1) * slotGap;
 
+        // ตั้งขนาด parent ให้พอดี และจัดกึ่งกลาง
         boardParent.sizeDelta = new Vector2(totalW, totalH);
         boardParent.pivot = new Vector2(0.5f, 0.5f);
         boardParent.anchorMin = boardParent.anchorMax = new Vector2(0.5f, 0.5f);
         boardParent.anchoredPosition = boardOffset;
 
+        // คำนวณจุดเริ่มซ้าย-บน (Pivot อยู่กลาง)
         float startX = -totalW / 2f;
         float startY =  totalH / 2f;
 
@@ -91,8 +110,8 @@ public class BoardManager : MonoBehaviour
             {
                 // ค่าเริ่มต้น
                 SlotType st = SlotType.Normal;
-                int manaGain = 0;
-                Sprite overlaySprite = null;
+                int manaGainLocal = 0;
+                Sprite overlaySprite = null; // เผื่ออนาคต (ตอนนี้ยังไม่ส่งเข้า Setup)
 
                 // ช่องพิเศษจากลิสต์
                 foreach (var sp in specials)
@@ -100,7 +119,7 @@ public class BoardManager : MonoBehaviour
                     if (sp.row == r && sp.col == c)
                     {
                         st = sp.type;
-                        manaGain = sp.manaGain;
+                        manaGainLocal = sp.manaGain;
                         if (sp.sprite != null) overlaySprite = sp.sprite;
                         break;
                     }
@@ -117,18 +136,32 @@ public class BoardManager : MonoBehaviour
 
                 float posX = startX + c * (slotSize + slotGap) + slotSize / 2f;
                 float posY = startY - r * (slotSize + slotGap) - slotSize / 2f;
-                rt.sizeDelta = new Vector2(slotSize, slotSize);
-                rt.anchoredPosition = new Vector2(posX, posY);
+                if (rt != null) // ✅ กัน prefab ไม่มี RectTransform (กรณีผิดพลาด)
+                {
+                    rt.sizeDelta = new Vector2(slotSize, slotSize);
+                    rt.anchoredPosition = new Vector2(posX, posY);
+                }
 
                 var slot = go.GetComponent<BoardSlot>();
-                // ⬇️ ส่ง overlaySprite เข้าไปด้วย
-                slot.Setup(r, c, st, manaGain, overlaySprite);
+                if (slot == null) // ✅ กัน prefab ผิดชนิด
+                {
+                    Debug.LogError("[BoardManager] boardSlotPrefab missing BoardSlot component.");
+                    Destroy(go);
+                    continue;
+                }
+
+                // ✅ ยึดซิกเนเจอร์เดิมเพื่อไม่พังไฟล์อื่น
+                slot.Setup(r, c, st, manaGainLocal);
                 grid[r, c] = slot;
             }
         }
     }
+
     public void AddRandomSpecialSlots(int count)
     {
+        // ✅ กัน grid ยังไม่ถูกสร้าง
+        if (grid == null) { Debug.LogWarning("[BoardManager] grid is null."); return; }
+
         // สร้างลิสต์เก็บพิกัด slot ปกติที่ยังไม่เป็น special
         List<(int r, int c)> normals = new List<(int, int)>();
         for (int r = 0; r < rows; r++)
@@ -136,7 +169,7 @@ public class BoardManager : MonoBehaviour
             for (int c = 0; c < cols; c++)
             {
                 var slot = grid[r, c];
-                if (slot.type == SlotType.Normal)
+                if (slot != null && slot.type == SlotType.Normal)
                     normals.Add((r, c));
             }
         }
@@ -150,7 +183,7 @@ public class BoardManager : MonoBehaviour
             var (rr, cc) = normals[idx];
             normals.RemoveAt(idx);
 
-            // กำหนด special type แบบสุ่ม (ตัวอย่าง: DL, TL, DW, TW)
+            // กำหนด special type แบบสุ่ม (DL/TL/DW/TW)
             SlotType newType;
             int roll = Random.Range(0, 4);
             switch (roll)
@@ -161,27 +194,32 @@ public class BoardManager : MonoBehaviour
                 default: newType = SlotType.TripleWord; break;
             }
 
-            // เปลี่ยน type ใน data และอัพเดตสี
+            // เปลี่ยน type และอัปเดตสี
             var slot = grid[rr, cc];
+            if (slot == null) continue; // ✅ กัน null
             slot.type = newType;
             slot.ApplyVisual();
 
-            // ถ้าอยากเก็บข้อมูลใน specials list ด้วย ให้เพิ่มโค้ดนี้:
+            // ✅ ใช้ชนิดเดียวกับลิสต์ (คลาสซ้อน)
             specials.Add(new SpecialSlotData { row = rr, col = cc, type = newType, manaGain = 0 });
         }
     }
+
     public void StartTargetedFlux(int count)
     {
-        // กำหนดจำนวนช่องที่ต้องเลือก
         targetedFluxRemaining = count;
-        // แสดงข้อความแจ้งให้ผู้เล่นคลิก (UIManager ใช้ ShowMessage ธรรมดาได้)
         UIManager.Instance.ShowMessage($"Targeted Flux: เลือก {count} ช่องบนบอร์ด", 2f);
     }
+
     public void HandleTargetedFluxClick(int row, int col)
     {
         if (targetedFluxRemaining <= 0) return;
+        if (grid == null) return; // ✅
+        if (row < 0 || row >= RowCount || col < 0 || col >= ColCount) return; // ✅
 
         var slot = grid[row, col];
+        if (slot == null) return; // ✅
+
         // ถ้าช่องนี้ยังเป็น Normal (ไม่ใช่ special)
         if (slot.type == SlotType.Normal && !slot.HasLetterTile())
         {
@@ -199,7 +237,7 @@ public class BoardManager : MonoBehaviour
             slot.type = newType;
             slot.ApplyVisual();
 
-            // ถ้าอยากเก็บใน specials list ด้วยก็เพิ่ม data ลงไป
+            // ✅ ใช้ชนิดเดียวกับลิสต์ (คลาสซ้อน)
             specials.Add(new SpecialSlotData { row = row, col = col, type = newType, manaGain = 0 });
 
             targetedFluxRemaining--;
@@ -216,33 +254,40 @@ public class BoardManager : MonoBehaviour
             UIManager.Instance.ShowMessage("ช่องนี้ไม่สามารถเปลี่ยนเป็น special ได้", 1.5f);
         }
     }
+
     public void CleanSlate()
     {
+        if (grid == null) return; // ✅
+
         for (int r = 0; r < rows; r++)
         {
             for (int c = 0; c < cols; c++)
             {
                 var slot = grid[r, c];
-                if (slot.HasLetterTile())
+                if (slot != null && slot.HasLetterTile())
                 {
                     var tile = slot.RemoveLetter();
-                    Destroy(tile.gameObject);
+                    if (tile != null) // ✅ กัน NRE
+                        Destroy(tile.gameObject);
                 }
             }
         }
         UIManager.Instance.ShowMessage("BOARD CLEARED!", 1.5f);
     }
+
     public void ActivateAllRandomSpecial(float duration)
     {
         if (isAllRandomActive) return;
+        if (grid == null) return; // ✅
 
-        // เก็บ backup ของทุกช่องปัจจุบัน (row, col, type, manaGain)
+        // เก็บ backup ของทุกช่อง (row, col, type, manaGain)
         backupSlots.Clear();
         for (int r = 0; r < rows; r++)
         {
             for (int c = 0; c < cols; c++)
             {
                 var slot = grid[r, c];
+                if (slot == null) continue; // ✅
                 backupSlots.Add(new BackupSlot
                 {
                     row = r,
@@ -253,13 +298,14 @@ public class BoardManager : MonoBehaviour
             }
         }
 
-        // สุ่มเปลี่ยนทุกช่องใน board เป็น special type ใหม่แบบสุ่ม
+        // สุ่มเปลี่ยนทุกช่องเป็น special ใหม่
         for (int r = 0; r < rows; r++)
         {
             for (int c = 0; c < cols; c++)
             {
                 var slot = grid[r, c];
-                // สุ่ม special type (DoubleLetter / TripleLetter / DoubleWord / TripleWord)
+                if (slot == null) continue; // ✅
+
                 SlotType newType;
                 int roll = Random.Range(0, 4);
                 switch (roll)
@@ -271,26 +317,31 @@ public class BoardManager : MonoBehaviour
                 }
                 slot.type = newType;
                 slot.ApplyVisual();
-                slot.manaGain = 0; // สมมติช่องพิเศษชั่วคราวไม่ให้มานาเพิ่ม
+                slot.manaGain = 0; // โหมดชั่วคราวไม่แจกมานา
             }
         }
 
         isAllRandomActive = true;
-        // เริ่ม Coroutine เพื่อ revert หลังผ่านไป duration วินาที
         StartCoroutine(RevertAllRandomSpecialAfter(duration));
         UIManager.Instance.ShowMessage("All Random Special – ทุกช่องกลายเป็นพิเศษชั่วคราว!", 2f);
     }
+
     private IEnumerator RevertAllRandomSpecialAfter(float duration)
     {
         yield return new WaitForSeconds(duration);
 
-        // คืนค่าทุกช่องกลับตาม backup
-        foreach (var b in backupSlots)
+        if (grid != null) // ✅
         {
-            var slot = grid[b.row, b.col];
-            slot.type = b.type;
-            slot.manaGain = b.manaGain;
-            slot.ApplyVisual();
+            // คืนค่าทุกช่องกลับตาม backup
+            foreach (var b in backupSlots)
+            {
+                if (b.row < 0 || b.row >= RowCount || b.col < 0 || b.col >= ColCount) continue; // ✅
+                var slot = grid[b.row, b.col];
+                if (slot == null) continue; // ✅
+                slot.type = b.type;
+                slot.manaGain = b.manaGain;
+                slot.ApplyVisual();
+            }
         }
         backupSlots.Clear();
         isAllRandomActive = false;
@@ -311,6 +362,7 @@ public class BoardManager : MonoBehaviour
     /// </summary>
     public BoardSlot GetSlot(int row, int col)
     {
+        if (grid == null) return null; // ✅
         if (row < 0 || row >= rows ||
             col < 0 || col >= cols)
             return null;
@@ -319,6 +371,8 @@ public class BoardManager : MonoBehaviour
 
     public void LockRandomSlot()
     {
+        if (grid == null) return; // ✅
+
         List<BoardSlot> unlockable = new List<BoardSlot>();
 
         for (int r = 0; r < rows; r++)
@@ -326,7 +380,7 @@ public class BoardManager : MonoBehaviour
             for (int c = 0; c < cols; c++)
             {
                 var slot = grid[r, c];
-                if (!slot.IsLocked && !slot.HasLetterTile())
+                if (slot != null && !slot.IsLocked && !slot.HasLetterTile()) // ✅ กัน null
                 {
                     unlockable.Add(slot);
                 }
