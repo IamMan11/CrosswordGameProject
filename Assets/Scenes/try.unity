@@ -4721,6 +4721,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 272039407}
+  - {fileID: 1690410525}
   - {fileID: 2146283255}
   - {fileID: 1480716708}
   - {fileID: 1745993520}
@@ -4737,6 +4738,7 @@ RectTransform:
   - {fileID: 232375}
   - {fileID: 297668890}
   - {fileID: 98078149}
+  - {fileID: 1153837802}
   - {fileID: 956558048}
   - {fileID: 1068498661}
   - {fileID: 653146164}
@@ -4746,14 +4748,12 @@ RectTransform:
   - {fileID: 297292851}
   - {fileID: 427263723}
   - {fileID: 1118088604}
-  - {fileID: 1153837802}
   - {fileID: 1435775702}
   - {fileID: 1333605054}
   - {fileID: 1861915640}
   - {fileID: 1192320634}
   - {fileID: 1906547466}
   - {fileID: 250377546}
-  - {fileID: 1690410525}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -12878,8 +12878,8 @@ MonoBehaviour:
   scorePopPrefab: {fileID: 5345666862900907408, guid: 990d52b15ea48b443ba82f0c416825f1, type: 3}
   tier2Min: 3
   tier3Min: 6
-  stepDelay: 0.08
-  sectionDelay: 0.2
+  stepDelay: 0.25
+  sectionDelay: 0.5
   flyDur: 0.6
 --- !u!1 &1388610062
 GameObject:

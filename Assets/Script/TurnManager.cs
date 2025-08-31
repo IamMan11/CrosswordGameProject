@@ -362,7 +362,7 @@ public class TurnManager : MonoBehaviour
     {
         var factors = new List<int>();
 
-        // 2.1 ช่องพิเศษแบบคูณคำ (DW/TW) ต่อ "แต่ละคำ"
+        // 2.1 ช่องพิเศษคูณคำ (DW/TW) ต่อ "แต่ละคำ"
         foreach (var w in correct)
         {
             int wordMul = 1;
@@ -374,13 +374,11 @@ public class TurnManager : MonoBehaviour
             if (wordMul > 1) factors.Add(wordMul);
         }
 
-        // 2.2 การ์ดคูณคำ (ถ้ามีใช้งานรอบนี้)
-        if (ScoreManager.GetWordOverride() > 1) factors.Add(ScoreManager.GetWordOverride());
+        // 2.2 การ์ดคูณคำ (ถ้ามี)
+        if (ScoreManager.GetWordOverride() > 1)
+            factors.Add(ScoreManager.GetWordOverride());
 
-        // 2.3 คอมโบจำนวนคำใหม่ (x2..x4) — เอามาเป็นแฟคเตอร์เดียว
-        int combo = Mathf.Clamp(correct.Count, 1, 4);
-        if (combo > 1) factors.Add(combo);
-
+        // 2.3 คอมโบจำนวนคำใหม่ — ไม่ใส่ที่นี่! (ไปทำเป็น step ใน Part 2)
         return factors;
     }
 
@@ -477,15 +475,36 @@ public class TurnManager : MonoBehaviour
 
         // ---------- Part 2: ตัวคูณ (จุด B) ----------
         var uiB = SpawnPop(anchorMults, 0);
+
+        // 2.1 ตัวคูณจาก DW/TW และการ์ด (เดิม)
         foreach (var f in mulFactors)
         {
-            mulRunning += f;                   // ✅ x2+x3=x5
+            mulRunning += f;                   // x2+x3 = x5 (ดีไซน์รวมแบบบวก)
             uiB.SetText("x" + mulRunning);
             uiB.PopByDelta(f, tier2Min, tier3Min);
             yield return new WaitForSecondsRealtime(stepDelay);
         }
-        yield return new WaitForSecondsRealtime(sectionDelay);
 
+        // 2.2 คอมโบจำนวนคำใหม่ → ค่อย ๆ ไฮไลต์ทีละคำจนถึง x4 (ถ้ามากกว่านั้นก็ไม่เกิน 4)
+        int comboSteps = Mathf.Min(correct.Count, 4);
+        for (int i = 0; i < comboSteps; i++)
+        {
+            // ไฮไลต์ “คำที่ทำให้เกิดสเต็ปนี้” (จำกัด 4 คำแรก)
+            var w = correct[i];
+            foreach (var s in SlotsInWord(w))
+            {
+                var t = s.GetLetterTile();
+                if (t) t.Pulse();
+                s.Flash(new Color(1f, 0.55f, 0.20f, 1f), 1, 0.08f); // โทนส้มสำหรับคอมโบ
+            }
+
+            mulRunning += 1;                   // เพิ่มทีละ +1 ไปจนถึง x4
+            uiB.SetText("x" + mulRunning);
+            uiB.PopByDelta(1, tier2Min, tier3Min);
+            yield return new WaitForSecondsRealtime(stepDelay);
+        }
+
+        yield return new WaitForSecondsRealtime(sectionDelay);
         if (mulRunning <= 0) mulRunning = 1;   // กันเคสไม่มีตัวคูณเลย
 
         // ---------- รวมสองอันเข้ากลาง ----------
