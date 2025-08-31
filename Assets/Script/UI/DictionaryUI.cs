@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -13,30 +14,36 @@ public class DictionaryUI : MonoBehaviour
     [SerializeField]  GameObject panel;
 
     [Header("Columns (Vertical Layout)")]
-    [SerializeField]  Transform colWord;      // คอลัมน์ซ้าย
-    [SerializeField]  Transform colType;      // คอลัมน์กลาง
-    [SerializeField]  Transform colTrans;     // คอลัมน์ขวา
+    [SerializeField]  Transform colWord;      // คอลัมน์ซ้าย (ปุ่มคำ)
+    [SerializeField]  Transform colType;      // คอลัมน์กลาง (ชนิดคำ)
+    [SerializeField]  Transform colTrans;     // คอลัมน์ขวา  (คำแปล)
 
-    [Header("Text Prefabs")]
-    [SerializeField]  Button prefabWordButton;
+    [Header("Text/Btn Prefabs")]
+    [SerializeField]  Button   prefabWordButton;
     [SerializeField]  TMP_Text prefabType;
     [SerializeField]  TMP_Text prefabTrans;
 
     [Header("Navigation")]
-    [SerializeField]  Button btnPrev;
-    [SerializeField]  Button btnNext;
-    [SerializeField]  Button btnClear; 
-    [SerializeField]  TMP_Text pageLabel;    // TextMeshProUGUI แสดง "Page X"
+    [SerializeField]  Button   btnPrev;
+    [SerializeField]  Button   btnNext;
+    [SerializeField]  Button   btnClear;
+    [SerializeField]  TMP_Text pageLabel;    // "Page X / Y"
 
-    [Header("Create‑Word Buttons (1‑10)")]
+    [Header("Create-Word Buttons (1-10)")]
     [SerializeField]  Button[] btnLen;        // index 0 = 1, …, 9 = 10
 
-    /* ---------- Data ---------- */
+    [Header("Query Settings")]
+    [SerializeField, Tooltip("ดึงคำจากฐานต่อความยาวสูงสุดกี่คำ ก่อนคัดกรองกับตัวอักษรบน Bench")]
+    private int fetchLimitPerLen = 8000;
+
+    [SerializeField, Tooltip("ความยาวคำสูงสุดที่อนุญาตให้กดเลือกได้")]
+    private int maxLenSelectable = 10;
+
+    /* ---------- State ---------- */
     const int PAGE_SIZE = 10;
     int  pageIdx = 0;
-    List<WordChecker.Entry> viewEntries;
-
-    List<WordChecker.Entry> allEntries  = new();   // จาก WordChecker
+    int  currentLen = 0;                // ความยาวที่กำลังแสดง (0 = ยังไม่เลือก)
+    readonly List<string> viewWords = new(); // รายการคำที่ “ประกอบได้จริง” หลังกรองแล้ว
 
     /* ---------- Awake ---------- */
     void Awake()
@@ -44,65 +51,109 @@ public class DictionaryUI : MonoBehaviour
         if (Instance == null) Instance = this;
         else { Destroy(gameObject); return; }
 
-        allEntries  = WordChecker.Instance.GetAllEntries();
-        viewEntries = new List<WordChecker.Entry>(allEntries);
-
         BindButtons();
-        panel.SetActive(false);
+        if (panel) panel.SetActive(false);
     }
 
     /* ---------- Public API ---------- */
     public void Open()
     {
-        TurnManager.Instance.SetDictionaryUsed();   // โดนลดคะแนน 50 %
-        panel.SetActive(true);
-        ResetFilter();
+        // แจ้ง TurnManager ว่าผู้เล่นเปิดดิก (จะถูกลดคะแนนในเทิร์นนี้ ถ้าไม่ได้ FreePass)
+        TurnManager.Instance.SetDictionaryUsed();
+
+        if (panel) panel.SetActive(true);
+
+        // เลือกความยาวเริ่มต้นให้ฉลาด: min(จำนวนตัวอักษรบน Bench, maxLenSelectable) แต่ไม่น้อยกว่า 2
+        int benchLetters = GetBenchLetterCounts().Values.Sum();
+        int startLen = Mathf.Clamp(Mathf.Max(2, benchLetters), 2, Math.Max(2, maxLenSelectable));
+
+        ApplyLengthFilter(startLen, autoFallbackToShorter:true);
         RenderPage();
     }
-    public void Close() => panel.SetActive(false);
+
+    public void Close() { if (panel) panel.SetActive(false); }
 
     /* ---------- Buttons ---------- */
     void BindButtons()
     {
-        btnPrev.onClick.AddListener(() => { if (pageIdx > 0) { pageIdx--; RenderPage(); } });
-        btnNext.onClick.AddListener(() =>
-        {
-            if ((pageIdx + 1) * PAGE_SIZE < viewEntries.Count) { pageIdx++; RenderPage(); }
-        });
+        if (btnPrev) btnPrev.onClick.AddListener(OnPrevPage);
+        if (btnNext) btnNext.onClick.AddListener(OnNextPage);
+        if (btnClear) btnClear.onClick.AddListener(OnClear);
 
+        // map ปุ่มยาว 1..N เข้าฟังก์ชันกรองตามความยาว
         for (int i = 0; i < btnLen.Length; i++)
         {
             int len = i + 1;
+            if (len > maxLenSelectable) { btnLen[i].gameObject.SetActive(false); continue; }
+
             btnLen[i].onClick.RemoveAllListeners();
-            btnLen[i].onClick.AddListener(() => FilterMakeableWords(len));
+            btnLen[i].onClick.AddListener(() => {
+                ApplyLengthFilter(len, autoFallbackToShorter:false);
+                RenderPage();
+            });
         }
     }
 
-    /* ---------- Filtering ---------- */
-    void ResetFilter()
-    {
-        viewEntries = new List<WordChecker.Entry>(allEntries);
-        pageIdx = 0;
-    }
+    /* ---------- Filtering / Fetching ---------- */
 
-    void FilterMakeableWords(int len)
+    /// <summary>
+    /// ดึงคำจากฐานตามความยาว len แล้วกรองให้ “ประกอบได้จริง” จากตัวอักษรบน Bench
+    /// ถ้าไม่เจอคำเลยและ autoFallbackToShorter=true จะลองลดความยาวลงทีละ 1 จนถึง 2
+    /// </summary>
+    void ApplyLengthFilter(int len, bool autoFallbackToShorter)
     {
+        if (WordChecker.Instance == null || !WordChecker.Instance.IsReady())
+        {
+            Debug.LogWarning("[DictionaryUI] WordChecker not ready.");
+            return;
+        }
+
         var benchCnt = GetBenchLetterCounts();
-        viewEntries = allEntries
-            .Where(e => e.Word.Length == len && CanMake(e.Word, benchCnt))
-            .ToList();
+
+        // ถ้า len มากกว่าจำนวนตัวอักษรในมือ ให้หดลงมา
+        int capLen = Mathf.Min(len, Math.Max(0, benchCnt.Values.Sum()));
+
+        // เริ่มลองที่ capLen แล้วลดลง (ถ้าอนุญาต)
+        int tryLen = Mathf.Clamp(capLen, 1, maxLenSelectable);
+        bool found = false;
+
+        while (tryLen >= 2) // ไม่แนะนำคำยาว 1 โดยทั่วไป
+        {
+            var pool = WordChecker.Instance.GetWordsByLength(tryLen, fetchLimitPerLen) ?? new List<string>();
+            viewWords.Clear();
+
+            // กรองให้ประกอบได้จริง
+            foreach (var w in pool)
+                if (CanMake(w, benchCnt)) viewWords.Add(w);
+
+            if (viewWords.Count > 0)
+            {
+                currentLen = tryLen;
+                found = true;
+                break;
+            }
+
+            if (!autoFallbackToShorter) break;
+            tryLen--;
+        }
+
+        if (!found)
+        {
+            currentLen = 0;
+            viewWords.Clear();
+        }
+
         pageIdx = 0;
-        RenderPage();
     }
 
     Dictionary<char, int> GetBenchLetterCounts()
     {
-        Dictionary<char, int> cnt = new();
+        var cnt = new Dictionary<char, int>();
         foreach (Transform slot in BenchManager.Instance.slotTransforms)
         {
             if (slot.childCount == 0) continue;
             var tile = slot.GetChild(0).GetComponent<LetterTile>();
-            char ch = tile.GetData().letter.ToUpper()[0];
+            char ch = char.ToUpperInvariant(tile.GetData().letter[0]);
             if (!cnt.ContainsKey(ch)) cnt[ch] = 0;
             cnt[ch]++;
         }
@@ -111,14 +162,19 @@ public class DictionaryUI : MonoBehaviour
 
     bool CanMake(string word, Dictionary<char, int> benchCnt)
     {
-        Dictionary<char, int> tmp = new(benchCnt);
-        foreach (char c in word.ToUpper())
+        if (string.IsNullOrWhiteSpace(word)) return false;
+
+        // ทำงานบนสำเนาเพื่อลด GC (ใช้ temp dict ภายใน method จะอ่านง่าย/ปลอดภัย)
+        var tmp = new Dictionary<char, int>(benchCnt);
+        foreach (char c in word.ToUpperInvariant())
         {
-            if (!tmp.ContainsKey(c) || tmp[c] == 0) return false;
-            tmp[c]--;
+            if (!tmp.TryGetValue(c, out int n) || n <= 0) return false;
+            tmp[c] = n - 1;
         }
         return true;
     }
+
+    /* ---------- Rendering & Paging ---------- */
 
     void RenderPage()
     {
@@ -126,51 +182,81 @@ public class DictionaryUI : MonoBehaviour
         ClearColumn(colType);
         ClearColumn(colTrans);
 
-        int start = pageIdx * PAGE_SIZE;
-        for (int i = 0; i < PAGE_SIZE; i++)
+        if (currentLen == 0 || viewWords.Count == 0)
         {
-            int idx = start + i;
-            if (idx >= viewEntries.Count) break;
+            pageLabel.text = "No results";
+            if (btnPrev) btnPrev.interactable = false;
+            if (btnNext) btnNext.interactable = false;
+            return;
+        }
 
-            var e = viewEntries[idx];
+        int totalPages = Mathf.CeilToInt(viewWords.Count / (float)PAGE_SIZE);
+        pageIdx = Mathf.Clamp(pageIdx, 0, Math.Max(0, totalPages - 1));
 
-            // สร้างปุ่มคำ
+        int start = pageIdx * PAGE_SIZE;
+        int end   = Mathf.Min(start + PAGE_SIZE, viewWords.Count);
+
+        for (int i = start; i < end; i++)
+        {
+            string word = viewWords[i];
+
+            // ปุ่มคำ (ซ้าย)
             var btn = Instantiate(prefabWordButton, colWord, false);
-            btn.GetComponentInChildren<TMP_Text>().text = e.Word;
-            string word = e.Word; // เก็บไว้ให้ Listener
+            btn.GetComponentInChildren<TMP_Text>().text = word;
             btn.onClick.AddListener(() => OnWordButtonClicked(word));
 
-            // สร้างคอลัมน์อื่นตามปกติ (ไม่ต้องคลิก)
-            Instantiate(prefabType , colType ,  false).text = e.Type;
-            Instantiate(prefabTrans, colTrans, false).text = e.Translation;
+            // ชนิด/คำแปล (คิวรีทีละคำ — PAGE_SIZE=10 จึงโอเค)
+            string pos, th;
+            if (WordChecker.Instance.TryGetInfo(word, out pos, out th))
+            {
+                Instantiate(prefabType , colType , false).text = pos    ?? "";
+                Instantiate(prefabTrans, colTrans, false).text = th     ?? "";
+            }
+            else
+            {
+                Instantiate(prefabType , colType , false).text = "";
+                Instantiate(prefabTrans, colTrans, false).text = "";
+            }
         }
 
-        btnPrev.interactable = pageIdx > 0;
-        btnNext.interactable = (pageIdx + 1) * PAGE_SIZE < viewEntries.Count;
+        if (btnPrev) btnPrev.interactable = pageIdx > 0;
+        if (btnNext) btnNext.interactable = pageIdx < totalPages - 1;
 
-        // แสดงเลขหน้า (human‑friendly)
-        pageLabel.text = $"Page {pageIdx + 1}";
+        pageLabel.text = $"Len {currentLen} — Page {pageIdx + 1}/{Mathf.Max(1,totalPages)}";
     }
+
     void OnPrevPage()
     {
-        if (pageIdx > 0)
-        {
-            pageIdx--;
-            RenderPage();
-        }
+        if (pageIdx > 0) { pageIdx--; RenderPage(); }
     }
 
     void OnNextPage()
     {
-        if ((pageIdx + 1) * PAGE_SIZE < viewEntries.Count)
-        {
-            pageIdx++;
-            RenderPage();
-        }
+        int totalPages = Mathf.CeilToInt(viewWords.Count / (float)PAGE_SIZE);
+        if ((pageIdx + 1) < totalPages) { pageIdx++; RenderPage(); }
     }
 
+    public void OnClear()
+    {
+        // รีเฟรชด้วยความยาวที่เหมาะกับตัวอักษร ณ ตอนนี้
+        int benchLetters = GetBenchLetterCounts().Values.Sum();
+        int startLen = Mathf.Clamp(Mathf.Max(2, benchLetters), 2, Math.Max(2, maxLenSelectable));
+
+        ApplyLengthFilter(startLen, autoFallbackToShorter:true);
+        RenderPage();
+    }
+
+    void ClearColumn(Transform parent)
+    {
+        if (!parent) return;
+        for (int i = parent.childCount - 1; i >= 0; i--)
+            Destroy(parent.GetChild(i).gameObject);
+    }
+
+    /* ---------- Create-Word Action ---------- */
+
     /// <summary>
-    /// เรียกเมื่อผู้ใช้คลิกคำใน Dictionary
+    /// ผู้ใช้คลิกคำ → นำไทล์จาก Bench ไปเตรียมวาง (รองรับ BLANK ด้วย)
     /// </summary>
     void OnWordButtonClicked(string word)
     {
@@ -181,41 +267,43 @@ public class DictionaryUI : MonoBehaviour
         int needed = word.Length;
         int placed = 0;
 
-        // วนตัวอักษร
-        foreach (char ch in word.ToUpper())
+        foreach (char ch in word.ToUpperInvariant())
         {
             var benchTiles = SpaceManager.Instance.GetAllBenchTiles();
-            // 1) พยายามหาตรงตัวก่อน
-            LetterTile found = benchTiles.Find(t => t.GetData().letter.ToUpper() == ch.ToString());
-            // 2) ถ้าไม่เจอ ให้ถือว่าใช้ BLANK ได้
+
+            // 1) หาตัวตรงก่อน
+            LetterTile found = benchTiles.Find(t => string.Equals(
+                t.GetData().letter, ch.ToString(), StringComparison.OrdinalIgnoreCase));
+
+            // 2) ถ้าไม่เจอ — ใช้ BLANK
             if (found == null)
             {
-                found = benchTiles.Find(t => t.GetData().letter.Equals("Blank", System.StringComparison.OrdinalIgnoreCase));
+                found = benchTiles.Find(t => t.GetData().letter.Equals("Blank", StringComparison.OrdinalIgnoreCase));
                 if (found != null)
                 {
-                    // แปลง BLANK → ตัว ch (ไม่มีคะแนน)
                     var data = found.GetData();
                     data.letter = ch.ToString();
                     data.score  = 0;
+
                     // อัปเดต UI ของ Tile
                     found.letterText.text = data.letter;
                     found.scoreText .text = "0";
-                    // หา sprite ใหม่จาก TileBag
+
+                    // อัปเดตสไปรต์ตามตัวอักษรเป้าหมาย (ถ้ามี)
                     var lc = TileBag.Instance.initialLetters
-                                .Find(x => x.data.letter.Equals(ch.ToString(), System.StringComparison.OrdinalIgnoreCase));
+                        .Find(x => x.data.letter.Equals(data.letter, StringComparison.OrdinalIgnoreCase));
                     if (lc != null && found.icon != null)
                     {
-                        data.sprite    = lc.data.sprite;
+                        data.sprite       = lc.data.sprite;
                         found.icon.sprite = data.sprite;
-                        // ปรับให้เต็มช่อง
+
                         var rt = found.icon.GetComponent<RectTransform>();
-                        rt.anchorMin   = Vector2.zero;
-                        rt.anchorMax   = Vector2.one;
-                        rt.offsetMin   = Vector2.zero;
-                        rt.offsetMax   = Vector2.zero;
+                        rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+                        rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
                     }
                 }
             }
+
             if (found != null)
             {
                 SpaceManager.Instance.AddTile(found);
@@ -223,7 +311,7 @@ public class DictionaryUI : MonoBehaviour
             }
         }
 
-        // แสดง Popup
+        // แจ้งผล
         if (placed == needed)
             UIManager.Instance.ShowMessageDictionary("Done!");
         else
@@ -231,22 +319,5 @@ public class DictionaryUI : MonoBehaviour
 
         // พรีวิวการวางลงกระดาน
         PlacementManager.Instance.TryPlace();
-    }
-    public void OnClear()
-    {
-        // 1. รีเซ็ต filter ให้เป็นทั้งรายการ
-        ResetFilter();
-
-        // 2. กลับไปหน้าแรก
-        pageIdx = 0;
-
-        // 3. แสดงผลใหม่
-        RenderPage();
-    }
-
-
-    void ClearColumn(Transform parent)
-    {
-        foreach (Transform t in parent) Destroy(t.gameObject);
     }
 }

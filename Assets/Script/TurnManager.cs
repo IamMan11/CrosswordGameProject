@@ -25,7 +25,10 @@ public class TurnManager : MonoBehaviour
 
     Coroutine fadeCo;
     Coroutine autoRemoveCo;
-    readonly HashSet<string> boardWords = new();
+
+    // ✅ จำคำที่เคยยืนยันบนกระดานแบบไม่สนตัวพิมพ์
+    readonly HashSet<string> boardWords = new(System.StringComparer.OrdinalIgnoreCase);
+
     int nextWordMul = 1;
 
     [Header("Mana System")]
@@ -41,9 +44,9 @@ public class TurnManager : MonoBehaviour
     public Animator scoreOverlayAnimator; // ถ้าทำอนิเมชันเฟด/ป้าย
     public TMP_Text phaseLabel;           // ไว้โชว์ “Card Multiplier…”, “Combo x3…”
     public float letterStepDelay = 0.08f;
-    public float setDelay        = 0.20f;
-    public float phaseDelay      = 0.25f;
-    public bool  pauseTimeDuringScoring = true;
+    public float setDelay = 0.20f;
+    public float phaseDelay = 0.25f;
+    public bool pauseTimeDuringScoring = true;
     [Header("Score Pop (Anchors & Prefab)")]
     public RectTransform anchorLetters;   // จุด A
     public RectTransform anchorMults;     // จุด B
@@ -97,12 +100,12 @@ public class TurnManager : MonoBehaviour
         var grid = BoardManager.Instance.grid;
         int R = BoardManager.Instance.rows, C = BoardManager.Instance.cols;
         for (int r = 0; r < R; r++)
-        for (int c = 0; c < C; c++)
-        {
-            var s = grid[r, c];
-            s.CancelFlash();   // ← เมธอดใหม่ใน BoardSlot
-            s.HidePreview();   // ← ของเดิมที่มีอยู่แล้ว
-        }
+            for (int c = 0; c < C; c++)
+            {
+                var s = grid[r, c];
+                s.CancelFlash();   // ← เมธอดใหม่ใน BoardSlot
+                s.HidePreview();   // ← ของเดิมที่มีอยู่แล้ว
+            }
     }
 
     void BeginScoreSequence()
@@ -357,6 +360,7 @@ public class TurnManager : MonoBehaviour
             null
         );
     }
+
     // รวมแฟคเตอร์ตัวคูณแบบ "บวกกัน" ตามที่ต้องการ
     List<int> BuildMultiplierFactors(List<MoveValidator.WordInfo> correct)
     {
@@ -398,6 +402,7 @@ public class TurnManager : MonoBehaviour
         }
         return adds;
     }
+
     // รวมลิสต์ (ไทล์, สล็อต, แต้มเพิ่มของไทล์นั้น) ตามลำดับที่ใช้ตรวจคำ
     List<(LetterTile t, BoardSlot s, int add)> BuildLetterSteps(List<MoveValidator.WordInfo> correct)
     {
@@ -423,6 +428,7 @@ public class TurnManager : MonoBehaviour
         ui.SetValue(startValue);
         return ui;
     }
+
     List<BoardSlot> SlotsInWord(MoveValidator.WordInfo w)
     {
         var list = new List<BoardSlot>();
@@ -437,6 +443,7 @@ public class TurnManager : MonoBehaviour
         }
         return list;
     }
+
     IEnumerator AnimateAndFinalizeScoring(
         List<(LetterTile t, BoardSlot s)> placed,
         List<MoveValidator.WordInfo> correct,
@@ -453,7 +460,7 @@ public class TurnManager : MonoBehaviour
         var mulFactors = BuildMultiplierFactors(correct); // แฟคเตอร์คูณแบบ "บวกกัน" (x2+x3=x5)
 
         int lettersRunning = 0;
-        int mulRunning     = 0;
+        int mulRunning = 0;
 
         // ---------- Part 1: ตัวอักษร (จุด A) ----------
         var steps = BuildLetterSteps(correct);
@@ -521,7 +528,7 @@ public class TurnManager : MonoBehaviour
         yield return new WaitForSecondsRealtime(0.15f);
 
         // ---------- ส่งเข้า Score HUD ----------
-        int hudStart  = Score;
+        int hudStart = Score;
         int hudTarget = hudStart + displayedTotal;
         var fly = uiC.FlyTo(scoreHud, flyDur);
         var tweenHud = TweenHudScoreTemp(hudStart, hudTarget, flyDur);
@@ -562,6 +569,7 @@ public class TurnManager : MonoBehaviour
             if (!slots.Contains(s)) continue;
 
             if (flashCol.HasValue) s.Flash(flashCol.Value, 3, 0.17f);
+            else s.Flash(Color.white, 1, 0.08f);
 
             // ดึงออกก่อน
             LetterTile tile = s.RemoveLetter();
@@ -573,10 +581,20 @@ public class TurnManager : MonoBehaviour
             bouncedSet.Add(tile);            // ← จดว่า “เด้งแล้ว”
         }
     }
+
     void OnConfirm()
     {
         inConfirmProcess = true;
         confirmBtn.interactable = false;
+
+        // ✅ กันเคส WordChecker ยังไม่พร้อม
+        if (WordChecker.Instance == null || !WordChecker.Instance.IsReady())
+        {
+            ShowMessage("ระบบตรวจคำยังไม่พร้อม", Color.red);
+            EnableConfirm();
+            return;
+        }
+
         var placed = new List<(LetterTile t, BoardSlot s)>();
         foreach (BoardSlot sl in BoardManager.Instance.grid.Cast<BoardSlot>())
         {
@@ -595,6 +613,7 @@ public class TurnManager : MonoBehaviour
             RejectMove(placed, err, true);
             return;
         }
+
         // ---------- 1. แยกหมวดคำ ----------
         var invalid = words.Where(w => !WordChecker.Instance.IsWordValid(w.word)).ToList();
         var duplicate = words.Where(w => boardWords.Contains(w.word)).ToList();
@@ -611,7 +630,6 @@ public class TurnManager : MonoBehaviour
                         && !duplicate.Any(w => w.word == mainWord.word);
 
         // ---------- 3. เตรียมคำที่จะเด้ง + เก็บ penalty ----------
-
         int penalty = 0;                               // โทษหักคะแนนรวม
         var invalidToBounce = new List<MoveValidator.WordInfo>();
         var duplicateToBounce = new List<MoveValidator.WordInfo>();
@@ -623,15 +641,10 @@ public class TurnManager : MonoBehaviour
         // ---------- A) MAIN-word “ผิด” ----------
         if (mainInvalid)          // ตรวจคำผิดก่อน
         {
-            // คิดคะแนนก่อนเด้ง
-            int s = ScoreManager.CalcWord(mainWord.r0, mainWord.c0,
-                                        mainWord.r1, mainWord.c1);
+            int s = ScoreManager.CalcWord(mainWord.r0, mainWord.c0, mainWord.r1, mainWord.c1);
             penalty += Mathf.CeilToInt(s * 0.5f);          // หัก 50 %
-
             invalidToBounce.Add(mainWord);                 // เด้งทีหลัง (แดง)
             ShowMessage($"คำผิด -{penalty}", Color.red);  // แจ้งผล
-
-            // เอา main ออกจาก list invalid ไม่ให้วนซ้ำอีก
             invalid.RemoveAll(w => w.word == mainWord.word);
         }
         // ---------- B) MAIN-word “ซ้ำ” ----------
@@ -639,8 +652,6 @@ public class TurnManager : MonoBehaviour
         {
             duplicateToBounce.Add(mainWord);               // เด้งทีหลัง (เหลือง)
             ShowMessage("คำซ้ำ", Color.yellow);
-
-            // เอา main ออกจาก list duplicate
             duplicate.RemoveAll(w => w.word == mainWord.word);
         }
 
@@ -659,12 +670,29 @@ public class TurnManager : MonoBehaviour
             duplicateToBounce.AddRange(duplicate);
         }
         bool skipTurn = mainInvalid || mainDuplicate;
-        // ---------- 4. กระพริบคำถูก ----------
+
+        // ---------- 4. กระพริบคำถูก + โชว์ความหมาย ----------
         if (!skipTurn)
         {
             if (correct.Count > 0)
             {
+                // ไฮไลต์คำถูกให้ผู้เล่นเห็น (โทนเขียว)
+                foreach (var w in correct)
+                    foreach (var s in SlotsInWord(w)) s.Flash(new Color(0.3f, 1f, 0.6f, 1f), 1, 0.08f);
 
+                // โชว์ชนิดคำ/คำแปลของ "คำหลัก" ถ้ามีในฐาน
+                if (mainCorrect)
+                {
+                    string pos, th;
+                    if (WordChecker.Instance.TryGetInfo(mainWord.word, out pos, out th))
+                    {
+                        string extra = string.Empty;
+                        if (!string.IsNullOrEmpty(pos)) extra += $" ({pos})";
+                        if (!string.IsNullOrEmpty(th)) extra += $" – {th}";
+                        if (!string.IsNullOrEmpty(extra))
+                            ShowMessage($"{mainWord.word}{extra}", new Color(0.4f, 1f, 0.6f));
+                    }
+                }
             }
         }
 
@@ -771,13 +799,14 @@ public class TurnManager : MonoBehaviour
         if (moveScore > 0)
             LevelManager.Instance.ResetTimer();
 
-        // ✅ เพิ่มการเริ่ม AutoRemove ใหม่หลังยืนยันคำ
+        // ✅ เริ่ม AutoRemove ใหม่หลังยืนยันคำ
         if (!LevelManager.Instance.IsGameOver() &&
             LevelManager.Instance.levels[LevelManager.Instance.CurrentLevel].enableAutoRemove)
         {
             float interval = LevelManager.Instance.levels[LevelManager.Instance.CurrentLevel].autoRemoveInterval;
             StartAutoRemove(interval);
         }
+
         StartCoroutine(AnimateAndFinalizeScoring(
             placed,
             correct,
@@ -802,16 +831,17 @@ public class TurnManager : MonoBehaviour
         }
         return cnt;
     }
+
     IEnumerator DelayedReject(List<(LetterTile t, BoardSlot s)> tiles, string reason, bool applyPenalty, float totalDelay)
     {
         yield return new WaitForSeconds(totalDelay);
         RejectMove(tiles, reason, applyPenalty);
     }
+
     private IEnumerator SkipTurnAfterBounce()
     {
         yield return new WaitForSeconds(0.6f);   // ให้เวลาบลิ๊ง/เด้งตาม effect
     }
-
 
     void RejectMove(List<(LetterTile t, BoardSlot s)> tiles, string reason, bool applyPenalty)
     {
