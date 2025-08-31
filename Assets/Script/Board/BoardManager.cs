@@ -34,6 +34,9 @@ public class BoardManager : MonoBehaviour
 
     [Header("Special Slots")]
     public List<SpecialSlotData> specials = new List<SpecialSlotData>();  // ← เพิ่มตรงนี้
+    // ⬇️ เพิ่ม Sprite ช่องกลาง
+    [Header("Center Slot")]
+    public Sprite centerSlotSprite;
 
     // ----- (ของเดิม) คลาสซ้อนชื่อเดียวกัน — คงไว้ไม่ลบ -----
     [System.Serializable]
@@ -44,6 +47,9 @@ public class BoardManager : MonoBehaviour
         public SlotType type;
         [Tooltip("จำนวนมานาที่จะได้เมื่อวางตัวอักษรที่นี่")]
         public int manaGain = 0;
+        // ⬇️ เพิ่มรูปสำหรับช่องพิเศษรายช่อง
+        [Tooltip("รูปไอคอนสำหรับช่องพิเศษนี้ (ปล่อยว่างได้)")]
+        public Sprite sprite;
     }
     [HideInInspector] public int manaGain;
 
@@ -68,13 +74,6 @@ public class BoardManager : MonoBehaviour
     // ---------- MAIN ---------- //
     public void GenerateBoard()
     {
-        // ✅ กันพังถ้าไม่ได้ผูกใน Inspector
-        if (boardParent == null || boardSlotPrefab == null)
-        {
-            Debug.LogError("[BoardManager] Missing boardParent or boardSlotPrefab.");
-            return;
-        }
-
         // เคลียร์เก่า
         foreach (Transform child in boardParent) Destroy(child.gameObject);
 
@@ -83,32 +82,44 @@ public class BoardManager : MonoBehaviour
         float totalW = cols * slotSize + (cols - 1) * slotGap;
         float totalH = rows * slotSize + (rows - 1) * slotGap;
 
-        // ตั้งขนาด parent ให้พอดี และจัดกึ่งกลาง
         boardParent.sizeDelta = new Vector2(totalW, totalH);
         boardParent.pivot = new Vector2(0.5f, 0.5f);
         boardParent.anchorMin = boardParent.anchorMax = new Vector2(0.5f, 0.5f);
         boardParent.anchoredPosition = boardOffset;
 
-        // คำนวณจุดเริ่มซ้าย-บน (Pivot อยู่กลาง จึงเลื่อนครึ่งหนึ่ง)
         float startX = -totalW / 2f;
-        float startY = totalH / 2f;
+        float startY =  totalH / 2f;
+
+        int centerR = rows / 2; // ถ้าเป็นเลขคู่จะได้ศูนย์กลางแบบปัดลง
+        int centerC = cols / 2;
 
         for (int r = 0; r < rows; r++)
         {
             for (int c = 0; c < cols; c++)
             {
-                // หา type พิเศษ
+                // ค่าเริ่มต้น
                 SlotType st = SlotType.Normal;
                 int manaGain = 0;
+                Sprite overlaySprite = null;
+
+                // ช่องพิเศษจากลิสต์
                 foreach (var sp in specials)
+                {
                     if (sp.row == r && sp.col == c)
                     {
                         st = sp.type;
-                        manaGain = sp.manaGain;      // ← รับค่า manaGain
+                        manaGain = sp.manaGain;
+                        if (sp.sprite != null) overlaySprite = sp.sprite;
                         break;
                     }
+                }
 
-                // Instantiate
+                // ช่องกลาง (ให้ทับค่ารูปถ้ามี)
+                if (r == centerR && c == centerC && centerSlotSprite != null)
+                {
+                    overlaySprite = centerSlotSprite;
+                }
+
                 var go = Instantiate(boardSlotPrefab, boardParent);
                 var rt = go.GetComponent<RectTransform>();
 
