@@ -102,7 +102,7 @@ public class LetterTile : MonoBehaviour,
         // แจ้งให้ manager รู้ว่าลากจากที่ไหน (เพื่อให้ช่องเลื่อน)
         int benchIdx = BenchManager.Instance ? BenchManager.Instance.IndexOfSlot(OriginalParent) : -1;
         int spaceIdx = SpaceManager.Instance ? SpaceManager.Instance.IndexOfSlot(OriginalParent) : -1;
-        if (benchIdx >= 0) { _fromBenchDrag = true;  BenchManager.Instance.BeginDrag(this, benchIdx); }
+        if (benchIdx >= 0) { _fromBenchDrag = true; BenchManager.Instance.BeginDrag(this, benchIdx); }
         else if (spaceIdx >= 0) { _fromBenchDrag = false; SpaceManager.Instance.BeginDrag(this, spaceIdx); }
 
         // ย้ายไปอยู่ใต้ Canvas ชั่วคราว + ลอยตามเมาส์
@@ -110,6 +110,7 @@ public class LetterTile : MonoBehaviour,
         transform.SetAsLastSibling();
         canvasGroup.blocksRaycasts = false;                 // ให้ช่องปลายทางรับ Drop/Enter ได้
         SetDragging(true);                                  // เล่นอนิเมชัน “กำลังลาก” (ถ้ามี)
+        SfxPlayer.Play(SfxId.TilePickup);
     }
 
     public void OnDrag(PointerEventData e)
@@ -126,7 +127,7 @@ public class LetterTile : MonoBehaviour,
 
     public void OnEndDrag(PointerEventData e)
     {
-        if (!dragging) return;                              // << ถ้าไม่ได้ลากจริง ไม่ต้องทำอะไร
+        if (!dragging) return;          // ถ้าไม่ได้ลากจริง ไม่ต้องทำอะไร
         dragging = false;
 
         canvasGroup.blocksRaycasts = true;
@@ -136,13 +137,42 @@ public class LetterTile : MonoBehaviour,
 
         if (!placed)
         {
-            // ไม่โดนอะไรเลย → กลับช่องว่างของ manager ต้นทาง (หรือที่เดิม)
+            // ไม่โดนอะไรเลย → กลับช่องว่างของ manager ต้นทาง (หรือที่เดิม) แบบ "บินกลับ"
+            Transform target = OriginalParent;
+
             if (_fromBenchDrag && BenchManager.Instance)
-                SnapTo(BenchManager.Instance.GetCurrentEmptySlot()?.transform ?? OriginalParent);
+            {
+                var slot = BenchManager.Instance.GetCurrentEmptySlot();
+                target = (slot ? slot.transform : OriginalParent);
+            }
             else if (!_fromBenchDrag && SpaceManager.Instance)
-                SnapTo(SpaceManager.Instance.GetCurrentEmptySlot()?.transform ?? OriginalParent);
+            {
+                var slot = SpaceManager.Instance.GetCurrentEmptySlot();
+                target = (slot ? slot.transform : OriginalParent);
+            }
+
+            FlyTo(target);                                   // บินกลับ (ค่อย ๆ ปรับขนาด)
+            IsInSpace = (target.GetComponent<BoardSlot>() == null);
+
+            SfxPlayer.Play(SfxId.TileDrop);                 // เสียงวาง/คืนช่อง
+            PlaySettle();
+        }
+        else
+        {
+            // โดน OnDrop แล้ว → ดูว่าลงบอร์ดหรือช่อง (Bench/Space) เพื่ออัปเดตสถานะ/เสียง
+            var board = GetComponentInParent<BoardSlot>();
+            var space = GetComponentInParent<SpaceSlot>();
+
+            if (board != null)
+            {
+                IsInSpace = false;
+                SfxPlayer.Play(SfxId.TileSnap);             // เสียงล็อกลงบอร์ด
+            }
             else
-                SnapTo(OriginalParent);
+            {
+                IsInSpace = true;
+                SfxPlayer.Play(SfxId.TileDrop);             // เสียงวางลงช่อง Bench/Space
+            }
 
             PlaySettle();
         }
@@ -153,6 +183,7 @@ public class LetterTile : MonoBehaviour,
         if (_fromBenchDrag) BenchManager.Instance?.EndDrag(placed);
         else                SpaceManager.Instance?.EndDrag(placed);
     }
+
 
     private void OnTransformParentChanged()
     {

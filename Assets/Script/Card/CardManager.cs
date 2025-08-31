@@ -6,6 +6,17 @@ using UnityEngine.SceneManagement;
 public class CardManager : MonoBehaviour
 {
     public static CardManager Instance { get; private set; }
+    // บนสุดของคลาส
+    private int _uiHoldCount = 0;
+    public bool IsUIHeld => _uiHoldCount > 0;
+    public void HoldUI(bool on)
+    {
+        if (on) _uiHoldCount++;
+        else    _uiHoldCount = Mathf.Max(0, _uiHoldCount - 1);
+
+        // ถ้าปลด hold แล้ว และมีคิวค้างอยู่ → ลองเปิดต่อ
+        if (_uiHoldCount == 0) TryOpenNextSelection();
+    }
 
     [Header("Card Pool")]
     public List<CardData> allCards;
@@ -265,6 +276,7 @@ public class CardManager : MonoBehaviour
     }
     private void TryOpenNextSelection()
     {
+        if (_uiHoldCount > 0) return;
         if (uiSelect.IsOpen || isReplaceMode) return;
         if (optionsQueue.Count == 0) return;
 

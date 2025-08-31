@@ -57,6 +57,8 @@ public class TurnManager : MonoBehaviour
     public float stepDelay = 0.08f;
     public float sectionDelay = 0.20f;
     public float flyDur = 0.6f;
+    [Header("Dictionary Penalty")]
+    [Range(0,100)] public int dictionaryPenaltyPercent = 50;
 
     void Awake()
     {
@@ -120,9 +122,11 @@ public class TurnManager : MonoBehaviour
     void EndScoreSequence()
     {
         if (pauseTimeDuringScoring) Time.timeScale = 1f;
-        if (scoreOverlayAnimator) scoreOverlayAnimator.SetBool("Scoring", false);
-        if (inputBlocker) inputBlocker.SetActive(false);
-        ClearAllSlotFx();          // ✅ กันหลงเหลือ
+        if (inputBlocker != null) inputBlocker.SetActive(false);
+        if (scoreOverlayAnimator != null) scoreOverlayAnimator.SetBool("Open", false);
+
+        // <<< ปลด hold เพื่อให้ RandomCard UI เปิดหลังนับคะแนนเสร็จ
+        CardManager.Instance?.HoldUI(false);
     }
 
     public void ResetForNewLevel()
@@ -442,7 +446,8 @@ public class TurnManager : MonoBehaviour
         List<MoveValidator.WordInfo> correct,
         int moveScore,
         int comboMul,
-        HashSet<LetterTile> bounced
+        HashSet<LetterTile> bounced,
+        int dictPenaltyPercent
     )
     {
         // เริ่มโหมดนับคะแนน (บล็อกอินพุต/หยุดเวลา ถ้าคุณมีฟังก์ชันนี้)
@@ -518,9 +523,43 @@ public class TurnManager : MonoBehaviour
         var uiC = SpawnPop(anchorTotal, displayedTotal);
         uiC.transform.localScale = uiA.transform.localScale;
         uiC.PopByDelta(displayedTotal, tier2Min, tier3Min);
-        yield return new WaitForSecondsRealtime(0.15f);
+        yield return new WaitForSecondsRealtime(0.8f);
 
-        // ---------- ส่งเข้า Score HUD ----------
+        // ---------- (ใหม่) แสดงหัก % ใต้ Total แล้วลอยเข้ามาหา Total ----------
+        if (dictPenaltyPercent > 0)
+        {
+            // ทำป้ายแดง “-50%” ใต้ Total
+            var uiPenalty = SpawnPop(anchorTotal, 0);
+            uiPenalty.SetText($"-{dictPenaltyPercent}%");
+            if (uiPenalty.text != null) uiPenalty.text.color = Color.red;
+
+            // ขยับตำแหน่งลงไปเล็กน้อยให้ “อยู่ใต้ Total”
+            var pRT = (RectTransform)uiPenalty.transform;
+            pRT.anchoredPosition += new Vector2(0f, -300f);
+
+            // เด้งเบาๆ แล้วบินเข้ามาหา Total
+            uiPenalty.PopByDelta(1, tier2Min, tier3Min);
+            yield return StartCoroutine(uiPenalty.FlyTo(anchorTotal, 0.8f));
+
+            // ลดค่าที่โชว์ในกล่อง Total ลงอย่างนุ่มนวล
+            int penalized = Mathf.CeilToInt(displayedTotal * (100 - dictPenaltyPercent) / 100f);
+            float t = 0f, dur = 0.8f;
+            int last = displayedTotal;
+            while (t < 1f)
+            {
+                t += Time.unscaledDeltaTime / Mathf.Max(0.0001f, dur);
+                int v = Mathf.RoundToInt(Mathf.Lerp(displayedTotal, penalized, 1 - Mathf.Pow(1 - t, 3)));
+                if (v != last) { uiC.SetValue(v); last = v; }
+                yield return null;
+            }
+            uiC.SetValue(penalized);
+            uiC.PopByDelta(Mathf.Max(1, displayedTotal - penalized), tier2Min, tier3Min); // เด้งนิดตอนถึงค่าใหม่
+
+            displayedTotal = penalized; // จากนี้ให้ใช้ค่าที่ถูกหักแล้ว
+            yield return new WaitForSecondsRealtime(0.8f);
+        }
+
+        // ---------- ส่งเข้า Score HUD (เดิม) ----------
         int hudStart  = Score;
         int hudTarget = hudStart + displayedTotal;
         var fly = uiC.FlyTo(scoreHud, flyDur);
@@ -528,15 +567,12 @@ public class TurnManager : MonoBehaviour
         StartCoroutine(tweenHud);
         yield return StartCoroutine(fly);
 
-        // ---------- Commit คะแนนจริง ----------
+        // Commit + sync กรณีมีความต่างจาก moveScore เดิม (เช่น โบนัส 7 ตัวอักษร)
         AddScore(displayedTotal);
-
-        // ถ้าคะแนนพรีเซนต์ไม่เท่ากับคะแนนระบบ (moveScore) ให้ปรับ HUD ให้ตรง
         if (displayedTotal != moveScore)
         {
-            yield return StartCoroutine(
-                TweenHudScoreTemp(hudStart + displayedTotal, hudStart + moveScore, 0.15f)
-            );
+            yield return StartCoroutine(TweenHudScoreTemp(
+                hudStart + displayedTotal, hudStart + moveScore, 0.15f));
             AddScore(moveScore - displayedTotal);
         }
 
@@ -718,22 +754,22 @@ public class TurnManager : MonoBehaviour
         moveScore -= penalty;
         if (moveScore < 0) moveScore = 0;
 
-        // COMBO: คูณคะแนนตามจำนวนคำใหม่ (สูงสุด x4)
+        // COMBO...
         int comboMul = Mathf.Clamp(newWordCountThisMove, 1, 4);
-        if (comboMul > 1)
-        {
-            moveScore = Mathf.CeilToInt(moveScore * comboMul);
-        }
+        if (comboMul > 1) { moveScore = Mathf.CeilToInt(moveScore * comboMul); }
 
+        // <<< ใส่บรรทัดนี้ ก่อนเริ่ม loop ที่อาจแจกการ์ดพิเศษ
+        CardManager.Instance?.HoldUI(true);
+
+        // แจกการ์ดจาก special letter / เก็บมานา
         foreach (var (tile, slot) in placed)
         {
             if (tile.IsSpecial)
             {
                 Debug.Log($"[Placement] พบตัวพิเศษ {tile.GetData().letter} – เรียก GiveRandomCard()");
-                CardManager.Instance.GiveRandomCard();
+                CardManager.Instance.GiveRandomCard();  // ยัง enqueue ได้ปกติ แต่ UI จะยังไม่โผล่
             }
-            if (slot.manaGain > 0)
-                AddMana(slot.manaGain);
+            if (slot.manaGain > 0) AddMana(slot.manaGain);
         }
 
         if (usedDictionaryThisTurn)
@@ -778,12 +814,14 @@ public class TurnManager : MonoBehaviour
             float interval = LevelManager.Instance.levels[LevelManager.Instance.CurrentLevel].autoRemoveInterval;
             StartAutoRemove(interval);
         }
+        bool dictAppliedThisMove = (!freePassActiveThisTurn) && /* เพิ่งใช้ Dictionary รอบนี้จริง */ true;
         StartCoroutine(AnimateAndFinalizeScoring(
             placed,
             correct,
             moveScore,
             comboMul,
-            bounced
+            bounced,
+            dictAppliedThisMove ? dictionaryPenaltyPercent : 0
         ));
         return;
     }
