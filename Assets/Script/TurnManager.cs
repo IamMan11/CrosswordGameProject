@@ -24,7 +24,11 @@ public class TurnManager : MonoBehaviour
     bool freePassActiveThisTurn = false;
 
     Coroutine fadeCo;
-    readonly HashSet<string> boardWords = new HashSet<string>();
+    Coroutine autoRemoveCo;
+
+    // ✅ จำคำที่เคยยืนยันบนกระดานแบบไม่สนตัวพิมพ์
+    readonly HashSet<string> boardWords = new(System.StringComparer.OrdinalIgnoreCase);
+
     int nextWordMul = 1;
 
     [Header("Mana System")]
@@ -477,7 +481,7 @@ public class TurnManager : MonoBehaviour
         var mulFactors = BuildMultiplierFactors(correct); // ตัวคูณแบบบวก (x2+x3=x5)
 
         int lettersRunning = 0;
-        int mulRunning     = 0;
+        int mulRunning = 0;
 
         // Part 1: ตัวอักษร (A)
         var steps = BuildLetterSteps(correct);
@@ -583,6 +587,7 @@ public class TurnManager : MonoBehaviour
             if (!slots.Contains(s)) continue;
 
             if (flashCol.HasValue) s.Flash(flashCol.Value, 3, 0.17f);
+            else s.Flash(Color.white, 1, 0.08f);
 
             var tile = s.RemoveLetter();
             if (tile == null) continue;
@@ -667,6 +672,7 @@ public class TurnManager : MonoBehaviour
         yield return new WaitForSeconds(totalDelay);
         RejectMove(tiles, reason, applyPenalty);
     }
+
     private IEnumerator SkipTurnAfterBounce()
     {
         yield return WFS_06;   // ให้เวลาแอนิเมชันเด้ง/แฟลช
@@ -687,6 +693,14 @@ public class TurnManager : MonoBehaviour
         inConfirmProcess = true;
         if (confirmBtn != null) confirmBtn.interactable = false;
 
+        // ✅ กันเคส WordChecker ยังไม่พร้อม
+        if (WordChecker.Instance == null || !WordChecker.Instance.IsReady())
+        {
+            ShowMessage("ระบบตรวจคำยังไม่พร้อม", Color.red);
+            EnableConfirm();
+            return;
+        }
+
         try
         {
             var bm = BoardManager.Instance;
@@ -696,6 +710,7 @@ public class TurnManager : MonoBehaviour
                 return;
             }
 
+            // เก็บไทล์ที่ผู้เล่น “วางใหม่ในเทิร์นนี้” (ไม่รวมที่ล็อกแล้ว)
             var placed = new List<(LetterTile t, BoardSlot s)>();
             int rowCount = bm.grid.GetLength(0);
             int colCount = bm.grid.GetLength(1);
@@ -712,22 +727,26 @@ public class TurnManager : MonoBehaviour
 
             if (placed.Count == 0) { EnableConfirm(); return; }
 
+            // ตรวจรูปแบบการวางให้เป็นเส้นตรงและมี main-word
             if (!MoveValidator.ValidateMove(placed, out var words, out string err))
             {
                 RejectMove(placed, err, true);
                 return;
             }
 
+            // ---------- 1) แยกหมวดคำ ----------
             var invalid   = words.Where(w => !WordChecker.Instance.IsWordValid(w.word)).ToList();
             var duplicate = words.Where(w => boardWords.Contains(w.word)).ToList();
             var correct   = words.Except(invalid).Except(duplicate).ToList();
-            var bounced = new HashSet<LetterTile>();
+            var bounced   = new HashSet<LetterTile>();
 
+            // ---------- 2) หา main-word ----------
             var placedSet = placed.Select(p => (p.s.row, p.s.col)).ToHashSet();
             var mainWord  = words.FirstOrDefault(w => CountNewInWord(w, placedSet) >= 2);
             LastConfirmedWord = mainWord.word;
             bool hasMain  = !string.IsNullOrEmpty(mainWord.word);
 
+            // ---------- 3) เตรียมคำที่จะเด้ง + โทษ ----------
             int penalty = 0;
             var invalidToBounce   = new List<MoveValidator.WordInfo>();
             var duplicateToBounce = new List<MoveValidator.WordInfo>();
@@ -763,9 +782,11 @@ public class TurnManager : MonoBehaviour
 
             bool skipTurn = mainInvalid || mainDuplicate;
 
+            // ---------- 4) ไฮไลต์คำถูก ----------
             if (!skipTurn && correct.Count > 0)
                 StartCoroutine(BlinkWordsSequential(correct, Color.green, 1f));
 
+            // ---------- 5) คำนวณคะแนน ----------
             int moveScore = 0;
             int newWordCountThisMove = 0;
 
@@ -782,6 +803,7 @@ public class TurnManager : MonoBehaviour
                 }
             }
 
+            // เด้งคำผิด/ซ้ำ
             foreach (var w in invalidToBounce)   BounceWord(w, placed, Color.red,    bounced);
             foreach (var w in duplicateToBounce) BounceWord(w, placed, Color.yellow, bounced);
 
@@ -800,9 +822,11 @@ public class TurnManager : MonoBehaviour
 
             moveScore = Mathf.Max(0, moveScore - penalty);
 
+            // คอมโบ: คูณคะแนนตามจำนวนคำใหม่ (สูงสุด x4)
             int comboMul = Mathf.Clamp(newWordCountThisMove, 1, 4);
             if (comboMul > 1) moveScore = Mathf.CeilToInt(moveScore * comboMul);
 
+            // มานา/การ์ดพิเศษ
             foreach (var (tile, slot) in placed)
             {
                 if (bounced.Contains(tile)) continue;
@@ -815,6 +839,7 @@ public class TurnManager : MonoBehaviour
                 if (slot.manaGain > 0) AddMana(slot.manaGain);
             }
 
+            // โทษเปิดพจนานุกรม
             if (usedDictionaryThisTurn)
             {
                 if (!freePassActiveThisTurn)
@@ -825,11 +850,11 @@ public class TurnManager : MonoBehaviour
                 usedDictionaryThisTurn = false;
             }
 
-            // รองรับตัวคูณคะแนนคำถัดไป (จากการ์ด/เอฟเฟกต์)
+            // ตัวคูณจากเอฟเฟกต์พิเศษ (ครั้งเดียว)
             if (nextWordMul > 1)
             {
                 moveScore = Mathf.CeilToInt(moveScore * nextWordMul);
-                nextWordMul = 1; // ใช้ครั้งเดียว
+                nextWordMul = 1;
             }
 
             // เปิดแอนิเมชันคิดคะแนนแบบใหม่
@@ -846,6 +871,21 @@ public class TurnManager : MonoBehaviour
             // เผื่อมี exception ใด ๆ — อย่าให้ปุ่มค้าง
             if (inConfirmProcess) inConfirmProcess = false;
         }
+    }
+
+    int CountNewInWord(MoveValidator.WordInfo w, HashSet<(int r, int c)> coords)
+    {
+        int cnt = 0;
+        int dr = w.r0 == w.r1 ? 0 : (w.r1 > w.r0 ? 1 : -1);
+        int dc = w.c0 == w.c1 ? 0 : (w.c1 > w.c0 ? 1 : -1);
+        int r = w.r0, c = w.c0;
+        while (true)
+        {
+            if (coords.Contains((r, c))) cnt++;
+            if (r == w.r1 && c == w.c1) break;
+            r += dr; c += dc;
+        }
+        return cnt;
     }
 
     void RejectMove(List<(LetterTile t, BoardSlot s)> tiles, string reason, bool applyPenalty)
