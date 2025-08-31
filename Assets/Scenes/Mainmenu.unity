@@ -857,7 +857,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 454709751}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1249364243}
+        m_TargetAssemblyTypeName: MainMenuManager, Assembly-CSharp
+        m_MethodName: OnContinueButtonClicked
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &454709751
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1580,8 +1592,8 @@ RectTransform:
   - {fileID: 788304194}
   - {fileID: 268023102}
   - {fileID: 454709748}
-  - {fileID: 611243131}
   - {fileID: 2023093916}
+  - {fileID: 611243131}
   - {fileID: 1708467205}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -2088,7 +2100,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Navigation:
-    m_Mode: 3
+    m_Mode: 0
     m_WrapAround: 0
     m_SelectOnUp: {fileID: 0}
     m_SelectOnDown: {fileID: 0}
@@ -2118,7 +2130,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 2023093918}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1249364243}
+        m_TargetAssemblyTypeName: MainMenuManager, Assembly-CSharp
+        m_MethodName: OnOptionsButtonClicked
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &2023093918
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2314,9 +2338,9 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 388767342}
-  - {fileID: 1249364244}
   - {fileID: 980887487}
   - {fileID: 182440402}
+  - {fileID: 1249364244}
   - {fileID: 8316886177658362911}
   - {fileID: 5773249362523465148}
   - {fileID: 1532260360}

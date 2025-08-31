@@ -50,47 +50,39 @@ public class PlacementManager : MonoBehaviour
         startSlot = slot;
         RefreshPreview();
     }
-    void MoveTileToSlot(LetterTile tile, BoardSlot slot)
-    {
-        tile.transform.SetParent(slot.transform, false);
-        tile.transform.localPosition = Vector3.zero;
-
-        // ⬇️ เดิมเคย fix เป็น index 1; เปลี่ยนเป็นอยู่ "บนสุด"
-        tile.transform.SetAsLastSibling();
-
-        // กันพลาด: ย้ำให้ไอคอนอยู่ล่างสุดเสมอ (ถ้ามี)
-        if (slot.icon != null) slot.icon.transform.SetAsFirstSibling();
-
-        tile.IsInSpace = false;
-
-        RectTransform rtTile = tile.GetComponent<RectTransform>();
-        RectTransform rtSlot = slot.GetComponent<RectTransform>();
-        rtTile.anchorMin = rtTile.anchorMax = new Vector2(0.5f, 0.5f);
-        rtTile.pivot     = new Vector2(0.5f, 0.5f);
-        rtTile.sizeDelta = rtSlot.sizeDelta;
-        rtTile.localScale = Vector3.one;
-        if (tile.GetData().letter == "BLANK")
-        {
-            var letters = Enumerable.Range('A',26).Select(c=>(char)c+"").ToArray();
-            string newL = letters[Random.Range(0,letters.Length)];
-            tile.GetData().letter = newL;
-            tile.letterText.text  = newL;
-            tile.scoreText.text   = "0";  // คะแนน 0 
-        }
-    }
 
     public void CancelPlacement()
     {
-        foreach (var tile in SpaceManager.Instance.GetPreparedTiles())
-            SpaceManager.Instance.RemoveTile(tile);
+        // 1) รวบรวม tile ทั้งหมดที่ต้องคืน (Space + ที่เพิ่งวางลงบอร์ดในเทิร์นนี้)
+        var spaceTiles = SpaceManager.Instance.GetPreparedTiles();                  // จาก Space
+        var boardTiles = lastPlacedTiles.Select(p => p.tile).ToList();              // ที่เพิ่งย้ายไปบอร์ด
+        var all = new List<LetterTile>(spaceTiles.Count + boardTiles.Count);
+        all.AddRange(spaceTiles);
+        all.AddRange(boardTiles);
 
-        foreach (var (tile, _) in lastPlacedTiles)
-            SpaceManager.Instance.RemoveTile(tile);
+        // 2) หา bench slots ว่างจากซ้าย→ขวา
+        var empties = new List<Transform>();
+        foreach (var t in SpaceManager.Instance.benchSlots)                         // อาศัยลิสต์ Bench ของ SpaceManager
+            if (t.childCount == 0) empties.Add(t);
+
+        // 3) จับคู่ 1:1 แล้ว "บินกลับ"
+        int n = Mathf.Min(all.Count, empties.Count);
+        for (int i = 0; i < n; i++)
+        {
+            var tile = all[i];
+            var slot = empties[i];
+            tile.FlyTo(slot);                                                       // <<< อนิเมชันบินกลับ
+        }
+
+        // 4) Fallback (กรณีพิเศษถ้าช่องว่างไม่พอ)
+        for (int i = n; i < all.Count; i++)
+            SpaceManager.Instance.RemoveTile(all[i]);                               // snap กลับแบบเดิม
 
         lastPlacedTiles.Clear();
         ClearPreview();
         startSlot = null;
     }
+
 
     public void TryPlaceFromSlot(BoardSlot clicked)
     {
@@ -196,6 +188,16 @@ public class PlacementManager : MonoBehaviour
         startSlot = null;
         
         TurnManager.Instance.EnableConfirm();
+    }
+    void MoveTileToSlot(LetterTile tile, BoardSlot slot)
+    {
+        // บินเข้าไป (ขณะบิน parent จะเป็น Canvas; จบแล้วจะเข้า slot เอง)
+        tile.FlyTo(slot.transform);
+
+        // กันไอคอนของช่องทับไทล์: ดันไอคอนไปล่างสุดไว้ก่อน
+        if (slot.icon != null) slot.icon.transform.SetAsFirstSibling();
+
+        tile.IsInSpace = false;
     }
 
     // ---------------- helper ----------------

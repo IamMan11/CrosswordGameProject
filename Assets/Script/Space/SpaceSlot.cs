@@ -1,36 +1,33 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-public class SpaceSlot : MonoBehaviour, IDropHandler
+public class SpaceSlot : MonoBehaviour, IDropHandler, IPointerEnterHandler
 {
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        if (SpaceManager.Instance != null && SpaceManager.Instance.draggingTile != null)
+            SpaceManager.Instance.OnHoverSlot(transform);
+    }
+
     public void OnDrop(PointerEventData eventData)
     {
-        GameObject draggedGO = eventData.pointerDrag;
-        if (draggedGO == null) return;
+        var go = eventData.pointerDrag;
+        if (!go) return;
+        var tile = go.GetComponent<LetterTile>();
+        if (!tile) return;
 
-        LetterTile draggedTile = draggedGO.GetComponent<LetterTile>();
-        if (draggedTile == null) return;
+        // สร้างช่องว่าง ณ จุดนี้ก่อน
+        if (SpaceManager.Instance && SpaceManager.Instance.draggingTile)
+            SpaceManager.Instance.EnsureEmptyAt(transform);
 
-        // ถ้า drag ใส่ช่องเดิมตัวเอง → ไม่ต้องทำอะไร
-        if (draggedTile.OriginalParent == transform)
-            return;
+        // เข็มขัดนิรภัย ถ้ายังมีของค้าง เตะไปช่องว่างใกล้สุด
+        if (transform.childCount > 0 && SpaceManager.Instance)
+            SpaceManager.Instance.KickOutExistingToNearestEmpty(transform);
 
-        // ถ้ามีตัวอักษรอยู่แล้ว → สลับกับตัวที่ลากมา
-        if (transform.childCount > 0)
-        {
-            Transform existingTile = transform.GetChild(0);
-
-            existingTile.SetParent(draggedTile.OriginalParent);
-            existingTile.localPosition = Vector3.zero;
-
-            var existingLT = existingTile.GetComponent<LetterTile>();
-            if (existingLT != null)
-                existingLT.OriginalParent = draggedTile.OriginalParent;
-        }
-
-        // ย้ายตัวที่ลากมาลง slot นี้
-        draggedTile.OriginalParent = transform;
-        draggedGO.transform.SetParent(transform, false);
-        draggedTile.AdjustSizeToParent();
+        tile.OriginalParent = transform;
+        go.transform.SetParent(transform, false);
+        tile.AdjustSizeToParent();
+        tile.PlaySettle();
+        SpaceManager.Instance?.UpdateDiscardButton();
     }
 }

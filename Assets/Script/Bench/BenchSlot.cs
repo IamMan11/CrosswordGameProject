@@ -1,37 +1,36 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-public class BenchSlot : MonoBehaviour, IDropHandler
+public class BenchSlot : MonoBehaviour, IDropHandler, IPointerEnterHandler
 {
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        if (BenchManager.Instance != null && BenchManager.Instance.draggingTile != null)
+            BenchManager.Instance.OnHoverSlot(transform);
+    }
     public void OnDrop(PointerEventData eventData)
     {
-        GameObject draggedGO = eventData.pointerDrag;
-        if (draggedGO == null) return;
+        var go = eventData.pointerDrag;
+        if (!go) return;
 
-        LetterTile draggedTile = draggedGO.GetComponent<LetterTile>();
-        if (draggedTile == null) return;
+        var tile = go.GetComponent<LetterTile>();
+        if (!tile) return;
 
-        // ถ้า drag ใส่ช่องเดิมตัวเอง → ไม่ต้องทำอะไร
-        if (draggedTile.OriginalParent == transform)
-            return;
+        // A) ทำให้ช่องนี้ว่างก่อน (ในกรณีสอดแทรก/เลื่อนแถว)
+        if (BenchManager.Instance && BenchManager.Instance.draggingTile)
+            BenchManager.Instance.EnsureEmptyAt(transform);
 
-        // ถ้ามีตัวอักษรอยู่แล้ว → สลับกับตัวที่ลากมา
-        if (transform.childCount > 0)
-        {
-            Transform existingTile = transform.GetChild(0);
+        // B) กันพลาด: ถ้ายังมีของค้างอยู่ เตะออกไปช่องว่างใกล้สุดก่อน
+        if (transform.childCount > 0 && BenchManager.Instance)
+            BenchManager.Instance.KickOutExistingToNearestEmpty(transform);
 
-            existingTile.SetParent(draggedTile.OriginalParent);
-            existingTile.localPosition = Vector3.zero;
+        // C) วางลง
+        tile.OriginalParent = transform;
+        go.transform.SetParent(transform, false);
+        tile.AdjustSizeToParent();
 
-            var existingLT = existingTile.GetComponent<LetterTile>();
-            if (existingLT != null)
-                existingLT.OriginalParent = draggedTile.OriginalParent;
-        }
-
-        // ย้ายตัวที่ลากมาลง slot นี้
-        draggedTile.OriginalParent = transform;
-        draggedGO.transform.SetParent(transform, false);
-        // AdjustSizeToParent จะตั้ง anchors+offset ให้เต็ม slot ใหม่
-        draggedTile.AdjustSizeToParent();
+        // ดึ้งเล็กน้อย
+        tile.PlaySettle();
+        SpaceManager.Instance?.UpdateDiscardButton();
     }
 }
