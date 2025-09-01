@@ -26,6 +26,8 @@ public class SpaceManager : MonoBehaviour
     public bool debug = true;        // เปิด‑ปิด Console log ที่ Inspector
     [Header("Discard Button (ผูกใน Inspector)")]
     public Button discardButton;     // ← ปุ่ม Discard ที่จะลากมาผูก
+    int _lastHoverIndex = -1;
+    int index = 0;
 
     private void Awake()
     {
@@ -43,6 +45,7 @@ public class SpaceManager : MonoBehaviour
         }
     }
     public int IndexOfSlot(Transform t) => slotTransforms.IndexOf(t);
+    void PlayShiftTick() => SfxPlayer.Play(SfxId.SlotShift);
 
     public Transform GetFirstEmptySlot()
     {
@@ -86,6 +89,14 @@ public class SpaceManager : MonoBehaviour
             for (int k = emptyIndex - 1; k >= hover; k--)
                 MoveChildToSlot(slotTransforms[k], slotTransforms[k + 1]);
         }
+
+        // ✅ FIX: เปลี่ยนมาเช็ค hover
+        if (hover != _lastHoverIndex)
+        {
+            PlayShiftTick();          // → SfxId.SlotShift
+            _lastHoverIndex = hover;
+        }
+
         emptyIndex = hover;
     }
 
@@ -96,16 +107,16 @@ public class SpaceManager : MonoBehaviour
         if (target < 0 || target == emptyIndex) return;
 
         if (target > emptyIndex)
-        {
             for (int k = emptyIndex + 1; k <= target; k++)
                 MoveChildToSlot(slotTransforms[k], slotTransforms[k - 1]);
-        }
         else
-        {
             for (int k = emptyIndex - 1; k >= target; k--)
                 MoveChildToSlot(slotTransforms[k], slotTransforms[k + 1]);
-        }
+
         emptyIndex = target;
+
+        // ✅ เพิ่ม 1 เสียง เมื่อมีการแทรกจริง
+        PlayShiftTick();
     }
     public void KickOutExistingToNearestEmpty(Transform slot)
     {
@@ -124,10 +135,12 @@ public class SpaceManager : MonoBehaviour
 
     public void CollapseFrom(int removedIndex)
     {
-        // รูดปิดช่อง: ขยับทั้งหมดทางขวาเข้าซ้ายทีละ 1
-        for (int k = removedIndex + 1; k < slotTransforms.Count; k++)
-            MoveChildToSlot(slotTransforms[k], slotTransforms[k - 1]);
-        // ช่องสุดท้ายจะว่าง
+        if (removedIndex < 0 || removedIndex >= slotTransforms.Count) return;
+        for (int k = removedIndex; k < slotTransforms.Count - 1; k++)
+            MoveChildToSlot(slotTransforms[k + 1], slotTransforms[k]);
+
+        emptyIndex = slotTransforms.Count - 1;
+        _lastHoverIndex = -1;
     }
 
     private void MoveChildToSlot(Transform from, Transform to)
