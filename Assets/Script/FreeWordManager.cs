@@ -126,7 +126,7 @@ public class FreeWordManager : MonoBehaviour
         var letterBag = new Dictionary<char, int>();
         foreach (var t in tiles)
         {
-            char ch = char.ToUpperInvariant(t.GetData().letter);
+            char ch = char.ToUpperInvariant(t.GetData().letter[0]);
             if (!letterBag.ContainsKey(ch)) letterBag[ch] = 1;
             else letterBag[ch]++;
         }

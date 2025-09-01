@@ -31,6 +31,15 @@ public class WordChecker : MonoBehaviour
         public string Translation;
     }
 
+    // ✅ เมธอดเช็คความพร้อมให้สคริปต์อื่นเรียกได้
+    public bool IsReady()
+    {
+        // พร้อมใช้งานถ้า: (1) เชื่อม DB ได้แล้ว หรือ (2) preload คำไว้แล้ว
+        return conn != null
+            || (entries != null && entries.Count > 0)
+            || (dict != null && dict.Count > 0);
+    }
+
     void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
