@@ -151,7 +151,7 @@ public class BoardManager : MonoBehaviour
                 }
 
                 // ✅ ยึดซิกเนเจอร์เดิมเพื่อไม่พังไฟล์อื่น
-                slot.Setup(r, c, st, manaGainLocal);
+                slot.Setup(r, c, st, manaGainLocal, overlaySprite);
                 grid[r, c] = slot;
             }
         }

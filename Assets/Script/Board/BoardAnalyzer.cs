@@ -51,7 +51,7 @@ public static class BoardAnalyzer
                 return false;
             }
 
-            word += tile.GetData().letter;
+            word += (tile ? tile.CurrentLetter : string.Empty);
 
             if (!InBounds(r + dr, c + dc) || !g[r + dr, c + dc].HasLetterTile())
             {

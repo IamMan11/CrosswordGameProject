@@ -7,6 +7,9 @@ using System.Collections;
 public class LetterTile : MonoBehaviour,
     IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
 {
+    private LetterData data;
+    [SerializeField] private bool isBlankTile = false;  // เผื่อกำหนดจาก Inspector ได้ (ไม่จำเป็นก็ได้)
+    private string overrideLetter = null;               // ตัวอักษรที่ผู้เล่นเลือก (เฉพาะ Blank)
     private bool _fromBenchDrag = false;
     [Header("UI References")]
     public Image icon;
@@ -95,6 +98,11 @@ public class LetterTile : MonoBehaviour,
         // ห้ามลากบนบอร์ด แต่ Bench/Space ให้ลากได้
         if (IsOnBoard()) { dragging = false; return; }     // << กันตั้งแต่เริ่ม
         if (isLocked || isBusy || UiGuard.IsBusy) { dragging = false; return; }
+        if (IsBlank && !IsBlankResolved)
+        {
+            BlankPopup.Show(ch => ResolveBlank(ch));
+            return; // ยังไม่ให้ลากจนกว่าจะเลือกตัวอักษร
+        }
 
         dragging = true;                                    // << เริ่มลากจริง
 
@@ -180,8 +188,6 @@ public class LetterTile : MonoBehaviour,
         if (_fromBenchDrag) BenchManager.Instance?.EndDrag(placed);
         else                SpaceManager.Instance?.EndDrag(placed);
     }
-
-
     private void OnTransformParentChanged()
     {
         SpaceManager.Instance?.UpdateDiscardButton();
@@ -246,6 +252,11 @@ public class LetterTile : MonoBehaviour,
         if (isLocked || isBusy || UiGuard.IsBusy) return;
         // คลิกซ้ายเท่านั้น (กัน double tap ขวา)
         if (eventData.button != PointerEventData.InputButton.Left) return;
+        if (IsBlank && !IsBlankResolved)
+        {
+            BlankPopup.Show(ch => { ResolveBlank(ch); /* ถ้าจะให้ย้ายต่อก็คลิก/ลากซ้ำ */ });
+            return;
+        }
         if (IsOnBoard())
         {
             var target = SpaceManager.Instance?.GetFirstEmptySlot();
@@ -286,6 +297,40 @@ public class LetterTile : MonoBehaviour,
             StartCoroutine(FlyToSlot(target.transform));
         }
     }
+    public void ResolveBlank(char ch)
+    {
+        overrideLetter = char.ToUpperInvariant(ch).ToString();
+
+        // อัปเดตตัวหนังสือบนไทล์ (เผื่อคุณแสดงตัวหนังสือทับ)
+        if (letterText) letterText.text = overrideLetter;
+
+        // คะแนนของ Blank = 0 เสมอ
+        if (scoreText) scoreText.text = "0";
+
+        // >>> สำคัญ: เปลี่ยน "ภาพ" ให้เป็นตัวอักษรที่เลือก
+        var bag = TileBag.Instance;
+        if (bag != null)
+        {
+            var lc = bag.initialLetters.Find(l =>
+                l != null && l.data != null &&
+                string.Equals(l.data.letter, overrideLetter, System.StringComparison.OrdinalIgnoreCase));
+
+            if (lc != null && lc.data != null && lc.data.sprite != null && icon != null)
+            {
+                icon.sprite = lc.data.sprite;
+                // ถ้ารูปเพี้ยนสัดส่วน ลองเปิดบรรทัดนี้
+                // icon.SetNativeSize();
+            }
+        }
+    }
+    public bool IsBlank => isBlankTile
+    || string.Equals(data.letter, "BLANK", System.StringComparison.OrdinalIgnoreCase)
+    || data.letter == "?" || data.letter == "_";
+
+    public bool IsBlankResolved => !IsBlank || !string.IsNullOrEmpty(overrideLetter);
+
+    // ใช้ค่านี้แทนการอ่าน data.letter ตรง ๆ
+    public string CurrentLetter => string.IsNullOrEmpty(overrideLetter) ? data.letter : overrideLetter;
     public void FlyTo(Transform targetSlot)
     {
         // ใช้คอร์รุตีนบินที่มีอยู่แล้ว
@@ -441,7 +486,6 @@ public class LetterTile : MonoBehaviour,
     }
 
     // ====== Data & Utils (ของเดิม) ======
-    private LetterData data;
     public void Setup(LetterData d)
     {
         data = d;
@@ -449,6 +493,13 @@ public class LetterTile : MonoBehaviour,
         letterText.text = data.letter;
         scoreText.text  = data.score.ToString();
         isSpecialTile = data.isSpecial;
+        isBlankTile = IsBlank;
+        if (IsBlank)
+        {
+            // คะแนน Blank = 0 (แม้ใน data.score จะเป็นอะไรก็ตาม)
+            if (scoreText) scoreText.text = "0";
+        }
+        overrideLetter = null; // เริ่มยังไม่เลือก
         specialMark.enabled = data.isSpecial;
     }
     public void SetSpecial(bool v)

@@ -19,7 +19,6 @@ public class BenchManager : MonoBehaviour
     [Header("Lerp Settings")]
     public float shiftDuration = 0.12f;
     public AnimationCurve ease = AnimationCurve.EaseInOut(0,0,1,1);
-    int _lastHoverIndex = -1;
 
     public static BenchManager Instance { get; private set; }
 
@@ -29,11 +28,6 @@ public class BenchManager : MonoBehaviour
         else Destroy(gameObject);
     }
     public int IndexOfSlot(Transform t) => slotTransforms.IndexOf(t);
-    
-    void PlayShiftTick()
-    {
-        SfxPlayer.Play(SfxId.SlotShift);
-    }
     public void BeginDrag(LetterTile tile, int fromIndex)
     {
         draggingTile = tile;
@@ -81,19 +75,13 @@ public class BenchManager : MonoBehaviour
         int hover = IndexOfSlot(targetSlot);
         if (hover < 0 || hover == emptyIndex) return;
 
-        // ถ้าเปลี่ยนตำแหน่งที่โฮเวอร์จริง ค่อยเล่นเสียงติ๊ก
-        if (hover != _lastHoverIndex)
-        {
-            PlayShiftTick();          // เอาออกได้ถ้าไม่ใช้เสียง
-            _lastHoverIndex = hover;
-        }
-
-        // เลื่อนเพื่อนบ้านเพื่อเปิดช่องว่างให้ hover
+        // ถ้าโฮเวอร์ไปทางขวา: เลื่อนเพื่อนบ้านไปซ้าย
         if (hover > emptyIndex)
         {
             for (int k = emptyIndex + 1; k <= hover; k++)
                 MoveChildToSlot(slotTransforms[k], slotTransforms[k - 1]);
         }
+        // ถ้าโฮเวอร์ไปทางซ้าย: เลื่อนเพื่อนบ้านไปขวา
         else
         {
             for (int k = emptyIndex - 1; k >= hover; k--)
@@ -102,7 +90,6 @@ public class BenchManager : MonoBehaviour
 
         emptyIndex = hover;
     }
-
     public Transform GetCurrentEmptySlot()
     {
         if (emptyIndex >= 0 && emptyIndex < slotTransforms.Count)
@@ -113,7 +100,6 @@ public class BenchManager : MonoBehaviour
     {
         draggingTile = null;
         emptyIndex = -1;
-        _lastHoverIndex = -1;   // << กันเสียง/สถานะค้างจากรอบก่อน
     }
     private void MoveChildToSlot(Transform from, Transform to)
     {
@@ -162,12 +148,9 @@ public class BenchManager : MonoBehaviour
     }
     public void CollapseFrom(int removedIndex)
     {
-        if (removedIndex < 0 || removedIndex >= slotTransforms.Count) return;
-        for (int k = removedIndex; k < slotTransforms.Count - 1; k++)
-            MoveChildToSlot(slotTransforms[k + 1], slotTransforms[k]);
-
-        emptyIndex = slotTransforms.Count - 1;
-        _lastHoverIndex = -1;
+        for (int k = removedIndex + 1; k < slotTransforms.Count; k++)
+            MoveChildToSlot(slotTransforms[k], slotTransforms[k - 1]);
+        // ช่องสุดท้ายจะว่าง
     }
     private void Start() => RefillEmptySlots();
 

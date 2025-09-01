@@ -104,6 +104,15 @@ public class PlacementManager : MonoBehaviour
             if (startSlot == null) return;
 
             var tiles = SpaceManager.Instance.GetPreparedTiles();
+
+            // ถ้ามี Blank ที่ยังไม่เลือก ให้เปิด AlphabetPicker แล้ว “ยกเลิกการวาง” รอบนี้
+            var unresolved = tiles.FirstOrDefault(t => t && t.IsBlank && !t.IsBlankResolved);
+            if (unresolved)
+            {
+                UIManager.Instance.ShowMessage("เลือกตัวอักษรให้ไทล์ Blank ก่อนวาง", 1.5f);
+                BlankPopup.Show(ch => unresolved.ResolveBlank(ch));  // ← เปลี่ยนที่นี่
+                return;
+            }
             int need = tiles.Count;
             if (need == 0) return;
 

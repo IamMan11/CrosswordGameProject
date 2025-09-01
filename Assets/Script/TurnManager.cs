@@ -480,7 +480,17 @@ public class TurnManager : MonoBehaviour
         int dictPenaltyPercent
     )
     {
-        BeginScoreSequence();
+        // ==== เข้าเฟสคิดคะแนน ====
+        LevelManager.Instance?.PauseLevelTimer();  // พักนาฬิกาด่าน
+        float prevTimeScale = Time.timeScale;
+        Time.timeScale = 0f;                       // หยุดเกมเพลย์/อินพุต/ฟิสิกส์
+
+        // ให้แอนิเมชัน UI/เสียงยังเล่นได้ระหว่าง timeScale=0
+        if (scoreOverlayAnimator) 
+            scoreOverlayAnimator.updateMode = AnimatorUpdateMode.UnscaledTime;
+
+        try {
+            BeginScoreSequence();
 
         var letterAdds = BuildLetterAdds(correct);        // คะแนนฐานที่คิด L2/L3 แล้ว (เก็บไว้ถ้าจะโชว์)
         var mulFactors = BuildMultiplierFactors(correct); // ตัวคูณแบบบวก (x2+x3=x5)
@@ -618,6 +628,13 @@ public class TurnManager : MonoBehaviour
         EnableConfirm();
 
         EndScoreSequence();
+        }
+        finally
+        {
+            // ==== ออกจากเฟสคิดคะแนน ====
+            Time.timeScale = prevTimeScale;
+            LevelManager.Instance?.ResumeLevelTimer(); // เดินนาฬิกาต่อ (ไม่รีเซ็ต)
+        }
     }
 
     // ===== Bounce helpers =====
@@ -640,76 +657,6 @@ public class TurnManager : MonoBehaviour
 
             BenchManager.Instance.ReturnTileToBench(tile);
             bouncedSet.Add(tile);
-        }
-    }
-
-    // ===== Blink helpers (ใช้ในบาง flow) =====
-    IEnumerator BlinkWords(IEnumerable<MoveValidator.WordInfo> list, Color col)
-    {
-        foreach (var w in list)
-        {
-            int dr = w.r0 == w.r1 ? 0 : (w.r1 > w.r0 ? 1 : -1);
-            int dc = w.c0 == w.c1 ? 0 : (w.c1 > w.c0 ? 1 : -1);
-            int r = w.r0, c = w.c0;
-            while (true)
-            {
-                var slot = BoardManager.Instance.GetSlot(r, c);
-                slot?.Flash(col);
-                if (r == w.r1 && c == w.c1) break;
-                r += dr; c += dc;
-            }
-        }
-        yield return null;
-    }
-
-    IEnumerator BlinkWordsForDuration(IEnumerable<MoveValidator.WordInfo> list, Color col, float totalDuration, float interval = 0.2f)
-    {
-        var slots = new List<BoardSlot>();
-        foreach (var w in list)
-        {
-            int dr = w.r0 == w.r1 ? 0 : (w.r1 > w.r0 ? 1 : -1);
-            int dc = w.c0 == w.c1 ? 0 : (w.c1 > w.c0 ? 1 : -1);
-            int r = w.r0, c = w.c0;
-            while (true)
-            {
-                var slot = BoardManager.Instance.GetSlot(r, c);
-                if (slot != null) slots.Add(slot);
-                if (r == w.r1 && c == w.c1) break;
-                r += dr; c += dc;
-            }
-        }
-
-        float elapsed = 0f;
-        bool on = true;
-        while (elapsed < totalDuration)
-        {
-            foreach (var slot in slots)
-            {
-                if (on) slot.Flash(col);
-                else slot.HidePreview();
-            }
-            on = !on;
-            yield return new WaitForSeconds(interval);
-            elapsed += interval;
-        }
-        foreach (var slot in slots) slot.HidePreview();
-    }
-
-    IEnumerator BlinkWordsSequential(IEnumerable<MoveValidator.WordInfo> list, Color col, float perWordDur = 1f)
-    {
-        foreach (var w in list)
-        {
-            int dr = w.r0 == w.r1 ? 0 : (w.r1 > w.r0 ? 1 : -1);
-            int dc = w.c0 == w.c1 ? 0 : (w.c1 > w.c0 ? 1 : -1);
-            int r = w.r0, c = w.c0;
-            while (true)
-            {
-                var slot = BoardManager.Instance.GetSlot(r, c);
-                slot?.Flash(col, times: 3, dur: 0.17f);
-                if (r == w.r1 && c == w.c1) break;
-                r += dr; c += dc;
-            }
-            yield return new WaitForSeconds(perWordDur);
         }
     }
 
@@ -872,11 +819,8 @@ public class TurnManager : MonoBehaviour
 
             // เสียเทิร์นเมื่อ main-word สั้น / ผิดดิก / ซ้ำ
             bool skipTurn = mainShort || mainInvalid || mainDuplicate;
-
-            // ---------- 4) ไฮไลต์คำถูก ----------
-            if (!skipTurn && correct.Count > 0)
-                StartCoroutine(BlinkWordsSequential(correct, Color.green, 1f));
-
+            // เริ่มนับเวลาของด่าน เมื่อกดยืนยันครั้งแรก
+            LevelManager.Instance?.OnFirstConfirm();
             // ---------- 5) คำนวณคะแนน ----------
             int moveScore = 0;
             int newWordCountThisMove = 0;
@@ -928,13 +872,15 @@ public class TurnManager : MonoBehaviour
             if (slot.manaGain > 0) AddMana(slot.manaGain);
         }
 
-            // โทษเปิดพจนานุกรม
+            // โทษเปิดพจนานุกรม (จำ flag ไว้เพื่อใช้โชว์อนิเมชันหัก %)
+            bool dictPenaltyApplied = false;    
             if (usedDictionaryThisTurn)
             {
                 if (!freePassActiveThisTurn)
                 {
                     moveScore = Mathf.CeilToInt(moveScore * 0.5f);
                     ShowMessage("Penalty: ลดคะแนน 50% จากการเปิดพจนานุกรม", Color.red);
+                    dictPenaltyApplied = true;
                 }
                 usedDictionaryThisTurn = false;
             }
@@ -946,14 +892,16 @@ public class TurnManager : MonoBehaviour
                 nextWordMul = 1;
             }
 
-            // เปิดแอนิเมชันคิดคะแนนแบบใหม่
+            // เรียกคอร์รุตีน (ส่งพารามิเตอร์ตัวสุดท้ายให้ครบ)
             StartCoroutine(AnimateAndFinalizeScoring(
                 placed,
                 correct,
                 moveScore,
                 comboMul,
-                bounced
+                bounced,
+                dictPenaltyApplied ? dictionaryPenaltyPercent : 0
             ));
+
         }
         finally
         {
@@ -964,26 +912,6 @@ public class TurnManager : MonoBehaviour
         BenchManager.Instance.RefillEmptySlots();
         UpdateBagUI();
         EnableConfirm();
-
-        if (moveScore > 0)
-            LevelManager.Instance.ResetTimer();
-
-        // ✅ เพิ่มการเริ่ม AutoRemove ใหม่หลังยืนยันคำ
-        if (!LevelManager.Instance.IsGameOver() &&
-            LevelManager.Instance.levels[LevelManager.Instance.CurrentLevel].enableAutoRemove)
-        {
-            float interval = LevelManager.Instance.levels[LevelManager.Instance.CurrentLevel].autoRemoveInterval;
-            StartAutoRemove(interval);
-        }
-        bool dictAppliedThisMove = (!freePassActiveThisTurn) && /* เพิ่งใช้ Dictionary รอบนี้จริง */ true;
-        StartCoroutine(AnimateAndFinalizeScoring(
-            placed,
-            correct,
-            moveScore,
-            comboMul,
-            bounced,
-            dictAppliedThisMove ? dictionaryPenaltyPercent : 0
-        ));
         return;
     }
 
