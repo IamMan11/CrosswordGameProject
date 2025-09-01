@@ -47,9 +47,9 @@ public class TurnManager : MonoBehaviour
     public Animator scoreOverlayAnimator; // ถ้าทำอนิเมชันเฟด/ป้าย
     public TMP_Text phaseLabel;           // ไว้โชว์ “Card Multiplier…”, “Combo x3…”
     public float letterStepDelay = 0.08f;
-    public float setDelay        = 0.20f;
-    public float phaseDelay      = 0.25f;
-    public bool  pauseTimeDuringScoring = true;
+    public float setDelay = 0.20f;
+    public float phaseDelay = 0.25f;
+    public bool pauseTimeDuringScoring = true;
 
     [Header("Score Pop (Anchors & Prefab)")]
     public RectTransform anchorLetters;   // จุด A
@@ -140,13 +140,13 @@ public class TurnManager : MonoBehaviour
         var grid = bm.grid;
         int R = bm.rows, C = bm.cols;
         for (int r = 0; r < R; r++)
-        for (int c = 0; c < C; c++)
-        {
-            var s = grid[r, c];
-            if (s == null) continue;
-            s.CancelFlash();
-            s.HidePreview();
-        }
+            for (int c = 0; c < C; c++)
+            {
+                var s = grid[r, c];
+                if (s == null) continue;
+                s.CancelFlash();
+                s.HidePreview();
+            }
     }
 
     void BeginScoreSequence()
@@ -546,7 +546,7 @@ public class TurnManager : MonoBehaviour
         yield return new WaitForSecondsRealtime(0.15f);
 
         // ส่งเข้า Score HUD
-        int hudStart  = Score;
+        int hudStart = Score;
         int hudTarget = hudStart + displayedTotal;
         var fly = uiC.FlyTo(scoreHud, flyDur);
         var tweenHud = TweenHudScoreTemp(hudStart, hudTarget, flyDur);
@@ -655,7 +655,7 @@ public class TurnManager : MonoBehaviour
         {
             int dr = w.r0 == w.r1 ? 0 : (w.r1 > w.r0 ? 1 : -1);
             int dc = w.c0 == w.c1 ? 0 : (w.c1 > w.c0 ? 1 : -1);
-            int r  = w.r0, c = w.c0;
+            int r = w.r0, c = w.c0;
             while (true)
             {
                 var slot = BoardManager.Instance.GetSlot(r, c);
@@ -735,52 +735,97 @@ public class TurnManager : MonoBehaviour
             }
 
             // ---------- 1) แยกหมวดคำ ----------
-            var invalid   = words.Where(w => !WordChecker.Instance.IsWordValid(w.word)).ToList();
+            int minLen = WordChecker.Instance?.minWordLength ?? 2;
+            bool IsShort(MoveValidator.WordInfo wi)
+                => string.IsNullOrWhiteSpace(wi.word) || wi.word.Trim().Length < minLen;
+
+            var shortOnes = words.Where(IsShort).ToList(); // คำสั้น (< minLen)
+            var invalidDict = words.Except(shortOnes)
+                                   .Where(w => !WordChecker.Instance.IsWordValid(w.word))
+                                   .ToList();
             var duplicate = words.Where(w => boardWords.Contains(w.word)).ToList();
-            var correct   = words.Except(invalid).Except(duplicate).ToList();
-            var bounced   = new HashSet<LetterTile>();
+            var correct = words.Except(shortOnes).Except(invalidDict).Except(duplicate).ToList();
+            var bounced = new HashSet<LetterTile>();
+
+            // ✅ ถ้าไม่เกิด "คำที่ถูกต้อง" เลย (ยาว >= minLen และอยู่ในดิก และไม่ซ้ำ)
+            //    ให้เด้งตัวที่วางทั้งหมดกลับทันที และเสียเทิร์น
+            if (correct.Count == 0)
+            {
+                foreach (var (t, s) in placed)
+                {
+                    s.Flash(Color.yellow, 3, 0.17f);
+                    var tile = s.RemoveLetter();
+                    if (tile != null)
+                    {
+                        BenchManager.Instance.ReturnTileToBench(tile);
+                        bounced.Add(tile);
+                    }
+                }
+
+                ShowMessage($"ต้องเกิดคำที่ถูกต้องอย่างน้อย 1 คำ (ยาว ≥ {minLen})", Color.yellow);
+                StartCoroutine(SkipTurnAfterBounce());
+                return;
+            }
 
             // ---------- 2) หา main-word ----------
             var placedSet = placed.Select(p => (p.s.row, p.s.col)).ToHashSet();
-            var mainWord  = words.FirstOrDefault(w => CountNewInWord(w, placedSet) >= 2);
+            var mainWord = words.FirstOrDefault(w => CountNewInWord(w, placedSet) >= 2);
             LastConfirmedWord = mainWord.word;
-            bool hasMain  = !string.IsNullOrEmpty(mainWord.word);
+            bool hasMain = !string.IsNullOrEmpty(mainWord.word);
 
             // ---------- 3) เตรียมคำที่จะเด้ง + โทษ ----------
             int penalty = 0;
-            var invalidToBounce   = new List<MoveValidator.WordInfo>();
-            var duplicateToBounce = new List<MoveValidator.WordInfo>();
+            var toBounceRed = new List<MoveValidator.WordInfo>();    // ผิดดิก → หักโทษ
+            var toBounceYellow = new List<MoveValidator.WordInfo>();    // คำสั้น/เตือน → ไม่หัก
+            var toBounceDup = new List<MoveValidator.WordInfo>();    // ซ้ำ → ไม่หัก
 
-            bool mainInvalid   = invalid.Any(w   => w.word == mainWord.word);
-            bool mainDuplicate = duplicate.Any(w => w.word == mainWord.word);
+            bool mainShort = hasMain && IsShort(mainWord);
+            bool mainInvalid = hasMain && !mainShort && invalidDict.Any(w => w.word == mainWord.word);
+            bool mainDuplicate = hasMain && duplicate.Any(w => w.word == mainWord.word);
 
-            if (mainInvalid)
+            // A) MAIN สั้นเกินไป → เด้งกลับ ไม่หักคะแนน
+            if (mainShort)
+            {
+                toBounceYellow.Add(mainWord);
+                // เด้งคำสั้นอื่น ๆ (ถ้ามี)
+                toBounceYellow.AddRange(shortOnes.Where(w => w.word != mainWord.word));
+                // เด้งคำซ้ำ (ถ้ามี) แต่ไม่หัก
+                toBounceDup.AddRange(duplicate);
+                ShowMessage($"คำสั้นเกินไป (ขั้นต่ำ {minLen}) – เด้งกลับ", Color.yellow);
+            }
+            // B) MAIN ผิดดิก → เด้งและหักโทษ 50% ตามเดิม
+            else if (mainInvalid)
             {
                 int s = ScoreManager.CalcWord(mainWord.r0, mainWord.c0, mainWord.r1, mainWord.c1);
                 penalty += Mathf.CeilToInt(s * 0.5f);
-                invalidToBounce.Add(mainWord);
+                toBounceRed.Add(mainWord);
                 ShowMessage($"คำผิด -{penalty}", Color.red);
-                invalid.RemoveAll(w => w.word == mainWord.word);
+
+                // ผิดดิกตัวอื่น ๆ (ไม่นับ main) ก็หักโทษด้วย
+                foreach (var w in invalidDict.Where(w => w.word != mainWord.word))
+                {
+                    int sc = ScoreManager.CalcWord(w.r0, w.c0, w.r1, w.c1);
+                    penalty += Mathf.CeilToInt(sc * 0.5f);
+                    toBounceRed.Add(w);
+                }
+                // คำซ้ำเด้งแต่ไม่หัก
+                toBounceDup.AddRange(duplicate);
             }
+            // C) MAIN ซ้ำ → เด้งกลับ ไม่หักคะแนน
             else if (mainDuplicate)
             {
-                duplicateToBounce.Add(mainWord);
-                ShowMessage("คำซ้ำ", Color.yellow);
-                duplicate.RemoveAll(w => w.word == mainWord.word);
+                toBounceDup.Add(mainWord);
+                toBounceDup.AddRange(duplicate.Where(w => w.word != mainWord.word));
+                ShowMessage("คำซ้ำ – เด้งกลับ", Color.yellow);
             }
 
-            if (mainInvalid)
-            {
-                foreach (var w in invalid)
-                {
-                    int s = ScoreManager.CalcWord(w.r0, w.c0, w.r1, w.c1);
-                    penalty += Mathf.CeilToInt(s * 0.5f);
-                    invalidToBounce.Add(w);
-                }
-                duplicateToBounce.AddRange(duplicate);
-            }
+            // เด้งตามสี
+            foreach (var w in toBounceRed) BounceWord(w, placed, Color.red, bounced);    // หักโทษ
+            foreach (var w in toBounceYellow) BounceWord(w, placed, Color.yellow, bounced);    // ไม่หัก
+            foreach (var w in toBounceDup) BounceWord(w, placed, Color.yellow, bounced);    // ไม่หัก
 
-            bool skipTurn = mainInvalid || mainDuplicate;
+            // เสียเทิร์นเมื่อ main-word สั้น / ผิดดิก / ซ้ำ
+            bool skipTurn = mainShort || mainInvalid || mainDuplicate;
 
             // ---------- 4) ไฮไลต์คำถูก ----------
             if (!skipTurn && correct.Count > 0)
@@ -803,10 +848,6 @@ public class TurnManager : MonoBehaviour
                 }
             }
 
-            // เด้งคำผิด/ซ้ำ
-            foreach (var w in invalidToBounce)   BounceWord(w, placed, Color.red,    bounced);
-            foreach (var w in duplicateToBounce) BounceWord(w, placed, Color.yellow, bounced);
-
             if (skipTurn)
             {
                 if (penalty > 0)
@@ -815,7 +856,7 @@ public class TurnManager : MonoBehaviour
                     UpdateScoreUI();
                     LevelManager.Instance?.OnScoreOrWordProgressChanged();
                 }
-                ShowMessage("คำหลักผิด/ซ้ำ – เสียเทิร์น", Color.red);
+                ShowMessage("คำหลักไม่ผ่าน – เสียเทิร์น", Color.red);
                 StartCoroutine(SkipTurnAfterBounce());
                 return;
             }
