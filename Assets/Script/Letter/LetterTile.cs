@@ -7,6 +7,9 @@ using System.Collections;
 public class LetterTile : MonoBehaviour,
     IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
 {
+    private LetterData data;
+    [SerializeField] private bool isBlankTile = false;  // เผื่อกำหนดจาก Inspector ได้ (ไม่จำเป็นก็ได้)
+    private string overrideLetter = null;               // ตัวอักษรที่ผู้เล่นเลือก (เฉพาะ Blank)
     private bool _fromBenchDrag = false;
     [Header("UI References")]
     public Image icon;
@@ -36,6 +39,9 @@ public class LetterTile : MonoBehaviour,
     Vector2  dragPrevAnchorMin, dragPrevAnchorMax, dragPrevPivot, dragPrevSizeDelta;
     Vector3  dragPrevScale;
     bool     dragging;
+    // ใกล้ๆ ฟิลด์ของคลาส
+    [HideInInspector] public bool IsInSpace = false;
+    private bool wasInSpaceAtDragStart = false;
 
     RectTransform CanvasRect => canvas.rootCanvas.transform as RectTransform;
     Camera UICam => canvas.rootCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null
@@ -63,8 +69,6 @@ public class LetterTile : MonoBehaviour,
     [HideInInspector]
     public Transform OriginalParent; // ให้ BenchSlot.cs เข้าถึงตอนสลับ
 
-    // === NEW ===
-    [HideInInspector] public bool IsInSpace = false;
     private void Awake()
     {
         rectTf = GetComponent<RectTransform>();
@@ -94,6 +98,11 @@ public class LetterTile : MonoBehaviour,
         // ห้ามลากบนบอร์ด แต่ Bench/Space ให้ลากได้
         if (IsOnBoard()) { dragging = false; return; }     // << กันตั้งแต่เริ่ม
         if (isLocked || isBusy || UiGuard.IsBusy) { dragging = false; return; }
+        if (IsBlank && !IsBlankResolved)
+        {
+            BlankPopup.Show(ch => ResolveBlank(ch));
+            return; // ยังไม่ให้ลากจนกว่าจะเลือกตัวอักษร
+        }
 
         dragging = true;                                    // << เริ่มลากจริง
 
@@ -102,8 +111,10 @@ public class LetterTile : MonoBehaviour,
         // แจ้งให้ manager รู้ว่าลากจากที่ไหน (เพื่อให้ช่องเลื่อน)
         int benchIdx = BenchManager.Instance ? BenchManager.Instance.IndexOfSlot(OriginalParent) : -1;
         int spaceIdx = SpaceManager.Instance ? SpaceManager.Instance.IndexOfSlot(OriginalParent) : -1;
-        if (benchIdx >= 0) { _fromBenchDrag = true;  BenchManager.Instance.BeginDrag(this, benchIdx); }
+        if (benchIdx >= 0) { _fromBenchDrag = true; BenchManager.Instance.BeginDrag(this, benchIdx); }
         else if (spaceIdx >= 0) { _fromBenchDrag = false; SpaceManager.Instance.BeginDrag(this, spaceIdx); }
+
+        wasInSpaceAtDragStart = IsInSpace;
 
         // ย้ายไปอยู่ใต้ Canvas ชั่วคราว + ลอยตามเมาส์
         transform.SetParent(canvas.transform, true);
@@ -126,7 +137,7 @@ public class LetterTile : MonoBehaviour,
 
     public void OnEndDrag(PointerEventData e)
     {
-        if (!dragging) return;                              // << ถ้าไม่ได้ลากจริง ไม่ต้องทำอะไร
+        if (!dragging) return;          // ถ้าไม่ได้ลากจริง ไม่ต้องทำอะไร
         dragging = false;
 
         canvasGroup.blocksRaycasts = true;
@@ -136,13 +147,37 @@ public class LetterTile : MonoBehaviour,
 
         if (!placed)
         {
-            // ไม่โดนอะไรเลย → กลับช่องว่างของ manager ต้นทาง (หรือที่เดิม)
+            // ไม่โดนอะไรเลย → กลับช่องว่างของ manager ต้นทาง (หรือที่เดิม) แบบ "บินกลับ"
+            Transform target = OriginalParent;
+
             if (_fromBenchDrag && BenchManager.Instance)
-                SnapTo(BenchManager.Instance.GetCurrentEmptySlot()?.transform ?? OriginalParent);
+            {
+                var slot = BenchManager.Instance.GetCurrentEmptySlot();
+                target = (slot ? slot.transform : OriginalParent);
+            }
             else if (!_fromBenchDrag && SpaceManager.Instance)
-                SnapTo(SpaceManager.Instance.GetCurrentEmptySlot()?.transform ?? OriginalParent);
+            {
+                var slot = SpaceManager.Instance.GetCurrentEmptySlot();
+                target = (slot ? slot.transform : OriginalParent);
+            }
+
+            FlyTo(target);                                   // บินกลับ (ค่อย ๆ ปรับขนาด)
+            IsInSpace = (target.GetComponent<BoardSlot>() == null);
+
+            SfxPlayer.Play(SfxId.TileDrop);                 // เสียงวาง/คืนช่อง
+            PlaySettle();
+        }
+        else
+        {
+            // โดน OnDrop แล้ว → ดูว่าลงบอร์ดหรือช่อง (Bench/Space) เพื่ออัปเดตสถานะ/เสียง
+            var board = GetComponentInParent<BoardSlot>();
+            var space = GetComponentInParent<SpaceSlot>();
+
+            IsInSpace = true; // หรือ false ตามโค้ดที่คุณมีอยู่แล้ว
+            if (IsInSpace != wasInSpaceAtDragStart)
+                SfxPlayer.Play(SfxId.TileTransfer);   // ✅ ย้ายข้ามฝั่ง Bench <-> Space
             else
-                SnapTo(OriginalParent);
+                SfxPlayer.Play(SfxId.TileDrop);       // วางในฝั่งเดิม/สลับช่องภายในฝั่งเดียวกัน
 
             PlaySettle();
         }
@@ -153,7 +188,6 @@ public class LetterTile : MonoBehaviour,
         if (_fromBenchDrag) BenchManager.Instance?.EndDrag(placed);
         else                SpaceManager.Instance?.EndDrag(placed);
     }
-
     private void OnTransformParentChanged()
     {
         SpaceManager.Instance?.UpdateDiscardButton();
@@ -218,17 +252,19 @@ public class LetterTile : MonoBehaviour,
         if (isLocked || isBusy || UiGuard.IsBusy) return;
         // คลิกซ้ายเท่านั้น (กัน double tap ขวา)
         if (eventData.button != PointerEventData.InputButton.Left) return;
+        if (IsBlank && !IsBlankResolved)
+        {
+            BlankPopup.Show(ch => { ResolveBlank(ch); /* ถ้าจะให้ย้ายต่อก็คลิก/ลากซ้ำ */ });
+            return;
+        }
         if (IsOnBoard())
         {
-            var target = SpaceManager.Instance?.GetFirstEmptySlot(); // หา SpaceSlot ว่างตัวแรก
-            if (target == null) return; // ถ้า Space เต็มก็ไม่ทำอะไร (จะให้เด้งเตือนค่อยใส่เพิ่มทีหลัง)
+            var target = SpaceManager.Instance?.GetFirstEmptySlot();
+            if (target == null) return;
 
-            // ใช้แอนิเมชันบินกลับ (มีอยู่แล้วในคลาส)
+            SfxPlayer.Play(SfxId.TileTransfer);   // ★ เสียงย้าย Board→Space (คลิก)
             StartCoroutine(FlyToSlot(target.transform));
-
-            // อัปเดตปุ่ม Discard ทันทีให้สะท้อนว่ามีตัวใน Space แล้ว
-            SpaceManager.Instance?.RefreshDiscardButton(); // ถ้าไม่มีเมธอดนี้ ให้ดูข้อ 2 ด้านล่าง
-
+            SpaceManager.Instance?.RefreshDiscardButton();
             return;
         }
 
@@ -245,6 +281,7 @@ public class LetterTile : MonoBehaviour,
 
             // รูดปิดช่องฝั่ง Bench ก่อน
             BenchManager.Instance.CollapseFrom(benchIdx);
+            SfxPlayer.Play(SfxId.TileTransfer);   // ★ เสียงย้าย Bench→Space (คลิก)
             StartCoroutine(FlyToSlot(target.transform));
             return;
         }
@@ -256,10 +293,44 @@ public class LetterTile : MonoBehaviour,
             if (target == null) return;
 
             SpaceManager.Instance.CollapseFrom(spaceIdx);
+            SfxPlayer.Play(SfxId.TileTransfer);   // ★ เสียงย้าย Space→Bench (คลิก)
             StartCoroutine(FlyToSlot(target.transform));
-            return;
         }
     }
+    public void ResolveBlank(char ch)
+    {
+        overrideLetter = char.ToUpperInvariant(ch).ToString();
+
+        // อัปเดตตัวหนังสือบนไทล์ (เผื่อคุณแสดงตัวหนังสือทับ)
+        if (letterText) letterText.text = overrideLetter;
+
+        // คะแนนของ Blank = 0 เสมอ
+        if (scoreText) scoreText.text = "0";
+
+        // >>> สำคัญ: เปลี่ยน "ภาพ" ให้เป็นตัวอักษรที่เลือก
+        var bag = TileBag.Instance;
+        if (bag != null)
+        {
+            var lc = bag.initialLetters.Find(l =>
+                l != null && l.data != null &&
+                string.Equals(l.data.letter, overrideLetter, System.StringComparison.OrdinalIgnoreCase));
+
+            if (lc != null && lc.data != null && lc.data.sprite != null && icon != null)
+            {
+                icon.sprite = lc.data.sprite;
+                // ถ้ารูปเพี้ยนสัดส่วน ลองเปิดบรรทัดนี้
+                // icon.SetNativeSize();
+            }
+        }
+    }
+    public bool IsBlank => isBlankTile
+    || string.Equals(data.letter, "BLANK", System.StringComparison.OrdinalIgnoreCase)
+    || data.letter == "?" || data.letter == "_";
+
+    public bool IsBlankResolved => !IsBlank || !string.IsNullOrEmpty(overrideLetter);
+
+    // ใช้ค่านี้แทนการอ่าน data.letter ตรง ๆ
+    public string CurrentLetter => string.IsNullOrEmpty(overrideLetter) ? data.letter : overrideLetter;
     public void FlyTo(Transform targetSlot)
     {
         // ใช้คอร์รุตีนบินที่มีอยู่แล้ว
@@ -415,7 +486,6 @@ public class LetterTile : MonoBehaviour,
     }
 
     // ====== Data & Utils (ของเดิม) ======
-    private LetterData data;
     public void Setup(LetterData d)
     {
         data = d;
@@ -423,6 +493,13 @@ public class LetterTile : MonoBehaviour,
         letterText.text = data.letter;
         scoreText.text  = data.score.ToString();
         isSpecialTile = data.isSpecial;
+        isBlankTile = IsBlank;
+        if (IsBlank)
+        {
+            // คะแนน Blank = 0 (แม้ใน data.score จะเป็นอะไรก็ตาม)
+            if (scoreText) scoreText.text = "0";
+        }
+        overrideLetter = null; // เริ่มยังไม่เลือก
         specialMark.enabled = data.isSpecial;
     }
     public void SetSpecial(bool v)
