@@ -25,7 +25,6 @@ public class WordChecker : MonoBehaviour
     [Tooltip("ความยาวคำขั้นต่ำที่จะนับว่าถูกต้อง")]
     public int minWordLength = 2;   // กันคำ 1 ตัวอักษร
 
-
     private SQLiteConnection conn;
     private string tableName = null;              // จะถูกตั้งหลังตรวจเจอ schema
     private readonly HashSet<string> dict = new();  // เก็บเป็น UPPER (ใช้เมื่อ preload หรือ cache runtime)
@@ -37,6 +36,12 @@ public class WordChecker : MonoBehaviour
     private bool hasColType = false;
     private bool hasColTranslation = false;
     private bool hasColLen = false;
+
+    // อุ่นแคชครั้งเดียว
+    private bool cacheWarmedUp = false;
+
+    // (ออปชัน) นับสถิติเล็ก ๆ
+    private int cacheHit = 0, dbHit = 0;
 
     [Serializable]
     public class Entry
@@ -124,6 +129,7 @@ public class WordChecker : MonoBehaviour
                     if (!string.IsNullOrWhiteSpace(e.Word))
                         dict.Add(e.Word.Trim().ToUpperInvariant());
                 }
+                cacheWarmedUp = true; // ถือว่าอุ่นแล้วเพราะ preload มาเต็ม
                 Debug.Log($"[WordChecker] ✅ Preloaded {entries.Count} rows | Unique={dict.Count} | Table={tableName} | Cols: Word{(hasColType ? ",Type" : "")}{(hasColTranslation ? ",Translation" : "")}");
             }
             catch (Exception ex)
@@ -134,6 +140,9 @@ public class WordChecker : MonoBehaviour
         else
         {
             Debug.Log($"[WordChecker] ✅ DB ready (no preload). Using table={tableName} | Cols: Word{(hasColType ? ",Type" : "")}{(hasColTranslation ? ",Translation" : "")}{(hasColLen ? ",len" : "")} | Path={dbPathRuntime}");
+
+            // อุ่น cache อัตโนมัติแบบเบา ๆ (จะโหลดเฉพาะ Word ทั้งหมดครั้งเดียว)
+            WarmUpCacheIfNeeded();
         }
     }
 
@@ -158,37 +167,55 @@ public class WordChecker : MonoBehaviour
 
         string key = trimmed.ToUpperInvariant();
 
-        // ชั้นที่ 1: cache
+        // 1) cache ก่อน
         if (dict.Contains(key))
         {
+            cacheHit++;
             Debug.Log($"[WordChecker] ตรวจคำ: '{w}' → '{key}' → ✅ (cache)");
             return true;
         }
 
-        // ชั้นที่ 2: DB
+        // 2) อุ่น cache ถ้ายังไม่อุ่น (กันเคส dict ว่างหลังโหลดใหม่)
+        WarmUpCacheIfNeeded();
+
+        // 3) เช็คอีกทีหลังอุ่น
+        if (dict.Contains(key))
+        {
+            cacheHit++;
+            Debug.Log($"[WordChecker] ตรวจคำ: '{w}' → '{key}' → ✅ (cache after warm)");
+            return true;
+        }
+
+        // 4) DB fallback
         if (!IsReady())
         {
             Debug.LogWarning("[WordChecker] ตรวจคำไม่สำเร็จ: DB ยังไม่พร้อม");
             return false;
         }
 
-        bool found = false;
         try
         {
             string sql = $"SELECT EXISTS(SELECT 1 FROM {Q(tableName)} WHERE Word=? COLLATE NOCASE LIMIT 1);";
-            found = conn.ExecuteScalar<int>(sql, trimmed) == 1;
-            if (found) dict.Add(key); // memoize
+            bool found = conn.ExecuteScalar<int>(sql, trimmed) == 1;
+            if (found)
+            {
+                dbHit++;
+                dict.Add(key); // memoize
+                Debug.Log($"[WordChecker] ตรวจคำ: '{w}' → '{key}' → ✅ (db)");
+                return true;
+            }
+            else
+            {
+                Debug.Log($"[WordChecker] ตรวจคำ: '{w}' → '{key}' → ❌");
+                return false;
+            }
         }
         catch (Exception ex)
         {
             Debug.LogError("[WordChecker] IsWordValid DB error: " + ex.Message);
             return false;
         }
-
-        Debug.Log($"[WordChecker] ตรวจคำ: '{w}' → '{key}' → {(found ? "✅ (db)" : "❌")}");
-        return found;
     }
-
 
     /// <summary>
     /// คืนลิสต์คำตามความยาว ถ้ามีคอลัมน์ len จะใช้ WHERE len=? (เร็วกว่า)
@@ -350,6 +377,30 @@ public class WordChecker : MonoBehaviour
         return false;
     }
 
+    // อุ่น cache (โหลด Word ทั้งหมดเข้าชุดความจำครั้งเดียว)
+    private void WarmUpCacheIfNeeded()
+    {
+        if (cacheWarmedUp || dict.Count > 0 || entries.Count > 0) return;
+        if (!IsReady()) return;
+
+        try
+        {
+            var rows = conn.Query<Row>($"SELECT Word AS w FROM {Q(tableName)};");
+            int added = 0;
+            foreach (var r in rows)
+            {
+                if (string.IsNullOrWhiteSpace(r.w)) continue;
+                if (dict.Add(r.w.Trim().ToUpperInvariant())) added++;
+            }
+            cacheWarmedUp = true;
+            Debug.Log($"[WordChecker] 🔥 Warmed cache: +{added} words (total {dict.Count})");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning("[WordChecker] WarmUpCacheIfNeeded failed: " + ex.Message);
+        }
+    }
+
     // ===== DTOs ภายใน =====
     private class Row { public string w { get; set; } }
     private class Info { public string Type { get; set; } public string Translation { get; set; } }
@@ -360,6 +411,9 @@ public class WordChecker : MonoBehaviour
 #if UNITY_EDITOR
     [ContextMenu("WordChecker/Open persistentDataPath")]
     void _OpenPersistentPath() => UnityEditor.EditorUtility.RevealInFinder(Application.persistentDataPath);
+
+    [ContextMenu("WordChecker/Stats")]
+    void _Stats() => Debug.Log($"[WordChecker] cacheHit={cacheHit}, dbHit={dbHit}, dictSize={dict.Count}, warmed={cacheWarmedUp}");
 #endif
 
     [ContextMenu("WordChecker/Delete cached DB (persistentDataPath)")]
@@ -375,6 +429,7 @@ public class WordChecker : MonoBehaviour
     {
         dict.Clear();
         entries.Clear();
+        cacheWarmedUp = false;
         Debug.Log("[WordChecker] Cleared in-memory cache.");
     }
 }
