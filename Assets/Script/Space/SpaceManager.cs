@@ -89,11 +89,14 @@ public class SpaceManager : MonoBehaviour
             for (int k = emptyIndex - 1; k >= hover; k--)
                 MoveChildToSlot(slotTransforms[k], slotTransforms[k + 1]);
         }
-        if (index != _lastHoverIndex)
+
+        // ✅ FIX: เปลี่ยนมาเช็ค hover
+        if (hover != _lastHoverIndex)
         {
-            PlayShiftTick();
-            _lastHoverIndex = index;
+            PlayShiftTick();          // → SfxId.SlotShift
+            _lastHoverIndex = hover;
         }
+
         emptyIndex = hover;
     }
 
@@ -104,16 +107,16 @@ public class SpaceManager : MonoBehaviour
         if (target < 0 || target == emptyIndex) return;
 
         if (target > emptyIndex)
-        {
             for (int k = emptyIndex + 1; k <= target; k++)
                 MoveChildToSlot(slotTransforms[k], slotTransforms[k - 1]);
-        }
         else
-        {
             for (int k = emptyIndex - 1; k >= target; k--)
                 MoveChildToSlot(slotTransforms[k], slotTransforms[k + 1]);
-        }
+
         emptyIndex = target;
+
+        // ✅ เพิ่ม 1 เสียง เมื่อมีการแทรกจริง
+        PlayShiftTick();
     }
     public void KickOutExistingToNearestEmpty(Transform slot)
     {
