@@ -4,7 +4,6 @@ using System.Collections.Generic;
 
 public enum SfxId {
     SlotShift,
-    TilePickup,        // ไม่เรียกใช้แล้ว
     TileDrop,
     TileSnap,
     TileTransfer,      // ✅ ย้าย Bench <-> Space

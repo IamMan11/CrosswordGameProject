@@ -36,6 +36,9 @@ public class LetterTile : MonoBehaviour,
     Vector2  dragPrevAnchorMin, dragPrevAnchorMax, dragPrevPivot, dragPrevSizeDelta;
     Vector3  dragPrevScale;
     bool     dragging;
+    // ใกล้ๆ ฟิลด์ของคลาส
+    [HideInInspector] public bool IsInSpace = false;
+    private bool wasInSpaceAtDragStart = false;
 
     RectTransform CanvasRect => canvas.rootCanvas.transform as RectTransform;
     Camera UICam => canvas.rootCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null
@@ -63,8 +66,6 @@ public class LetterTile : MonoBehaviour,
     [HideInInspector]
     public Transform OriginalParent; // ให้ BenchSlot.cs เข้าถึงตอนสลับ
 
-    // === NEW ===
-    [HideInInspector] public bool IsInSpace = false;
     private void Awake()
     {
         rectTf = GetComponent<RectTransform>();
@@ -105,12 +106,13 @@ public class LetterTile : MonoBehaviour,
         if (benchIdx >= 0) { _fromBenchDrag = true; BenchManager.Instance.BeginDrag(this, benchIdx); }
         else if (spaceIdx >= 0) { _fromBenchDrag = false; SpaceManager.Instance.BeginDrag(this, spaceIdx); }
 
+        wasInSpaceAtDragStart = IsInSpace;
+
         // ย้ายไปอยู่ใต้ Canvas ชั่วคราว + ลอยตามเมาส์
         transform.SetParent(canvas.transform, true);
         transform.SetAsLastSibling();
         canvasGroup.blocksRaycasts = false;                 // ให้ช่องปลายทางรับ Drop/Enter ได้
         SetDragging(true);                                  // เล่นอนิเมชัน “กำลังลาก” (ถ้ามี)
-        SfxPlayer.Play(SfxId.TilePickup);
     }
 
     public void OnDrag(PointerEventData e)
@@ -163,16 +165,11 @@ public class LetterTile : MonoBehaviour,
             var board = GetComponentInParent<BoardSlot>();
             var space = GetComponentInParent<SpaceSlot>();
 
-            if (board != null)
-            {
-                IsInSpace = false;
-                SfxPlayer.Play(SfxId.TileSnap);             // เสียงล็อกลงบอร์ด
-            }
+            IsInSpace = true; // หรือ false ตามโค้ดที่คุณมีอยู่แล้ว
+            if (IsInSpace != wasInSpaceAtDragStart)
+                SfxPlayer.Play(SfxId.TileTransfer);   // ✅ ย้ายข้ามฝั่ง Bench <-> Space
             else
-            {
-                IsInSpace = true;
-                SfxPlayer.Play(SfxId.TileDrop);             // เสียงวางลงช่อง Bench/Space
-            }
+                SfxPlayer.Play(SfxId.TileDrop);       // วางในฝั่งเดิม/สลับช่องภายในฝั่งเดียวกัน
 
             PlaySettle();
         }
@@ -251,15 +248,12 @@ public class LetterTile : MonoBehaviour,
         if (eventData.button != PointerEventData.InputButton.Left) return;
         if (IsOnBoard())
         {
-            var target = SpaceManager.Instance?.GetFirstEmptySlot(); // หา SpaceSlot ว่างตัวแรก
-            if (target == null) return; // ถ้า Space เต็มก็ไม่ทำอะไร (จะให้เด้งเตือนค่อยใส่เพิ่มทีหลัง)
+            var target = SpaceManager.Instance?.GetFirstEmptySlot();
+            if (target == null) return;
 
-            // ใช้แอนิเมชันบินกลับ (มีอยู่แล้วในคลาส)
+            SfxPlayer.Play(SfxId.TileTransfer);   // ★ เสียงย้าย Board→Space (คลิก)
             StartCoroutine(FlyToSlot(target.transform));
-
-            // อัปเดตปุ่ม Discard ทันทีให้สะท้อนว่ามีตัวใน Space แล้ว
-            SpaceManager.Instance?.RefreshDiscardButton(); // ถ้าไม่มีเมธอดนี้ ให้ดูข้อ 2 ด้านล่าง
-
+            SpaceManager.Instance?.RefreshDiscardButton();
             return;
         }
 
@@ -276,6 +270,7 @@ public class LetterTile : MonoBehaviour,
 
             // รูดปิดช่องฝั่ง Bench ก่อน
             BenchManager.Instance.CollapseFrom(benchIdx);
+            SfxPlayer.Play(SfxId.TileTransfer);   // ★ เสียงย้าย Bench→Space (คลิก)
             StartCoroutine(FlyToSlot(target.transform));
             return;
         }
@@ -287,8 +282,8 @@ public class LetterTile : MonoBehaviour,
             if (target == null) return;
 
             SpaceManager.Instance.CollapseFrom(spaceIdx);
+            SfxPlayer.Play(SfxId.TileTransfer);   // ★ เสียงย้าย Space→Bench (คลิก)
             StartCoroutine(FlyToSlot(target.transform));
-            return;
         }
     }
     public void FlyTo(Transform targetSlot)

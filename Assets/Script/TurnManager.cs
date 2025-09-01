@@ -473,6 +473,7 @@ public class TurnManager : MonoBehaviour
             lettersRunning += step.add;
             uiA.SetValue(lettersRunning);
             uiA.PopByDelta(step.add, tier2Min, tier3Min);
+            SfxPlayer.Play(SfxId.ScoreLetterTick);
 
             yield return new WaitForSecondsRealtime(stepDelay);
         }
@@ -487,6 +488,7 @@ public class TurnManager : MonoBehaviour
             mulRunning += f;                   // x2+x3 = x5 (ดีไซน์รวมแบบบวก)
             uiB.SetText("x" + mulRunning);
             uiB.PopByDelta(f, tier2Min, tier3Min);
+            SfxPlayer.Play(SfxId.ScoreMultTick);
             yield return new WaitForSecondsRealtime(stepDelay);
         }
 
@@ -506,6 +508,7 @@ public class TurnManager : MonoBehaviour
             mulRunning += 1;                   // เพิ่มทีละ +1 ไปจนถึง x4
             uiB.SetText("x" + mulRunning);
             uiB.PopByDelta(1, tier2Min, tier3Min);
+            SfxPlayer.Play(SfxId.ScoreMultTick);
             yield return new WaitForSecondsRealtime(stepDelay);
         }
 
@@ -516,6 +519,7 @@ public class TurnManager : MonoBehaviour
         float joinDur = 0.35f;
         var flyA = uiA.FlyTo(anchorTotal, joinDur);
         var flyB = uiB.FlyTo(anchorTotal, joinDur);
+        SfxPlayer.Play(SfxId.ScoreJoin);
         StartCoroutine(flyA);
         yield return StartCoroutine(flyB);
 
@@ -539,6 +543,7 @@ public class TurnManager : MonoBehaviour
 
             // เด้งเบาๆ แล้วบินเข้ามาหา Total
             uiPenalty.PopByDelta(1, tier2Min, tier3Min);
+            SfxPlayer.Play(SfxId.ScorePenalty);
             yield return StartCoroutine(uiPenalty.FlyTo(anchorTotal, 0.8f));
 
             // ลดค่าที่โชว์ในกล่อง Total ลงอย่างนุ่มนวล
@@ -562,6 +567,7 @@ public class TurnManager : MonoBehaviour
         // ---------- ส่งเข้า Score HUD (เดิม) ----------
         int hudStart  = Score;
         int hudTarget = hudStart + displayedTotal;
+        SfxPlayer.Play(SfxId.ScoreCommit);
         var fly = uiC.FlyTo(scoreHud, flyDur);
         var tweenHud = TweenHudScoreTemp(hudStart, hudTarget, flyDur);
         StartCoroutine(tweenHud);
