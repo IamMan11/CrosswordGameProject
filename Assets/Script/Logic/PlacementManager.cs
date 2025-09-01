@@ -104,6 +104,15 @@ public class PlacementManager : MonoBehaviour
             if (startSlot == null) return;
 
             var tiles = SpaceManager.Instance.GetPreparedTiles();
+
+            // ถ้ามี Blank ที่ยังไม่เลือก ให้เปิด AlphabetPicker แล้ว “ยกเลิกการวาง” รอบนี้
+            var unresolved = tiles.FirstOrDefault(t => t && t.IsBlank && !t.IsBlankResolved);
+            if (unresolved)
+            {
+                UIManager.Instance.ShowMessage("เลือกตัวอักษรให้ไทล์ Blank ก่อนวาง", 1.5f);
+                BlankPopup.Show(ch => unresolved.ResolveBlank(ch));  // ← เปลี่ยนที่นี่
+                return;
+            }
             int need = tiles.Count;
             if (need == 0) return;
 
@@ -191,12 +200,13 @@ public class PlacementManager : MonoBehaviour
     }
     void MoveTileToSlot(LetterTile tile, BoardSlot slot)
     {
-        // บินเข้าไป (ขณะบิน parent จะเป็น Canvas; จบแล้วจะเข้า slot เอง)
+        // บินเข้าไป
         tile.FlyTo(slot.transform);
 
-        // กันไอคอนของช่องทับไทล์: ดันไอคอนไปล่างสุดไว้ก่อน
-        if (slot.icon != null) slot.icon.transform.SetAsFirstSibling();
+        SfxPlayer.Play(SfxId.TileSnap);   // ★ เสียงล็อกไทล์ลงบอร์ด (คลิกวาง)
 
+        // กันไอคอนบังไทล์ + เคลียร์สถานะ
+        if (slot.icon != null) slot.icon.transform.SetAsFirstSibling();
         tile.IsInSpace = false;
     }
 
