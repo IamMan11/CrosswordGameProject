@@ -27,6 +27,8 @@ public class LevelManager : MonoBehaviour
     private float levelTimeLimit;
     private float levelTimeElapsed;
     private bool levelTimerRunning;
+    bool timerStarted;               // เริ่มเดินแล้วหรือยัง (กด Confirm ครั้งแรกถึงเริ่ม)
+    bool timerPaused;                // พักชั่วคราวตอนคิดคะแนน
 
     // 🔒 Board-lock system (DISABLED)
     // private Coroutine boardLockCoroutine;
@@ -58,7 +60,13 @@ public class LevelManager : MonoBehaviour
     }
 
     public bool IsGameOver() => isGameOver;
-
+    void UpdateLevelTimerText(float elapsed)
+    {
+        var total = Mathf.Max(0, Mathf.FloorToInt(elapsed));
+        int mm = total / 60;
+        int ss = total % 60;
+        levelTimerText.text = $"{mm:00}:{ss:00}";
+    }
     // ------------------------------
     private void Update()
     {
@@ -67,22 +75,31 @@ public class LevelManager : MonoBehaviour
         var cfg = GetCurrentConfig();
         if (cfg == null) return;
 
-        // 🕒 จับเวลาเลเวลหลัก
-        if (levelTimerRunning && cfg.timeLimit > 0f)
+        // เดินเวลาเมื่อเริ่มแล้ว และไม่ถูก pause เท่านั้น
+        if (timerStarted && !timerPaused)
         {
-            levelTimeElapsed += Time.deltaTime;
-            float remaining = Mathf.Max(0f, levelTimeLimit - levelTimeElapsed);
-            UpdateLevelTimerText(remaining);
+            levelTimeElapsed += Time.unscaledDeltaTime;
 
-            if (remaining <= 0f)
+            if (cfg.timeLimit > 0f)
             {
-                StopLevelTimer();
-                GameOver(false); // ❌ หมดเวลา
-                return;
+                // โหมดนับถอยหลัง
+                float remaining = Mathf.Max(0f, levelTimeLimit - levelTimeElapsed);
+                UpdateLevelTimerText(remaining);
+                if (remaining <= 0f)
+                {
+                    StopLevelTimer();
+                    GameOver(false);   // ❌ หมดเวลา
+                    return;
+                }
+            }
+            else
+            {
+                // โหมดนับขึ้น
+                UpdateLevelTimerText(levelTimeElapsed);
             }
         }
 
-        // ✅ เช็กผ่านด่าน (รวม Triangle เฉพาะด่าน 2 ถ้าเปิดฟีเจอร์)
+        // ✅ เงื่อนไขผ่านด่าน
         if (CheckWinConditions(cfg))
         {
             AnnounceLevelComplete();
@@ -211,9 +228,17 @@ public class LevelManager : MonoBehaviour
         if (levelTimeLimit > 0f)
             StartLevelTimer();
 
+        if (!timerStarted)
+        {
+            timerStarted = true;
+            timerPaused = false;
+        }
+
         SetPhase(GamePhase.Running);
         Debug.Log("Level started");
     }
+    public void PauseLevelTimer()  { timerPaused = true;  }
+    public void ResumeLevelTimer() { timerPaused = false; }
 
     // ------------------------------
     // Timer control
@@ -261,13 +286,6 @@ public class LevelManager : MonoBehaviour
     // ------------------------------
     // Helpers
     // ------------------------------
-    private void UpdateLevelTimerText(float remaining)
-    {
-        if (!levelTimerText) return;
-        int minutes = Mathf.FloorToInt(remaining / 60f);
-        int seconds = Mathf.FloorToInt(remaining % 60f);
-        levelTimerText.text = $"{minutes:00}:{seconds:00}";
-    }
 
     private void AnnounceLevelComplete()
     {
