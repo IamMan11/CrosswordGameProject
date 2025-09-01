@@ -2,7 +2,20 @@ using UnityEngine;
 using System;
 using System.Collections.Generic;
 
-public enum SfxId { SlotShift, TilePickup, TileDrop, TileSnap }
+public enum SfxId {
+    SlotShift,
+    TilePickup,        // ไม่เรียกใช้แล้ว
+    TileDrop,
+    TileSnap,
+    TileTransfer,      // ✅ ย้าย Bench <-> Space
+
+    // ✅ ชุดเสียงนับคะแนน
+    ScoreLetterTick,   // ฝั่งตัวอักษร (A)
+    ScoreMultTick,     // ฝั่งตัวคูณ (B)
+    ScoreJoin,         // ตอนรวม A+B
+    ScorePenalty,      // ตอนหัก % Dictionary
+    ScoreCommit        // ตอนส่งเข้า Score HUD (รวมเข้าคะแนนรวม)
+}
 
 [Serializable]
 public class SfxEntry
