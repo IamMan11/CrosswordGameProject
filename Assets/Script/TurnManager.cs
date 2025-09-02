@@ -509,6 +509,7 @@ public class TurnManager : MonoBehaviour
 
             lettersRunning += step.add;
             uiA.SetValue(lettersRunning);
+            uiA.SetColor(uiA.colorLetters);
             uiA.PopByDelta(step.add, tier2Min, tier3Min);
             SfxPlayer.Play(SfxId.ScoreLetterTick);
 
@@ -518,15 +519,16 @@ public class TurnManager : MonoBehaviour
 
         // Part 2: ตัวคูณ (B)
         var uiB = SpawnPop(anchorMults, 0);
+        uiB.SetColor(uiB.colorMults);
 
         foreach (var f in mulFactors)
-        {
-            mulRunning += f;                   // x2+x3 = x5 (ดีไซน์รวมแบบบวก)
-            uiB.SetText("x" + mulRunning);
-            uiB.PopByDelta(f, tier2Min, tier3Min);
-            SfxPlayer.Play(SfxId.ScoreMultTick);
-            yield return new WaitForSecondsRealtime(stepDelay);
-        }
+            {
+                mulRunning += f;                   // x2+x3 = x5 (ดีไซน์รวมแบบบวก)
+                uiB.SetText("x" + mulRunning);
+                uiB.PopByDelta(f, tier2Min, tier3Min);
+                SfxPlayer.Play(SfxId.ScoreMultTick);
+                yield return new WaitForSecondsRealtime(stepDelay);
+            }
 
         // คอมโบจำนวนคำใหม่ (สูงสุด x4)
         int comboSteps = Mathf.Min(correct.Count, 4);
@@ -560,6 +562,7 @@ public class TurnManager : MonoBehaviour
 
         int displayedTotal = lettersRunning * mulRunning;
         var uiC = SpawnPop(anchorTotal, displayedTotal);
+        uiC.SetColor(uiC.colorTotal);
         uiC.transform.localScale = uiA.transform.localScale;
         uiC.PopByDelta(displayedTotal, tier2Min, tier3Min);
         yield return new WaitForSecondsRealtime(0.8f);
@@ -762,9 +765,25 @@ public class TurnManager : MonoBehaviour
 
             // ---------- 2) หา main-word ----------
             var placedSet = placed.Select(p => (p.s.row, p.s.col)).ToHashSet();
-            var mainWord = words.FirstOrDefault(w => CountNewInWord(w, placedSet) >= 2);
-            LastConfirmedWord = mainWord.word;
-            bool hasMain = !string.IsNullOrEmpty(mainWord.word);
+            MoveValidator.WordInfo mainWord;
+            bool hasMain;
+
+            if (placed.Count == 1)
+            {
+                // วางแค่ 1 ตัว: นิยามคำหลักเป็น “คำที่ยาวที่สุด” จาก H/V รอบช่องที่วาง
+                mainWord = words
+                    .OrderByDescending(w => (w.word ?? string.Empty).Length)
+                    .FirstOrDefault();
+                hasMain = !string.IsNullOrEmpty(mainWord.word);
+            }
+            else
+            {
+                // วางหลายตัว: ใช้เกณฑ์เดิม ต้องมีตัวใหม่ ≥ 2 ในเส้นนั้น
+                mainWord = words.FirstOrDefault(w => CountNewInWord(w, placedSet) >= 2);
+                hasMain = !string.IsNullOrEmpty(mainWord.word);
+            }
+
+            LastConfirmedWord = hasMain ? mainWord.word : string.Empty;
 
             // ---------- 3) เตรียมคำที่จะเด้ง + โทษ ----------
             int penalty = 0;
