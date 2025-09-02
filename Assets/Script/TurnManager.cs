@@ -505,40 +505,7 @@ public class TurnManager : MonoBehaviour
             var steps = BuildLetterSteps(correct);
             var uiA = SpawnPop(anchorLetters, 0);
 
-        foreach (var step in steps)
-        {
-            step.s.Flash(Color.white, 1, 0.08f);
-            step.t.Pulse();
-
-            lettersRunning += step.add;
-            uiA.SetValue(lettersRunning);
-            uiA.SetColor(uiA.colorLetters);
-            uiA.PopByDelta(step.add, tier2Min, tier3Min);
-            SfxPlayer.Play(SfxId.ScoreLetterTick);
-
-            yield return new WaitForSecondsRealtime(stepDelay);
-        }
-        yield return new WaitForSecondsRealtime(sectionDelay);
-
-        // Part 2: ตัวคูณ (B)
-        var uiB = SpawnPop(anchorMults, 0);
-        uiB.SetColor(uiB.colorMults);
-
-        foreach (var f in mulFactors)
-            {
-                mulRunning += f;                   // x2+x3 = x5 (ดีไซน์รวมแบบบวก)
-                uiB.SetText("x" + mulRunning);
-                uiB.PopByDelta(f, tier2Min, tier3Min);
-                SfxPlayer.Play(SfxId.ScoreMultTick);
-                yield return new WaitForSecondsRealtime(stepDelay);
-            }
-
-        // คอมโบจำนวนคำใหม่ (สูงสุด x4)
-        int comboSteps = Mathf.Min(correct.Count, 4);
-        for (int i = 0; i < comboSteps; i++)
-        {
-            var w = correct[i];
-            foreach (var s in SlotsInWord(w))
+            foreach (var step in steps)
             {
                 step.s.Flash(Color.white, 1, 0.08f);
                 step.t.Pulse();
@@ -564,53 +531,9 @@ public class TurnManager : MonoBehaviour
                 yield return new WaitForSecondsRealtime(stepDelay);
             }
 
-            mulRunning += 1;
-            uiB.SetText("x" + mulRunning);
-            uiB.PopByDelta(1, tier2Min, tier3Min);
-            SfxPlayer.Play(SfxId.ScoreMultTick);
-            yield return new WaitForSecondsRealtime(stepDelay);
-        }
-
-        yield return new WaitForSecondsRealtime(sectionDelay);
-        if (mulRunning <= 0) mulRunning = 1;
-
-        // รวมเข้ากลาง (C)
-        float joinDur = 0.35f;
-        var flyA = uiA.FlyTo(anchorTotal, joinDur);
-        var flyB = uiB.FlyTo(anchorTotal, joinDur);
-        SfxPlayer.Play(SfxId.ScoreJoin);
-        StartCoroutine(flyA);
-        yield return StartCoroutine(flyB);
-
-        int displayedTotal = lettersRunning * mulRunning;
-        var uiC = SpawnPop(anchorTotal, displayedTotal);
-        uiC.SetColor(uiC.colorTotal);
-        uiC.transform.localScale = uiA.transform.localScale;
-        uiC.PopByDelta(displayedTotal, tier2Min, tier3Min);
-        yield return new WaitForSecondsRealtime(0.8f);
-
-        // ---------- (ใหม่) แสดงหัก % ใต้ Total แล้วลอยเข้ามาหา Total ----------
-        if (dictPenaltyPercent > 0)
-        {
-            // ทำป้ายแดง “-50%” ใต้ Total
-            var uiPenalty = SpawnPop(anchorTotal, 0);
-            uiPenalty.SetText($"-{dictPenaltyPercent}%");
-            if (uiPenalty.text != null) uiPenalty.text.color = Color.red;
-
-            // ขยับตำแหน่งลงไปเล็กน้อยให้ “อยู่ใต้ Total”
-            var pRT = (RectTransform)uiPenalty.transform;
-            pRT.anchoredPosition += new Vector2(0f, -300f);
-
-            // เด้งเบาๆ แล้วบินเข้ามาหา Total
-            uiPenalty.PopByDelta(1, tier2Min, tier3Min);
-            SfxPlayer.Play(SfxId.ScorePenalty);
-            yield return StartCoroutine(uiPenalty.FlyTo(anchorTotal, 0.8f));
-
-            // ลดค่าที่โชว์ในกล่อง Total ลงอย่างนุ่มนวล
-            int penalized = Mathf.CeilToInt(displayedTotal * (100 - dictPenaltyPercent) / 100f);
-            float t = 0f, dur = 0.8f;
-            int last = displayedTotal;
-            while (t < 1f)
+            // คอมโบจำนวนคำใหม่ (สูงสุด x4)
+            int comboSteps = Mathf.Min(correct.Count, 4);
+            for (int i = 0; i < comboSteps; i++)
             {
                 var w = correct[i];
                 foreach (var s in SlotsInWord(w))
