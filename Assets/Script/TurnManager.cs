@@ -750,9 +750,25 @@ public class TurnManager : MonoBehaviour
 
             // ---------- 2) หา main-word ----------
             var placedSet = placed.Select(p => (p.s.row, p.s.col)).ToHashSet();
-            var mainWord = words.FirstOrDefault(w => CountNewInWord(w, placedSet) >= 2);
-            LastConfirmedWord = mainWord.word;
-            bool hasMain = !string.IsNullOrEmpty(mainWord.word);
+            MoveValidator.WordInfo mainWord;
+            bool hasMain;
+
+            if (placed.Count == 1)
+            {
+                // วางแค่ 1 ตัว: นิยามคำหลักเป็น “คำที่ยาวที่สุด” จาก H/V รอบช่องที่วาง
+                mainWord = words
+                    .OrderByDescending(w => (w.word ?? string.Empty).Length)
+                    .FirstOrDefault();
+                hasMain = !string.IsNullOrEmpty(mainWord.word);
+            }
+            else
+            {
+                // วางหลายตัว: ใช้เกณฑ์เดิม ต้องมีตัวใหม่ ≥ 2 ในเส้นนั้น
+                mainWord = words.FirstOrDefault(w => CountNewInWord(w, placedSet) >= 2);
+                hasMain = !string.IsNullOrEmpty(mainWord.word);
+            }
+
+            LastConfirmedWord = hasMain ? mainWord.word : string.Empty;
 
             // ---------- 3) เตรียมคำที่จะเด้ง + โทษ ----------
             int penalty = 0;

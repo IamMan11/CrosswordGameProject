@@ -21,11 +21,11 @@ public class SfxEntry
 {
     public SfxId id;
     public AudioClip[] clips;
-    [Range(0f,2f)] public float volume = 1f;
+    [Range(0f, 2f)] public float volume = 1f;
     public Vector2 pitch = new Vector2(0.98f, 1.02f);
     [Tooltip("กันสแปมเสียง: วินาทีขั้นต่ำระหว่างครั้งถัดไป")]
     public float cooldown = 0.035f;
-}
+    }
 
 public class SfxPlayer : MonoBehaviour
 {
@@ -37,6 +37,12 @@ public class SfxPlayer : MonoBehaviour
 
     Dictionary<SfxId, SfxEntry> _map = new();
     Dictionary<SfxId, float> _last = new();
+    // ===== Burst Gate (กันเสียงซ้อนในช่วงสั้น ๆ ต่อ 1 SFX) =====
+    private static readonly System.Collections.Generic.Dictionary<SfxId, (float lastTime, int count)> _burst
+        = new System.Collections.Generic.Dictionary<SfxId, (float, int)>();
+
+    private const float BURST_WINDOW = 0.08f;   // วินโดว์ 80ms
+    private const int   BURST_MAX_PLAYS = 1;    // อนุญาตเล่นสูงสุดกี่ครั้งในวินโดว์
 
     void Awake()
     {
@@ -52,8 +58,19 @@ public class SfxPlayer : MonoBehaviour
         if (!I || I.source == null) return;
         if (!I._map.TryGetValue(id, out var e) || e.clips == null || e.clips.Length == 0) return;
 
-        float now = Time.unscaledTime;                 // ไม่ผูกกับ timeScale
-        if (I._last.TryGetValue(id, out var t) && now - t < e.cooldown) return;
+        // ==== Burst Gate ต่อ SFX id ====
+    float now = Time.unscaledTime;
+    if (_burst.TryGetValue(id, out var b) && now - b.lastTime < BURST_WINDOW)
+    {
+        if (b.count >= BURST_MAX_PLAYS)
+            return; // ข้ามการเล่นรอบนี้ เพื่อกันซ้อน
+        _burst[id] = (b.lastTime, b.count + 1);
+    }
+    else
+    {
+        _burst[id] = (now, 1);
+    }
+
 
         var clip = e.clips[UnityEngine.Random.Range(0, e.clips.Length)];
         I.source.pitch = UnityEngine.Random.Range(e.pitch.x, e.pitch.y);

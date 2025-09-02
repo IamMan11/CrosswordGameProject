@@ -27,6 +27,7 @@ public class BenchManager : MonoBehaviour
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
     }
+    void PlayShiftTick() => SfxPlayer.Play(SfxId.SlotShift);
     public int IndexOfSlot(Transform t) => slotTransforms.IndexOf(t);
     public void BeginDrag(LetterTile tile, int fromIndex)
     {
@@ -108,17 +109,21 @@ public class BenchManager : MonoBehaviour
         var tile = from.GetChild(0).GetComponent<LetterTile>();
         if (!tile) return;
 
-        // ถ้ามีคอร์รุตีนเก่า → ยกเลิกแล้ว "Pop" ด้วย (ป้องกัน UiGuard ค้าง)
         if (_moving.TryGetValue(tile, out var running))
         {
             StopCoroutine(running);
             _moving.Remove(tile);
-            UiGuard.Pop();                   // <<< เพิ่มบรรทัดนี้
+            UiGuard.Pop();
         }
 
-        UiGuard.Push();                      // <<< เริ่มเลื่อนครั้งใหม่: Push
+        UiGuard.Push();
+
+        // ★ เพิ่มเหมือนกัน: เสียงเกิดทุกครั้งที่เลื่อนจริง
+        PlayShiftTick();
+
         _moving[tile] = StartCoroutine(AnimateToSlot(tile, to));
     }
+
     private IEnumerator AnimateToSlot(LetterTile tile, Transform targetSlot)
     {
         var rt = tile.GetComponent<RectTransform>();
