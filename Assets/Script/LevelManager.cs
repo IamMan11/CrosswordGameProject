@@ -47,6 +47,27 @@ public class LevelManager : MonoBehaviour
 
     private readonly HashSet<string> itWordsFound = new HashSet<string>();
 
+    // ===== Level 1 – “Garbled IT Word” Obstacle (ใหม่) =====
+    [Header("Level 1 – Garbled IT Obstacle")]
+    [Tooltip("เปิด/ปิด ระบบสลับตัวอักษรให้มึนงง (ด่าน 1)")]
+    public bool level1_enableGarbled = true;
+
+    [Tooltip("ทุกกี่วินาทีจะสลับตัวอักษรหนึ่งรอบ")]
+    public float level1_garbleTickSec = 3f;
+
+    [Tooltip("จำนวนช่องที่สุ่มมาสลับต่อรอบ (ต้องมีตัวอักษรและไม่ล็อก)")]
+    public int level1_garbleClusterSize = 6;
+
+    [Tooltip("คะแนนที่หักเมื่อเดาคำผิด (UI ภายนอกเรียก SubmitFixGuess)")]
+    public int level1_wrongGuessPenalty = 20;
+
+    [Tooltip("พักการสลับชั่วคราว (วินาที) เมื่อเดาถูก")]
+    public float level1_garbleSuspendDuration = 10f;
+
+    private Coroutine level1_garbleRoutine;
+    private bool level1_garbleSuspended = false;
+    private float level1_garbleResumeTime = 0f;
+
     // ===== Level 2 – เพิ่มเฉพาะส่วนนี้ =====
     [Header("Level 2 – Triangle Objective")]
     [Tooltip("เปิดใช้เงื่อนไขสามเหลี่ยมในด่าน 2")]
@@ -152,7 +173,21 @@ public class LevelManager : MonoBehaviour
             }
         }
 
-        // ====== Level 2 tick (เพิ่มเฉพาะส่วนนี้) ======
+        // ====== Level 1 garbled tick ======
+        if (cfg.levelIndex == 1 && level1_enableGarbled)
+        {
+            if (level1_garbleSuspended && Time.unscaledTime >= level1_garbleResumeTime)
+            {
+                level1_garbleSuspended = false;
+            }
+
+            if (!level1_garbleSuspended && level1_garbleRoutine == null)
+            {
+                level1_garbleRoutine = StartCoroutine(Level1_GarbleLoop());
+            }
+        }
+
+        // ====== Level 2 tick ======
         if (cfg.levelIndex == 2)
         {
             // เช็คสามเหลี่ยมแบบ throttle
@@ -269,7 +304,12 @@ public class LevelManager : MonoBehaviour
             else itProgressText.gameObject.SetActive(false);
         }
 
-        // รีเซ็ตของเลเวล 2 (เพิ่มเฉพาะส่วนนี้)
+        // รีเซ็ตของเลเวล 1 (Garbled)
+        level1_garbleSuspended = false;
+        level1_garbleResumeTime = 0f;
+        if (level1_garbleRoutine != null) { StopCoroutine(level1_garbleRoutine); level1_garbleRoutine = null; }
+
+        // รีเซ็ตของเลเวล 2
         level2_triangleComplete = false;
         level2_triangleCheckTimer = 0f;
         Level2_RevertAllZones(); // กันโซนค้างจากด่านก่อน
@@ -355,6 +395,9 @@ public class LevelManager : MonoBehaviour
 
     private void StopAllLoops()
     {
+        // หยุดคอร์รุตีนของเลเวล 1
+        if (level1_garbleRoutine != null) { StopCoroutine(level1_garbleRoutine); level1_garbleRoutine = null; }
+
         // หยุดคอร์รุตีนของเลเวล 2 ถ้ามี
         if (level2_x2Routine != null) { StopCoroutine(level2_x2Routine); level2_x2Routine = null; }
         Level2_RevertAllZones();
@@ -390,6 +433,140 @@ public class LevelManager : MonoBehaviour
             if (n.Contains(k.Trim().ToLowerInvariant())) return true;
         }
         return false;
+    }
+
+    // ==============================
+    // Level 1: Garbled IT Obstacle
+    // ==============================
+
+    /// <summary>
+    /// ลูปสุ่มสลับตัวอักษรบนบอร์ดเป็นระยะ ๆ เพื่อให้คำ IT ดูยากขึ้น
+    /// ไม่แตะช่องที่ไม่มีตัวอักษร หรือไทล์ที่ล็อกแล้ว
+    /// </summary>
+    private IEnumerator Level1_GarbleLoop()
+    {
+        while (!isGameOver && GetCurrentConfig() != null && GetCurrentConfig().levelIndex == 1 && level1_enableGarbled)
+        {
+            if (level1_garbleSuspended) break;
+
+            yield return new WaitForSecondsRealtime(Mathf.Max(0.25f, level1_garbleTickSec));
+
+            TryGarbledShuffle(level1_garbleClusterSize);
+        }
+        level1_garbleRoutine = null;
+    }
+
+    /// <summary>
+    /// เรียกจาก UI ภายนอกเมื่อผู้เล่น "เดาคำ" ที่คิดว่าเป็นคำ IT ที่โดนกวน
+    /// - เดาถูก: พักการกวนชั่วคราว (ไม่บังคับให้แก้ไฟล์อื่น)
+    /// - เดาผิด: หักคะแนน และสลับเพิ่มอีกรอบ
+    /// </summary>
+    public bool Level1_SubmitFixGuess(string guess)
+    {
+        if (GetCurrentConfig()?.levelIndex != 1 || string.IsNullOrWhiteSpace(guess)) return false;
+        string g = Normalize(guess);
+
+        if (IsITWord(g))
+        {
+            // พักการกวนช่วงหนึ่ง
+            level1_garbleSuspended = true;
+            level1_garbleResumeTime = Time.unscaledTime + Mathf.Max(1f, level1_garbleSuspendDuration);
+            UIManager.Instance?.ShowMessage($"✅ Fix: \"{guess}\" — หยุดสลับชั่วคราว", 2f);
+            return true;
+        }
+        else
+        {
+            // เดาผิด → หักคะแนน และสลับทันทีอีกครั้ง
+            if (TurnManager.Instance != null)
+            {
+                TurnManager.Instance.AddScore(-Mathf.Abs(level1_wrongGuessPenalty));
+            }
+            UIManager.Instance?.ShowMessage($"❌ เดาผิด -{Mathf.Abs(level1_wrongGuessPenalty)}", 2f);
+
+            TryGarbledShuffle(level1_garbleClusterSize + 2);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// สุ่มหยิบช่องที่มีตัวอักษรและไม่ล็อกจำนวน N แล้วหมุนสลับ (rotate) ไล่ตำแหน่ง
+    /// </summary>
+    private void TryGarbledShuffle(int clusterSize)
+    {
+        var bm = BoardManager.Instance;
+        if (bm == null || bm.grid == null) return;
+
+        // เก็บ slot ที่มีไทล์และไทล์ไม่ล็อก
+        var candidates = new List<BoardSlot>();
+        int rows = bm.rows, cols = bm.cols;
+
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                var s = bm.grid[r, c];
+                if (s == null) continue;
+                var t = s.GetLetterTile();
+                if (t == null) continue;
+                if (t.isLocked) continue; // ไม่ยุ่งกับที่ล็อกแล้ว
+                candidates.Add(s);
+            }
+        }
+
+        if (candidates.Count < 2) return;
+
+        int take = Mathf.Clamp(clusterSize, 2, candidates.Count);
+        // สุ่มเลือก “ชุด” ที่ไม่ซ้ำกัน
+        var picked = new List<BoardSlot>(take);
+        for (int i = 0; i < take; i++)
+        {
+            int idx = Random.Range(0, candidates.Count);
+            picked.Add(candidates[idx]);
+            candidates.RemoveAt(idx);
+        }
+
+        // ดึงไทล์ออกมา (รักษาลำดับ)
+        var tiles = new List<LetterTile>(picked.Count);
+        foreach (var s in picked)
+        {
+            var t = s.RemoveLetter();   // ปลอดภัย: ถ้าไม่มีคืน null
+            tiles.Add(t);
+        }
+
+        // เลื่อนหมุนตำแหน่ง (rotate right 1 ตำแหน่ง)
+        if (tiles.Count >= 2)
+        {
+            var last = tiles[tiles.Count - 1];
+            for (int i = tiles.Count - 1; i >= 1; i--) tiles[i] = tiles[i - 1];
+            tiles[0] = last;
+        }
+
+        // ใส่กลับลงช่องตามลำดับใหม่
+        for (int i = 0; i < picked.Count; i++)
+        {
+            var slot = picked[i];
+            var tile = tiles[i];
+            if (slot == null || tile == null) continue;
+
+            // re-parent เข้า slot
+            tile.transform.SetParent(slot.transform, false);
+
+            // จัดตำแหน่งให้เข้ากึ่งกลาง (รองรับ RectTransform/Transform)
+            var rt = tile.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchoredPosition = Vector2.zero;
+                rt.localScale = Vector3.one;
+            }
+            else
+            {
+                tile.transform.localPosition = Vector3.zero;
+                tile.transform.localScale = Vector3.one;
+            }
+
+            // เอฟเฟกต์เล็กน้อย
+            slot.Flash(new Color(1f, 1f, 0.6f, 1f), 1, 0.06f);
+        }
     }
 
     // ==============================
@@ -459,8 +636,6 @@ public class LevelManager : MonoBehaviour
                 zones: Mathf.Max(1, level2_x2ZonesPerWave),
                 duration: Mathf.Max(5f, level2_x2ZoneDurationSec)
             );
-
-            // รอให้หมดอายุ (ภายใน ApplyX2ZonesOnce จะเริ่มคอร์รุตีน revert ให้เอง)
         }
         level2_x2Routine = null;
     }
@@ -509,7 +684,7 @@ public class LevelManager : MonoBehaviour
 
                 // เปลี่ยนเป็นคูณคำ (ไม่ไปยุ่งคะแนนตัวอักษร)
                 slot.type = level2_multiplierSlotType;
-                // ไม่ยุ่ง manaGain เดิม (หรือจะตั้ง 0 ก็ได้ ถ้าอยาก)
+                // ไม่ยุ่ง manaGain เดิม
                 slot.ApplyVisual();
             }
         }
