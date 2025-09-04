@@ -2842,13 +2842,65 @@ MonoBehaviour:
     requiredScore: 10000
     requiredWords: 0
     timeLimit: 900
+    requireThemedWords: 0
+    requiredThemeTag: IT
+    requiredThemeCount: 0
+    manualThemeWords: []
   - levelIndex: 2
     requiredScore: 5
     requiredWords: 0
     timeLimit: 900
+    requireThemedWords: 0
+    requiredThemeTag: IT
+    requiredThemeCount: 0
+    manualThemeWords: []
   levelText: {fileID: 880912805}
   timerText: {fileID: 232373}
   levelTimerText: {fileID: 117497059}
+  itProgressText: {fileID: 0}
+  itWordsTargetLevel1: 5
+  itKeywordsLevel1:
+  - it
+  - code
+  - bug
+  - dev
+  - server
+  - client
+  - api
+  - database
+  - db
+  - sql
+  - data
+  - cloud
+  - ai
+  - ml
+  - python
+  - java
+  - c#
+  - csharp
+  - unity
+  - scene
+  - asset
+  - compile
+  - build
+  - network
+  - socket
+  - array
+  - stack
+  - cache
+  - login
+  - token
+  level2_useTriangleObjective: 1
+  level2_triangleTargets:
+  - {x: 2, y: 2}
+  - {x: 2, y: 12}
+  - {x: 12, y: 7}
+  level2_triangleCheckPeriod: 0.5
+  level2_enablePeriodicX2Zones: 1
+  level2_x2IntervalSec: 180
+  level2_x2ZonesPerWave: 2
+  level2_x2ZoneDurationSec: 30
+  level2_multiplierSlotType: 3
 --- !u!4 &260603165
 Transform:
   m_ObjectHideFlags: 0
@@ -16040,55 +16092,55 @@ MonoBehaviour:
   - id: 0
     clips:
     - {fileID: 8300000, guid: 1871c2c0bbcc4e94ebbaae2d452318f5, type: 3}
-    volume: 0.7
+    volume: 0.1
     pitch: {x: 0.98, y: 1.02}
     cooldown: 0.1
   - id: 1
     clips:
     - {fileID: 8300000, guid: 8245ea2a89aa7414eb85178fa7e00fea, type: 3}
-    volume: 0.7
+    volume: 0.1
     pitch: {x: 0.88, y: 0.92}
     cooldown: 0
   - id: 2
     clips:
     - {fileID: 8300000, guid: 723a9d94f3d01bf43b760ff6f4dc74b5, type: 3}
-    volume: 0.7
+    volume: 0.1
     pitch: {x: 0.98, y: 1.02}
     cooldown: 0
   - id: 3
     clips:
     - {fileID: 8300000, guid: 10de02119870dc441975378c55f214c2, type: 3}
-    volume: 0.7
+    volume: 0.1
     pitch: {x: 0.98, y: 1.02}
     cooldown: 0
   - id: 4
     clips:
     - {fileID: 8300000, guid: 51cb60f64cbfa5e48863d7a524c58cb2, type: 3}
-    volume: 0.7
+    volume: 0.1
     pitch: {x: 0.98, y: 1.02}
     cooldown: 0
   - id: 5
     clips:
     - {fileID: 8300000, guid: 10de02119870dc441975378c55f214c2, type: 3}
-    volume: 0.7
+    volume: 0.1
     pitch: {x: 0.98, y: 1.02}
     cooldown: 0
   - id: 6
     clips:
     - {fileID: 8300000, guid: 10de02119870dc441975378c55f214c2, type: 3}
-    volume: 0.7
+    volume: 0.1
     pitch: {x: 0.98, y: 1.02}
     cooldown: 0
   - id: 7
     clips:
     - {fileID: 8300000, guid: 10de02119870dc441975378c55f214c2, type: 3}
-    volume: 0.7
+    volume: 0.1
     pitch: {x: 0.98, y: 1.02}
     cooldown: 0
   - id: 8
     clips:
     - {fileID: 8300000, guid: 10de02119870dc441975378c55f214c2, type: 3}
-    volume: 0.7
+    volume: 0.1
     pitch: {x: 0.98, y: 1.02}
     cooldown: 0
 --- !u!224 &1695383399
@@ -16931,7 +16983,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   source: {fileID: 1757770015}
   clip: {fileID: 8300000, guid: f86f5b889064f91489b742e0b18deb12, type: 3}
-  volume: 0.1
+  volume: 0.01
   playOnStart: 1
 --- !u!82 &1757770015
 AudioSource:

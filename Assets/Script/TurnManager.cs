@@ -512,6 +512,7 @@ public class TurnManager : MonoBehaviour
 
                 lettersRunning += step.add;
                 uiA.SetValue(lettersRunning);
+                uiA.SetColor(uiA.colorLetters);
                 uiA.PopByDelta(step.add, tier2Min, tier3Min);
                 SfxPlayer.Play(SfxId.ScoreLetterTick);
 
@@ -525,6 +526,7 @@ public class TurnManager : MonoBehaviour
             foreach (var f in mulFactors)
             {
                 mulRunning += f;                   // x2+x3 = x5 (ดีไซน์รวมแบบบวก)
+                uiB.SetColor(uiB.colorMults);
                 uiB.SetText("x" + mulRunning);
                 uiB.PopByDelta(f, tier2Min, tier3Min);
                 SfxPlayer.Play(SfxId.ScoreMultTick);
@@ -564,6 +566,7 @@ public class TurnManager : MonoBehaviour
             int displayedTotal = lettersRunning * mulRunning;
             var uiC = SpawnPop(anchorTotal, displayedTotal);
             uiC.transform.localScale = uiA.transform.localScale;
+            uiC.SetColor(uiC.colorTotal);
             uiC.PopByDelta(displayedTotal, tier2Min, tier3Min);
             yield return new WaitForSecondsRealtime(0.8f);
 
