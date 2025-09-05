@@ -522,11 +522,11 @@ public class TurnManager : MonoBehaviour
 
             // Part 2: ตัวคูณ (B)
             var uiB = SpawnPop(anchorMults, 0);
+            uiB.SetColor(uiB.colorMults);
 
             foreach (var f in mulFactors)
             {
                 mulRunning += f;                   // x2+x3 = x5 (ดีไซน์รวมแบบบวก)
-                uiB.SetColor(uiB.colorMults);
                 uiB.SetText("x" + mulRunning);
                 uiB.PopByDelta(f, tier2Min, tier3Min);
                 SfxPlayer.Play(SfxId.ScoreMultTick);
