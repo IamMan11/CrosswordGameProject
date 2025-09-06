@@ -30,6 +30,36 @@ public class LevelConfig
     [Tooltip("Fallback whitelist if your dictionary has no tags (case-insensitive). " +
              "If empty, LevelManager จะใช้ default คีย์เวิร์ดภายใน")]
     public string[] manualThemeWords;
+    [Header("Economy (ต่อด่าน)")]
+[Tooltip("เงินตั้งต้นเมื่อจบด่านนี้")]
+public int baseCoins = 50;
+
+[Tooltip("เวลาตั้งต้นที่ใช้เป็นฐานคิดโบนัสเวลา (วินาที), เช่น 900s")]
+public int targetTimeSec = 900;
+
+[Header("Score Formula (ต่อด่าน)")]
+[Tooltip("จำนวนคำสูงสุดที่จะนับเข้าคะแนน เพื่อกันพุ่ง")]
+public int maxWordsForScore = 10;
+[Tooltip("ตัวคูณคะแนนจากเวลาที่เหลือ (ต่อวินาที)")]
+public float coefTimeScore = 0.2f;
+[Tooltip("คะแนนต่อ 1 คำ (นับไม่เกิน maxWordsForScore)")]
+public int coefWordScore = 50;
+[Tooltip("คะแนนต่อ 1 เทิร์น (ค่าติดลบ = ยิ่งใช้เทิร์นมากยิ่งหัก)")]
+public int coefTurnScore = -10;
+[Tooltip("คะแนนต่อ 1 ตัวอักษรที่เหลือในถุงตอนจบด่าน")]
+public int coefTilesLeftScore = 2;
+
+[Header("Money Formula (ต่อด่าน)")]
+[Tooltip("จำนวนคำสูงสุดที่จะนับเข้าการเงิน เพื่อกันพุ่ง")]
+public int maxWordsForMoney = 10;
+[Tooltip("เหรียญต่อ 1 วินาทีที่เหลือ")]
+public float coefTimeMoney = 0.05f;
+[Tooltip("เหรียญต่อ 1 คำ (นับไม่เกิน maxWordsForMoney)")]
+public int coefWordMoney = 2;
+[Tooltip("เหรียญต่อ 1 เทิร์น (ค่าติดลบ = ยิ่งใช้เทิร์นมากยิ่งหัก)")]
+public int coefTurnMoney = -1;
+[Tooltip("เหรียญต่อ 1 ตัวอักษรที่เหลือในถุงตอนจบ")]
+public int coefTilesLeftMoney = 1;
 
 #if UNITY_EDITOR
     void OnValidate()
