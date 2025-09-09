@@ -42,24 +42,24 @@ public class TurnManager : MonoBehaviour
     bool inConfirmProcess = false;
 
     // ===== Scoring FX / Blocking =====
-    public GameObject inputBlocker;       // Image เต็มจอที่ Raycast Target = true
-    public Animator scoreOverlayAnimator; // ถ้าทำอนิเมชันเฟด/ป้าย
-    public TMP_Text phaseLabel;           // ไว้โชว์ “Card Multiplier…”, “Combo x3…”
+    public GameObject inputBlocker;
+    public Animator scoreOverlayAnimator;
+    public TMP_Text phaseLabel;
     public float letterStepDelay = 0.08f;
     public float setDelay = 0.20f;
     public float phaseDelay = 0.25f;
     public bool pauseTimeDuringScoring = true;
 
     [Header("Score Pop (Anchors & Prefab)")]
-    public RectTransform anchorLetters;   // จุด A
-    public RectTransform anchorMults;     // จุด B
-    public RectTransform anchorTotal;     // จุด C
-    public RectTransform scoreHud;        // RectTransform ของข้อความ Score HUD
+    public RectTransform anchorLetters;
+    public RectTransform anchorMults;
+    public RectTransform anchorTotal;
+    public RectTransform scoreHud;
     public ScorePopUI scorePopPrefab;
 
     [Header("Score Pop Settings")]
-    public int tier2Min = 3;   // เกณฑ์เด้งระดับกลาง
-    public int tier3Min = 6;   // เกณฑ์เด้งระดับใหญ่
+    public int tier2Min = 3;
+    public int tier3Min = 6;
     public float stepDelay = 0.08f;
     public float sectionDelay = 0.20f;
     public float flyDur = 0.6f;
@@ -68,7 +68,6 @@ public class TurnManager : MonoBehaviour
     [Range(0,100)] public int dictionaryPenaltyPercent = 50;
 
     // cache yields
-    static readonly WaitForSeconds WFS_02 = new WaitForSeconds(0.2f);
     static readonly WaitForSeconds WFS_06 = new WaitForSeconds(0.6f);
     static readonly WaitForSeconds WFS_2s = new WaitForSeconds(2f);
 
@@ -77,19 +76,19 @@ public class TurnManager : MonoBehaviour
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
 
-        if (confirmBtn != null)
-            confirmBtn.onClick.AddListener(OnConfirm);
-        else
-            Debug.LogWarning("[TurnManager] confirmBtn not assigned.");
+        if (confirmBtn != null) confirmBtn.onClick.AddListener(OnConfirm);
+        else Debug.LogWarning("[TurnManager] confirmBtn not assigned.");
     }
 
     void OnDisable()
     {
-        if (confirmBtn != null)
-            confirmBtn.onClick.RemoveListener(OnConfirm);
+        if (confirmBtn != null) confirmBtn.onClick.RemoveListener(OnConfirm);
 
         if (fadeCo != null) { StopCoroutine(fadeCo); fadeCo = null; }
         if (manaInfiniteCoroutine != null) { StopCoroutine(manaInfiniteCoroutine); manaInfiniteCoroutine = null; }
+
+        // กันหลงเหลือสถานะชั่วคราว
+        ScoreManager.ClearZeroScoreTiles();
     }
 
     void Start()
@@ -110,7 +109,6 @@ public class TurnManager : MonoBehaviour
         if (inConfirmProcess) return;
         if (confirmBtn == null) return;
 
-        // เปิดปุ่มเฉพาะเมื่อมีไทล์บนบอร์ด
         var bm = BoardManager.Instance;
         if (bm == null || bm.grid == null) { confirmBtn.interactable = false; return; }
 
@@ -122,11 +120,7 @@ public class TurnManager : MonoBehaviour
             for (int c = 0; c < colCount; c++)
             {
                 var slot = bm.grid[r, c];
-                if (slot != null && slot.HasLetterTile())
-                {
-                    hasTile = true;
-                    break;
-                }
+                if (slot != null && slot.HasLetterTile()) { hasTile = true; break; }
             }
             if (hasTile) break;
         }
@@ -153,7 +147,7 @@ public class TurnManager : MonoBehaviour
 
     void BeginScoreSequence()
     {
-        ClearAllSlotFx();          // เคลียร์ของค้างก่อนทุกครั้ง
+        ClearAllSlotFx();
         if (inputBlocker) inputBlocker.SetActive(true);
         if (scoreOverlayAnimator)
         {
@@ -167,12 +161,13 @@ public class TurnManager : MonoBehaviour
     {
         if (pauseTimeDuringScoring) Time.timeScale = 1f;
         if (inputBlocker != null) inputBlocker.SetActive(false);
-
-        // ปิด overlay ด้วยพารามิเตอร์เดียวกับตอนเปิด
         if (scoreOverlayAnimator != null) scoreOverlayAnimator.SetBool("Scoring", false);
 
-        // <<< ปลด hold เพื่อให้ RandomCard UI เปิดหลังนับคะแนนเสร็จ
+        // UI RandomCard ปลด hold หลังคิดคะแนนเสร็จ
         CardManager.Instance?.HoldUI(false);
+
+        // เคลียร์ zero-score (ใช้เฉพาะรอบนี้)
+        ScoreManager.ClearZeroScoreTiles();
     }
 
     // ===== Level reset =====
@@ -190,7 +185,8 @@ public class TurnManager : MonoBehaviour
         freePassActiveThisTurn = false;
         nextWordMul = 1;
 
-        // แจ้งให้ LevelManager เช็กเงื่อนไขผ่านด่านอีกครั้ง
+        ScoreManager.ClearZeroScoreTiles();
+
         LevelManager.Instance?.OnScoreOrWordProgressChanged();
     }
 
@@ -216,20 +212,6 @@ public class TurnManager : MonoBehaviour
         UpdateManaUI();
         ShowMessage("Mana Infinity – ใช้มานาไม่จำกัด!", Color.cyan);
         manaInfiniteCoroutine = StartCoroutine(DeactivateInfiniteManaAfter(duration));
-    }
-
-    // ระหว่างลอยเข้าหา HUD ให้เลขบน HUD “ไหล” ไปยังค่าเป้าหมาย (แต่ยังไม่ commit ตัวแปร Score จริง)
-    System.Collections.IEnumerator TweenHudScoreTemp(int start, int target, float dur)
-    {
-        float t = 0f; int last = -1;
-        while (t < 1f)
-        {
-            t += Time.unscaledDeltaTime / Mathf.Max(0.001f, dur);
-            int v = Mathf.RoundToInt(Mathf.Lerp(start, target, 1 - Mathf.Pow(1 - t, 3)));
-            if (v != last) { if (scoreText) scoreText.text = $"Score : {v}"; last = v; }
-            yield return null;
-        }
-        if (scoreText) scoreText.text = $"Score : {target}";
     }
 
     private IEnumerator DeactivateInfiniteManaAfter(float duration)
@@ -330,6 +312,7 @@ public class TurnManager : MonoBehaviour
     void ShowMessage(string msg, Color? col = null)
     {
         if (messageText == null) return;
+
         if (fadeCo != null) { StopCoroutine(fadeCo); fadeCo = null; }
 
         messageText.text = msg;
@@ -351,7 +334,7 @@ public class TurnManager : MonoBehaviour
             yield return null;
         }
         messageText.text = string.Empty;
-        messageText.color = new Color(start.r, start.g, start.b, 1f); // reset alpha
+        messageText.color = new Color(start.r, start.g, start.b, 1f);
     }
 
     public void EnableConfirm()
@@ -370,11 +353,7 @@ public class TurnManager : MonoBehaviour
             for (int c = 0; c < colCount; c++)
             {
                 var slot = bm.grid[r, c];
-                if (slot != null && slot.HasLetterTile())
-                {
-                    hasTile = true;
-                    break;
-                }
+                if (slot != null && slot.HasLetterTile()) { hasTile = true; break; }
             }
             if (hasTile) break;
         }
@@ -395,7 +374,6 @@ public class TurnManager : MonoBehaviour
     {
         var factors = new List<int>();
 
-        // ช่องพิเศษคูณคำ (DW/TW) ต่อ "แต่ละคำ"
         foreach (var w in correct)
         {
             int wordMul = 1;
@@ -407,7 +385,6 @@ public class TurnManager : MonoBehaviour
             if (wordMul > 1) factors.Add(wordMul);
         }
 
-        // การ์ดคูณคำ (ถ้ามี)
         if (ScoreManager.GetWordOverride() > 1)
             factors.Add(ScoreManager.GetWordOverride());
 
@@ -423,6 +400,10 @@ public class TurnManager : MonoBehaviour
             {
                 var t = s.GetLetterTile(); if (!t) continue;
                 int baseSc = Mathf.Max(0, t.GetData().score);
+
+                // NEW: รองรับ bench issue zero-score
+                if (ScoreManager.IsZeroScoreTile(t)) baseSc = 0;
+
                 int lm = ScoreManager.EffectiveLetterMulFor(s.type); // DL/TL
                 adds.Add(baseSc * Mathf.Max(1, lm));
             }
@@ -439,6 +420,10 @@ public class TurnManager : MonoBehaviour
             {
                 var t = s.GetLetterTile(); if (!t) continue;
                 int baseSc = Mathf.Max(0, t.GetData().score);
+
+                // NEW: รองรับ bench issue zero-score
+                if (ScoreManager.IsZeroScoreTile(t)) baseSc = 0;
+
                 int lm = ScoreManager.EffectiveLetterMulFor(s.type); // DL/TL
                 steps.Add((t, s, baseSc * Mathf.Max(1, lm)));
             }
@@ -482,12 +467,10 @@ public class TurnManager : MonoBehaviour
         int dictPenaltyPercent
     )
     {
-        // ==== เข้าเฟสคิดคะแนน ====
-        LevelManager.Instance?.PauseLevelTimer();  // พักนาฬิกาด่าน
+        LevelManager.Instance?.PauseLevelTimer();
         float prevTimeScale = Time.timeScale;
-        Time.timeScale = 0f;                       // หยุดเกมเพลย์/อินพุต/ฟิสิกส์
+        Time.timeScale = 0f;
 
-        // ให้แอนิเมชัน UI/เสียงยังเล่นได้ระหว่าง timeScale=0
         if (scoreOverlayAnimator)
             scoreOverlayAnimator.updateMode = AnimatorUpdateMode.UnscaledTime;
 
@@ -495,13 +478,13 @@ public class TurnManager : MonoBehaviour
         {
             BeginScoreSequence();
 
-            var letterAdds = BuildLetterAdds(correct);        // คะแนนฐานที่คิด L2/L3 แล้ว (เก็บไว้ถ้าจะโชว์)
-            var mulFactors = BuildMultiplierFactors(correct); // ตัวคูณแบบบวก (x2+x3=x5)
+            var letterAdds = BuildLetterAdds(correct);
+            var mulFactors = BuildMultiplierFactors(correct);
 
             int lettersRunning = 0;
             int mulRunning = 0;
 
-            // Part 1: ตัวอักษร (A)
+            // Part A: Letters
             var steps = BuildLetterSteps(correct);
             var uiA = SpawnPop(anchorLetters, 0);
 
@@ -519,19 +502,19 @@ public class TurnManager : MonoBehaviour
             }
             yield return new WaitForSecondsRealtime(sectionDelay);
 
-            // Part 2: ตัวคูณ (B)
+            // Part B: Multipliers
             var uiB = SpawnPop(anchorMults, 0);
 
             foreach (var f in mulFactors)
             {
-                mulRunning += f;                   // x2+x3 = x5 (ดีไซน์รวมแบบบวก)
+                mulRunning += f;
                 uiB.SetText("x" + mulRunning);
                 uiB.PopByDelta(f, tier2Min, tier3Min);
                 SfxPlayer.Play(SfxId.ScoreMultTick);
                 yield return new WaitForSecondsRealtime(stepDelay);
             }
 
-            // คอมโบจำนวนคำใหม่ (สูงสุด x4)
+            // Combo by number of new words (up to x4)
             int comboSteps = Mathf.Min(correct.Count, 4);
             for (int i = 0; i < comboSteps; i++)
             {
@@ -553,7 +536,7 @@ public class TurnManager : MonoBehaviour
             yield return new WaitForSecondsRealtime(sectionDelay);
             if (mulRunning <= 0) mulRunning = 1;
 
-            // รวมเข้ากลาง (C)
+            // Join to total
             float joinDur = 0.35f;
             var flyA = uiA.FlyTo(anchorTotal, joinDur);
             var flyB = uiB.FlyTo(anchorTotal, joinDur);
@@ -567,7 +550,7 @@ public class TurnManager : MonoBehaviour
             uiC.PopByDelta(displayedTotal, tier2Min, tier3Min);
             yield return new WaitForSecondsRealtime(0.8f);
 
-            // ---------- แสดงหัก % ใต้ Total แล้วลอยเข้ามาหา Total ----------
+            // Penalty from dictionary use (visual -XX%)
             if (dictPenaltyPercent > 0)
             {
                 var uiPenalty = SpawnPop(anchorTotal, 0);
@@ -598,7 +581,7 @@ public class TurnManager : MonoBehaviour
                 yield return new WaitForSecondsRealtime(0.8f);
             }
 
-            // ส่งเข้า Score HUD
+            // Fly to HUD and commit
             int hudStart = Score;
             int hudTarget = hudStart + displayedTotal;
             SfxPlayer.Play(SfxId.ScoreCommit);
@@ -609,6 +592,7 @@ public class TurnManager : MonoBehaviour
 
             AddScore(displayedTotal);
 
+            // Safety: ถ้าคะแนนจริงต่างจากที่แสดง ให้ปรับแต่ง
             if (displayedTotal != moveScore)
             {
                 yield return StartCoroutine(TweenHudScoreTemp(
@@ -616,8 +600,9 @@ public class TurnManager : MonoBehaviour
                 AddScore(moveScore - displayedTotal);
             }
 
-            // เก็บงานท้ายเทิร์น
+            // Lock placed tiles (ที่ไม่ถูก bounce)
             foreach (var (t, _) in placed) if (!bounced.Contains(t)) t.Lock();
+
             BenchManager.Instance.RefillEmptySlots();
             UpdateBagUI();
             EnableConfirm();
@@ -626,13 +611,11 @@ public class TurnManager : MonoBehaviour
         }
         finally
         {
-            // ==== ออกจากเฟสคิดคะแนน ====
             Time.timeScale = prevTimeScale;
-            LevelManager.Instance?.ResumeLevelTimer(); // เดินนาฬิกาต่อ (ไม่รีเซ็ต)
+            LevelManager.Instance?.ResumeLevelTimer();
         }
     }
 
-    // ===== Bounce helpers =====
     void BounceWord(
         MoveValidator.WordInfo w,
         IEnumerable<(LetterTile t, BoardSlot s)> placed,
@@ -657,14 +640,12 @@ public class TurnManager : MonoBehaviour
 
     private IEnumerator SkipTurnAfterBounce()
     {
-        yield return WFS_06;   // ให้เวลาแอนิเมชันเด้ง/แฟลช
-        EnableConfirm();       // ปลดล็อกปุ่มและเคลียร์ inConfirmProcess
+        yield return WFS_06;
+        EnableConfirm();
     }
 
-    // ===== Core: Confirm =====
     void OnConfirm()
     {
-        // กันกดยืนยันตอนจบเกม
         if (LevelManager.Instance != null && LevelManager.Instance.IsGameOver())
         {
             EnableConfirm();
@@ -675,7 +656,6 @@ public class TurnManager : MonoBehaviour
         inConfirmProcess = true;
         if (confirmBtn != null) confirmBtn.interactable = false;
 
-        // ✅ กันเคส WordChecker ยังไม่พร้อม
         if (WordChecker.Instance == null || !WordChecker.Instance.IsReady())
         {
             ShowMessage("ระบบตรวจคำยังไม่พร้อม", Color.red);
@@ -686,18 +666,13 @@ public class TurnManager : MonoBehaviour
         try
         {
             var bm = BoardManager.Instance;
-            if (bm == null || bm.grid == null)
-            {
-                EnableConfirm();
-                return;
-            }
+            if (bm == null || bm.grid == null) { EnableConfirm(); return; }
 
-            // เก็บไทล์ที่ผู้เล่น “วางใหม่ในเทิร์นนี้” (ไม่รวมที่ล็อกแล้ว)
+            // เก็บไทล์ที่ผู้เล่นวางใหม่ (isLocked == false)
             var placed = new List<(LetterTile t, BoardSlot s)>();
             int rowCount = bm.grid.GetLength(0);
             int colCount = bm.grid.GetLength(1);
             for (int r = 0; r < rowCount; r++)
-            {
                 for (int c = 0; c < colCount; c++)
                 {
                     var sl = bm.grid[r, c];
@@ -705,7 +680,6 @@ public class TurnManager : MonoBehaviour
                     var lt = sl.GetLetterTile();
                     if (!lt.isLocked) placed.Add((lt, sl));
                 }
-            }
 
             if (placed.Count == 0) { EnableConfirm(); return; }
 
@@ -716,71 +690,58 @@ public class TurnManager : MonoBehaviour
                 return;
             }
 
-            // ---------- 1) แยกหมวดคำ ----------
+            // ------ 1) แยกหมวดคำ ------
             int minLen = WordChecker.Instance?.minWordLength ?? 2;
             bool IsShort(MoveValidator.WordInfo wi)
                 => string.IsNullOrWhiteSpace(wi.word) || wi.word.Trim().Length < minLen;
 
-            var shortOnes = words.Where(IsShort).ToList(); // คำสั้น (< minLen)
-            var invalidDict = words.Except(shortOnes)
-                                   .Where(w => !WordChecker.Instance.IsWordValid(w.word))
-                                   .ToList();
-            var duplicate = words.Where(w => boardWords.Contains(w.word)).ToList();
-            var correct = words.Except(shortOnes).Except(invalidDict).Except(duplicate).ToList();
-            var bounced = new HashSet<LetterTile>();
+            var shortOnes  = words.Where(IsShort).ToList();
+            var invalidDict = words.Except(shortOnes).Where(w => !WordChecker.Instance.IsWordValid(w.word)).ToList();
+            var duplicate  = words.Where(w => boardWords.Contains(w.word)).ToList();
+            var correct    = words.Except(shortOnes).Except(invalidDict).Except(duplicate).ToList();
+            var bounced    = new HashSet<LetterTile>();
 
-            // ✅ ถ้าไม่เกิด "คำที่ถูกต้อง" เลย
             if (correct.Count == 0)
             {
                 foreach (var (t, s) in placed)
                 {
                     s.Flash(Color.yellow, 3, 0.17f);
                     var tile = s.RemoveLetter();
-                    if (tile != null)
-                    {
-                        BenchManager.Instance.ReturnTileToBench(tile);
-                        bounced.Add(tile);
-                    }
+                    if (tile != null) { BenchManager.Instance.ReturnTileToBench(tile); bounced.Add(tile); }
                 }
-
                 ShowMessage($"ต้องเกิดคำที่ถูกต้องอย่างน้อย 1 คำ (ยาว ≥ {minLen})", Color.yellow);
                 StartCoroutine(SkipTurnAfterBounce());
                 return;
             }
 
-            // ---------- 2) หา main-word ----------
+            // ------ 2) หา main-word ------
             var placedSet = placed.Select(p => (p.s.row, p.s.col)).ToHashSet();
             MoveValidator.WordInfo mainWord;
             bool hasMain;
 
             if (placed.Count == 1)
             {
-                // วางแค่ 1 ตัว: นิยามคำหลักเป็น “คำที่ยาวที่สุด” จาก H/V รอบช่องที่วาง
-                mainWord = words
-                    .OrderByDescending(w => (w.word ?? string.Empty).Length)
-                    .FirstOrDefault();
+                mainWord = words.OrderByDescending(w => (w.word ?? string.Empty).Length).FirstOrDefault();
                 hasMain = !string.IsNullOrEmpty(mainWord.word);
             }
             else
             {
-                // วางหลายตัว: ใช้เกณฑ์เดิม ต้องมีตัวใหม่ ≥ 2 ในเส้นนั้น
                 mainWord = words.FirstOrDefault(w => CountNewInWord(w, placedSet) >= 2);
                 hasMain = !string.IsNullOrEmpty(mainWord.word);
             }
 
             LastConfirmedWord = hasMain ? mainWord.word : string.Empty;
 
-            // ---------- 3) เตรียมคำที่จะเด้ง + โทษ ----------
+            // ------ 3) เตรียมคำที่จะเด้ง + โทษ ------
             int penalty = 0;
-            var toBounceRed = new List<MoveValidator.WordInfo>();       // ผิดดิก → หักโทษ
-            var toBounceYellow = new List<MoveValidator.WordInfo>();    // คำสั้น/เตือน → ไม่หัก
-            var toBounceDup = new List<MoveValidator.WordInfo>();       // ซ้ำ → ไม่หัก
+            var toBounceRed    = new List<MoveValidator.WordInfo>();
+            var toBounceYellow = new List<MoveValidator.WordInfo>();
+            var toBounceDup    = new List<MoveValidator.WordInfo>();
 
-            bool mainShort = hasMain && IsShort(mainWord);
-            bool mainInvalid = hasMain && !mainShort && invalidDict.Any(w => w.word == mainWord.word);
+            bool mainShort     = hasMain && IsShort(mainWord);
+            bool mainInvalid   = hasMain && !mainShort && invalidDict.Any(w => w.word == mainWord.word);
             bool mainDuplicate = hasMain && duplicate.Any(w => w.word == mainWord.word);
 
-            // A) MAIN สั้นเกินไป
             if (mainShort)
             {
                 toBounceYellow.Add(mainWord);
@@ -788,7 +749,6 @@ public class TurnManager : MonoBehaviour
                 toBounceDup.AddRange(duplicate);
                 ShowMessage($"คำสั้นเกินไป (ขั้นต่ำ {minLen}) – เด้งกลับ", Color.yellow);
             }
-            // B) MAIN ผิดดิก → หักโทษ 50%
             else if (mainInvalid)
             {
                 int s = ScoreManager.CalcWord(mainWord.r0, mainWord.c0, mainWord.r1, mainWord.c1);
@@ -804,7 +764,6 @@ public class TurnManager : MonoBehaviour
                 }
                 toBounceDup.AddRange(duplicate);
             }
-            // C) MAIN ซ้ำ
             else if (mainDuplicate)
             {
                 toBounceDup.Add(mainWord);
@@ -812,22 +771,44 @@ public class TurnManager : MonoBehaviour
                 ShowMessage("คำซ้ำ – เด้งกลับ", Color.yellow);
             }
 
-            // เด้งตามสี
-            foreach (var w in toBounceRed)    BounceWord(w, placed, Color.red,    bounced);    // หักโทษ
-            foreach (var w in toBounceYellow) BounceWord(w, placed, Color.yellow, bounced);    // ไม่หัก
-            foreach (var w in toBounceDup)    BounceWord(w, placed, Color.yellow, bounced);    // ไม่หัก
+            foreach (var w in toBounceRed)    BounceWord(w, placed, Color.red,    bounced);
+            foreach (var w in toBounceYellow) BounceWord(w, placed, Color.yellow, bounced);
+            foreach (var w in toBounceDup)    BounceWord(w, placed, Color.yellow, bounced);
 
-            // เสียเทิร์นเมื่อ main-word สั้น / ผิดดิก / ซ้ำ
             bool skipTurn = mainShort || mainInvalid || mainDuplicate;
 
-            // เริ่มนับเวลาของด่าน เมื่อกดยืนยันครั้งแรก
+            // เริ่มจับเวลาของด่าน เมื่อยืนยันครั้งแรก
             LevelManager.Instance?.OnFirstConfirm();
 
-            // ---------- 5) คำนวณคะแนน ----------
+            // ------ 4) Bench issue (Level 2): mark zero-score letters แบบสุ่มบางตัว ------
+            ScoreManager.ClearZeroScoreTiles();
+            if (LevelManager.Instance != null &&
+                LevelManager.Instance.CurrentLevel >= 0 &&
+                LevelManager.Instance.GetCurrentLevelIndex() == 2 &&     // helper we’ll add in LevelManager
+                LevelManager.Instance.Level2_IsBenchIssueActive())
+            {
+                int k = LevelManager.Instance.Level2_SelectZeroCount(placed.Count);
+                if (k > 0)
+                {
+                    var pool = new List<LetterTile>(placed.Select(p => p.t));
+                    var chosen = new List<LetterTile>();
+                    for (int i = 0; i < k && pool.Count > 0; i++)
+                    {
+                        int idx = Random.Range(0, pool.Count);
+                        chosen.Add(pool[idx]);
+                        pool.RemoveAt(idx);
+                    }
+                    ScoreManager.MarkZeroScoreTiles(chosen);
+                    if (chosen.Count > 0)
+                        ShowMessage($"Bench bug: {chosen.Count} letter(s) score 0", Color.yellow);
+                }
+            }
+
+            // ------ 5) คำนวณคะแนน ------
             int moveScore = 0;
             int newWordCountThisMove = 0;
 
-            if (!skipTurn) // main-word ถูกเท่านั้น
+            if (!skipTurn)
             {
                 newWordCountThisMove = correct.Count;
                 foreach (var w in correct)
@@ -855,11 +836,11 @@ public class TurnManager : MonoBehaviour
 
             moveScore = Mathf.Max(0, moveScore - penalty);
 
-            // COMBO...
+            // COMBO
             int comboMul = Mathf.Clamp(newWordCountThisMove, 1, 4);
-            if (comboMul > 1) { moveScore = Mathf.CeilToInt(moveScore * comboMul); }
+            if (comboMul > 1) moveScore = Mathf.CeilToInt(moveScore * comboMul);
 
-            // <<< ใส่บรรทัดนี้ ก่อนเริ่ม loop ที่อาจแจกการ์ดพิเศษ
+            // <<< Hold UI ก่อนแจกการ์ด
             CardManager.Instance?.HoldUI(true);
 
             // แจกการ์ดจาก special letter / เก็บมานา
@@ -867,13 +848,13 @@ public class TurnManager : MonoBehaviour
             {
                 if (tile.IsSpecial)
                 {
-                    Debug.Log($"[Placement] พบตัวพิเศษ {tile.GetData().letter} – เรียก GiveRandomCard()");
-                    CardManager.Instance.GiveRandomCard();  // ยัง enqueue ได้ปกติ แต่ UI จะยังไม่โผล่
+                    Debug.Log($"[Placement] พบตัวพิเศษ {tile.GetData().letter} – GiveRandomCard()");
+                    CardManager.Instance.GiveRandomCard();
                 }
                 if (slot.manaGain > 0) AddMana(slot.manaGain);
             }
 
-            // โทษเปิดพจนานุกรม (จำ flag ไว้เพื่อใช้โชว์อนิเมชันหัก %)
+            // โทษเปิดพจนานุกรม
             bool dictPenaltyApplied = false;
             if (usedDictionaryThisTurn)
             {
@@ -886,17 +867,16 @@ public class TurnManager : MonoBehaviour
                 usedDictionaryThisTurn = false;
             }
 
-            // ตัวคูณจากเอฟเฟกต์พิเศษ (ครั้งเดียว)
+            // ตัวคูณครั้งเดียว
             if (nextWordMul > 1)
             {
                 moveScore = Mathf.CeilToInt(moveScore * nextWordMul);
                 nextWordMul = 1;
             }
 
-            // 🟢 รายงาน “คำที่ถูก + ไม่ซ้ำ” ของเทิร์นนี้ให้ LevelManager (ใช้เฉพาะด่าน 1)
+            // รายงานคำถูก (สำหรับด่าน 1)
             LevelManager.Instance?.RegisterConfirmedWords(correct.Select(w => w.word));
 
-            // เรียกคอร์รุตีน
             StartCoroutine(AnimateAndFinalizeScoring(
                 placed,
                 correct,
@@ -908,7 +888,6 @@ public class TurnManager : MonoBehaviour
         }
         finally
         {
-            // เผื่อมี exception ใด ๆ — อย่าให้ปุ่มค้าง
             if (inConfirmProcess) inConfirmProcess = false;
         }
 
@@ -948,12 +927,33 @@ public class TurnManager : MonoBehaviour
         foreach (var (t, _) in tiles)
             SpaceManager.Instance.RemoveTile(t);
 
-        // กันค่าเก่าค้าง
         LastConfirmedWord = string.Empty;
 
         string msg = applyPenalty ? $"{reason}  -{penalty}" : reason;
         ShowMessage(msg, Color.red);
         UpdateBagUI();
         EnableConfirm();
+    }
+
+    // ===== Small helper for tween HUD =====
+    IEnumerator TweenHudScoreTemp(int start, int target, float dur)
+    {
+        float t = 0f; int last = -1;
+        while (t < 1f)
+        {
+            t += Time.unscaledDeltaTime / Mathf.Max(0.001f, dur);
+            int v = Mathf.RoundToInt(Mathf.Lerp(start, target, 1 - Mathf.Pow(1 - t, 3)));
+            if (v != last) { if (scoreText) scoreText.text = $"Score : {v}"; last = v; }
+            yield return null;
+        }
+        if (scoreText) scoreText.text = $"Score : {target}";
+    }
+
+    // ===== Public small helper for LevelManager (index) =====
+    public int GetCurrentLevelIndex()
+    {
+        // LevelConfig.levelIndex (1-based) – return 1/2/3...
+        var cfg = LevelManager.Instance != null ? LevelManager.Instance.levels[LevelManager.Instance.CurrentLevel] : null;
+        return cfg != null ? cfg.levelIndex : 0;
     }
 }
