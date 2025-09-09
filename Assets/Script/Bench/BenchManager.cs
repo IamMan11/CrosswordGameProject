@@ -31,32 +31,6 @@ public class BenchManager : MonoBehaviour
     [Tooltip("ให้เติมแบบลอยจากถุงเข้ามาใน Bench ทีละตัว")]
     public bool animateRefill = true;
 
-    [Header("Wave Spawn From Bag")]
-    [Tooltip("จุดปากถุง (เริ่มลอยออกจากตรงนี้)")]
-    public RectTransform tileBagMouthAnchor;     // ตั้งใน Inspector
-    //------------------------------------------------------------
-    [Header("Tile Wave Animator (Tools)")]
-    [Tooltip("Animator Controller ที่ใช้กับ WaveGroup ของ tile บน tileSpawn")]
-    public RuntimeAnimatorController tileWaveController;
-
-    [Tooltip("ชื่อ child ใต้ LetterTile ที่จะใช้เป็นชั้นเล่นคลิป Wave/Scale")]
-    public string waveChildName = "WaveGroup";
-
-    [Tooltip("ชื่อ state ใน Animator สำหรับ Scale เข้า (non-loop)")]
-    public string animStateScaleIn = "ScaleIn";
-
-    [Tooltip("ชื่อ state ใน Animator สำหรับ Wave ระหว่างเดินทาง (loop)")]
-    public string animStateWaveTravel = "WaveTravel";
-
-    [Tooltip("ชื่อ state ใน Animator สำหรับ Wave ตอนค้างบน tileSpawn (loop)")]
-    public string animStateWaveIdle = "WaveIdle";
-
-    [Tooltip("ให้ Animator ของ WaveGroup เล่นแบบ UnscaledTime")]
-    public bool waveAnimatorUnscaled = true;
-
-    [Tooltip("เริ่ม Scale ของ WaveGroup ก่อน ScaleIn (โค้ดตั้งค่าเฟรมแรก)")]
-    [Range(0.1f, 1f)] public float spawnStartScale = 0.35f;
-
     [Tooltip("จุด Anchor เหนือถุง (TilePack) ให้ตัวอักษรเกิด/ลอยอยู่ตรงนี้ก่อนบินเข้าช่อง")]
     public RectTransform tileSpawnAnchor;     // ตั้งใน Inspector
 
