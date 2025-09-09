@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+
 public class BenchManager : MonoBehaviour
 {
     // -------------------- Singleton --------------------
@@ -18,22 +19,69 @@ public class BenchManager : MonoBehaviour
     [Header("Lerp Settings")]
     [Tooltip("ระยะเวลาเลื่อนแถว Bench ต่อ 1 สเต็ป")]
     public float shiftDuration = 0.12f;
-
     [Tooltip("คีย์เฟรมโค้ง easing สำหรับการเลื่อน")]
     public AnimationCurve ease = AnimationCurve.EaseInOut(0, 0, 1, 1);
 
+    [Header("Auto Refill (จากถุง)")]
+    [SerializeField] bool autoRefillEnabled = true;
+    int _refillPause;   // >0 = งดเติมชั่วคราว
+
+    // >>> NEW: Refill Animation
+    [Header("Refill Animation")]
+    [Tooltip("ให้เติมแบบลอยจากถุงเข้ามาใน Bench ทีละตัว")]
+    public bool animateRefill = true;
+
+    [Header("Wave Spawn From Bag")]
+    [Tooltip("จุดปากถุง (เริ่มลอยออกจากตรงนี้)")]
+    public RectTransform tileBagMouthAnchor;     // ตั้งใน Inspector
+    //------------------------------------------------------------
+    [Header("Tile Wave Animator (Tools)")]
+    [Tooltip("Animator Controller ที่ใช้กับ WaveGroup ของ tile บน tileSpawn")]
+    public RuntimeAnimatorController tileWaveController;
+
+    [Tooltip("ชื่อ child ใต้ LetterTile ที่จะใช้เป็นชั้นเล่นคลิป Wave/Scale")]
+    public string waveChildName = "WaveGroup";
+
+    [Tooltip("ชื่อ state ใน Animator สำหรับ Scale เข้า (non-loop)")]
+    public string animStateScaleIn = "ScaleIn";
+
+    [Tooltip("ชื่อ state ใน Animator สำหรับ Wave ระหว่างเดินทาง (loop)")]
+    public string animStateWaveTravel = "WaveTravel";
+
+    [Tooltip("ชื่อ state ใน Animator สำหรับ Wave ตอนค้างบน tileSpawn (loop)")]
+    public string animStateWaveIdle = "WaveIdle";
+
+    [Tooltip("ให้ Animator ของ WaveGroup เล่นแบบ UnscaledTime")]
+    public bool waveAnimatorUnscaled = true;
+
+    [Tooltip("เริ่ม Scale ของ WaveGroup ก่อน ScaleIn (โค้ดตั้งค่าเฟรมแรก)")]
+    [Range(0.1f, 1f)] public float spawnStartScale = 0.35f;
+
+    [Tooltip("จุด Anchor เหนือถุง (TilePack) ให้ตัวอักษรเกิด/ลอยอยู่ตรงนี้ก่อนบินเข้าช่อง")]
+    public RectTransform tileSpawnAnchor;     // ตั้งใน Inspector
+
+    [Tooltip("ให้ถุงเด้งตอนเริ่มเติม (ถ้ามี Animator และ Trigger ชื่อ 'Refill')")]
+    public Animator tileBagAnimator;          // optional
+
+    [Tooltip("เวลาหน่วงแต่ละตัวก่อนเกิด/บินเข้า (Realtime)")]
+    [Range(0f, 0.5f)] public float refillStagger = 0.08f;
+
+    [Tooltip("เวลาที่ลอยอยู่เหนือถุงก่อนเริ่มบิน (Realtime)")]
+    [Range(0f, 0.6f)] public float spawnHoverTime = 0.25f;
+
+    [Tooltip("ระยะยกสูงจาก anchor (พิกัด local Y)")]
+    public float spawnHoverHeight = 80f;
+
     // -------------------- Runtime State --------------------
-    /// <summary>จดจำคอร์รุตีนเลื่อนของแต่ละไทล์ เพื่อหยุด/คุมไม่ให้ซ้อน</summary>
     private readonly Dictionary<LetterTile, Coroutine> _moving = new();
-
-    /// <summary>ไทล์ที่กำลังถูกลากอยู่นอก Bench</summary>
     [HideInInspector] public LetterTile draggingTile;
-
-    /// <summary>ดัชนีช่องว่างปัจจุบัน (ขณะลาก)</summary>
     private int emptyIndex = -1;
 
-    /// <summary>นับจำนวนครั้งที่ Push ให้ตรงกับ Pop กรณีถูกปิด/ยกเลิกกลางคัน</summary>
     private int _uiGuardDepth = 0;
+
+    // >>> NEW: กันเรียกเติมซ้ำช่วงคิดคะแนน / กันซ้อนคอร์รุตีน
+    Coroutine _refillCo;
+    bool _refillQueued;
 
     // ======================================================
     #region Unity Lifecycle
@@ -45,22 +93,25 @@ public class BenchManager : MonoBehaviour
 
     private void Start()
     {
-        RefillEmptySlots();
+        RefillEmptySlots(); // ตัวแรกๆ ตอนเริ่มเกม
     }
 
     private void OnDisable()
     {
-        // กันค้าง: หยุดคอร์รุตีนเลื่อนทั้งหมด และเคลียร์สมุดจด
         foreach (var kv in _moving)
-        {
             if (kv.Value != null) StopCoroutine(kv.Value);
-        }
         _moving.Clear();
 
-        // ให้ UiGuard กลับสู่สมดุล (เท่าจำนวนครั้งที่เคย Push ค้าง)
         while (_uiGuardDepth-- > 0) UiGuard.Pop();
         _uiGuardDepth = 0;
+
+        // >>> NEW
+        if (_refillCo != null) { StopCoroutine(_refillCo); _refillCo = null; }
+        _refillQueued = false;
     }
+    public void PauseAutoRefill()  { _refillPause++; }
+    public void ResumeAutoRefill() { _refillPause = Mathf.Max(0, _refillPause - 1); }
+    bool CanAutoRefill() => autoRefillEnabled && _refillPause == 0;
 
 #if UNITY_EDITOR
     private void OnValidate()
@@ -71,26 +122,17 @@ public class BenchManager : MonoBehaviour
     #endregion
     // ======================================================
 
-    // -------------------- เสียงเลื่อน --------------------
     void PlayShiftTick() => SfxPlayer.Play(SfxId.SlotShift);
-
-    // -------------------- Helper (ดัชนีช่อง) --------------------
     public int IndexOfSlot(Transform t) => slotTransforms.IndexOf(t);
 
     // ======================================================
     #region Drag Orchestration (ทำช่องว่าง + เลื่อนเพื่อนบ้าน)
-    /// <summary>
-    /// เริ่มลากไทล์ออกจาก Bench
-    /// </summary>
     public void BeginDrag(LetterTile tile, int fromIndex)
     {
         draggingTile = tile;
-        emptyIndex = fromIndex; // บันทึกจุดว่างเริ่มต้น = ช่องเดิมที่ดึงออก
+        emptyIndex = fromIndex;
     }
 
-    /// <summary>
-    /// ให้ช่อง target กลายเป็น “ช่องว่าง” แล้วเลื่อนเพื่อนบ้านเข้าหาช่องว่าง (ใช้ตอน OnDrop/OnHover)
-    /// </summary>
     public void EnsureEmptyAt(Transform targetSlot)
     {
         if (draggingTile == null || targetSlot == null) return;
@@ -99,23 +141,15 @@ public class BenchManager : MonoBehaviour
         if (target < 0 || target == emptyIndex) return;
 
         if (target > emptyIndex)
-        {
-            // โฮเวอร์/ดรอปไปทางขวา → ไล่เลื่อน k ไปซ้าย
             for (int k = emptyIndex + 1; k <= target; k++)
                 MoveChildToSlot(slotTransforms[k], slotTransforms[k - 1]);
-        }
         else
-        {
-            // โฮเวอร์/ดรอปไปทางซ้าย → ไล่เลื่อน k ไปขวา
             for (int k = emptyIndex - 1; k >= target; k--)
                 MoveChildToSlot(slotTransforms[k], slotTransforms[k + 1]);
-        }
+
         emptyIndex = target;
     }
 
-    /// <summary>
-    /// ใช้ตอนลาก: เมื่อชี้ช่องไหน ให้ช่องนั้นเป็น “ช่องว่าง” แล้วไหล Bench ตามทิศ
-    /// </summary>
     public void OnHoverSlot(Transform targetSlot)
     {
         if (draggingTile == null || targetSlot == null) return;
@@ -124,20 +158,15 @@ public class BenchManager : MonoBehaviour
         if (hover < 0 || hover == emptyIndex) return;
 
         if (hover > emptyIndex)
-        {
             for (int k = emptyIndex + 1; k <= hover; k++)
                 MoveChildToSlot(slotTransforms[k], slotTransforms[k - 1]);
-        }
         else
-        {
             for (int k = emptyIndex - 1; k >= hover; k--)
                 MoveChildToSlot(slotTransforms[k], slotTransforms[k + 1]);
-        }
 
         emptyIndex = hover;
     }
 
-    /// <summary>คืน Transform ของ “ช่องว่าง” ปัจจุบัน (ถ้าไม่มีคืน null)</summary>
     public Transform GetCurrentEmptySlot()
     {
         if (emptyIndex >= 0 && emptyIndex < slotTransforms.Count)
@@ -145,16 +174,12 @@ public class BenchManager : MonoBehaviour
         return null;
     }
 
-    /// <summary>จบการลาก (ถ้าวางสำเร็จ placed=true, แต่ที่นี่ไม่ต้องทำอะไรเพิ่มเติม)</summary>
     public void EndDrag(bool placed)
     {
         draggingTile = null;
         emptyIndex = -1;
     }
 
-    /// <summary>
-    /// ถ้าช่องปลายทางยังมีลูกอยู่ ให้ย้ายลูกนั้นไปยังช่องว่างที่ใกล้ที่สุด (ป้องกันชน)
-    /// </summary>
     public void KickOutExistingToNearestEmpty(Transform slot)
     {
         if (slot == null || slot.childCount == 0) return;
@@ -174,40 +199,29 @@ public class BenchManager : MonoBehaviour
     #endregion
     // ======================================================
 
-    #region Movement Core (ย้ายลูกจากช่อง A → B พร้อมแอนิเมชัน)
-    /// <summary>
-    /// ย้ายลูก (LetterTile เด็กคนแรกของ from) ไปยังช่อง to พร้อมแอนิเมชัน
-    /// - กันคอร์รุตีนซ้อน: ถ้ากำลังเลื่อน tile ตัวเดิมอยู่ ให้หยุดก่อนแล้วเริ่มใหม่
-    /// - ปรับเลเยอร์ให้ tile อยู่บนสุดของช่องปลายทาง
-    /// </summary>
+    #region Movement Core
     private void MoveChildToSlot(Transform from, Transform to)
     {
         if (from == null || to == null) return;
-        if (from == to) return;                          // ไม่ต้องย้ายถ้าช่องเดียวกัน
-        if (from.childCount == 0) return;                // ไม่มีลูกให้ย้าย
+        if (from == to) return;
+        if (from.childCount == 0) return;
 
         var tile = from.GetChild(0).GetComponent<LetterTile>();
         if (!tile) return;
 
-        // ถ้ามีคอร์รุตีนเลื่อนของไทล์นี้อยู่ ให้หยุดก่อน
         if (_moving.TryGetValue(tile, out var running))
         {
             if (running != null) StopCoroutine(running);
             _moving.Remove(tile);
-            SafeUiGuardPop(); // ปลดล็อกเก่า (ถ้ามี)
+            SafeUiGuardPop();
         }
 
-        SafeUiGuardPush(); // ล็อค UI ระหว่างเลื่อน
-        PlayShiftTick();   // ติ๊กเสียงทุกครั้งที่มีการเลื่อนจริง
+        SafeUiGuardPush();
+        PlayShiftTick();
 
         _moving[tile] = StartCoroutine(AnimateToSlot(tile, to));
     }
 
-    /// <summary>
-    /// คอร์รุตีน: เลื่อนตำแหน่งไทล์เข้า localPosition(0,0) ของช่องปลายทาง ด้วยเวลา/โค้งที่กำหนด
-    /// - ใช้ unscaledDeltaTime ให้ทำงานได้ขณะ timeScale=0
-    /// - ปลอดภัยต่อกรณีถูกทำลายกลางคัน
-    /// </summary>
     private IEnumerator AnimateToSlot(LetterTile tile, Transform targetSlot)
     {
         if (tile == null || targetSlot == null)
@@ -223,7 +237,6 @@ public class BenchManager : MonoBehaviour
             yield break;
         }
 
-        // จัดลำดับ: เป็นลูกของช่องปลายทาง + อยู่บนสุด
         tile.transform.SetParent(targetSlot, worldPositionStays: true);
         tile.transform.SetAsLastSibling();
 
@@ -233,7 +246,6 @@ public class BenchManager : MonoBehaviour
         float t = 0f, dur = Mathf.Max(0.0001f, shiftDuration);
         while (t < 1f)
         {
-            // ถ้าถูกทำลาย/ปิด GameObject กลางทาง ให้ยุติอย่างปลอดภัย
             if (tile == null || rt == null || targetSlot == null || !tile.gameObject)
             {
                 CleanupMove(tile);
@@ -246,7 +258,6 @@ public class BenchManager : MonoBehaviour
             yield return null;
         }
 
-        // จัดเข้าที่ + ปรับขนาดให้พอดีช่อง
         rt.localPosition = endLocal;
         tile.AdjustSizeToParent();
         tile.transform.SetAsLastSibling();
@@ -254,40 +265,57 @@ public class BenchManager : MonoBehaviour
         CleanupMove(tile);
     }
 
-    /// <summary>ทำความสะอาดสถานะหลังจบ/ยุติการเลื่อน</summary>
     private void CleanupMove(LetterTile tile)
     {
         if (tile != null) _moving.Remove(tile);
         SafeUiGuardPop();
     }
 
-    private void SafeUiGuardPush()
-    {
-        UiGuard.Push();
-        _uiGuardDepth++;
-    }
-    private void SafeUiGuardPop()
-    {
-        if (_uiGuardDepth > 0)
-        {
-            UiGuard.Pop();
-            _uiGuardDepth--;
-        }
-    }
+    private void SafeUiGuardPush() { UiGuard.Push(); _uiGuardDepth++; }
+    private void SafeUiGuardPop()  { if (_uiGuardDepth > 0) { UiGuard.Pop(); _uiGuardDepth--; } }
     #endregion
     // ======================================================
 
-    #region Bench Fill / Return / Collapse
+    #region Bench Fill / Return / Collapse (IMMEDIATE + ANIMATED)
     /// <summary>
-    /// เติมทุกช่องว่างของ Bench ด้วยไทล์สุ่มจาก TileBag (สำหรับเริ่มเกม/หลัง rerack)
+    /// สาธารณะ: เติมทุกช่องว่างของ Bench
+    /// - ถ้าอยู่ในช่วงคิดคะแนน จะ "คิวไว้" แล้วรอให้คิดคะแนนเสร็จก่อนจึงเริ่มอนิเมชัน
+    /// - กันเรียกซ้ำซ้อนด้วย _refillQueued/_refillCo
     /// </summary>
     public void RefillEmptySlots()
     {
-        if (letterTilePrefab == null)
+        if (!CanAutoRefill()) return;
+
+        // ถ้าต้องการแอนิเมชัน และตั้ง anchor ไว้ครบ
+        bool wantAnim = animateRefill && tileSpawnAnchor != null && letterTilePrefab != null;
+
+        // อยู่ในช่วง Scoring → คิวไว้ก่อน
+        if (wantAnim && TurnManager.Instance != null && TurnManager.Instance.IsScoringAnimation)
         {
-            Debug.LogError("[BenchManager] letterTilePrefab is null.");
+            if (_refillQueued) return;
+            _refillQueued = true;
+
+            if (_refillCo != null) StopCoroutine(_refillCo);
+            _refillCo = StartCoroutine(RefillAfterScoringThenAnimate());
             return;
         }
+
+        // นอกช่วง Scoring → ทำเลย
+        if (wantAnim)
+        {
+            if (_refillCo != null) StopCoroutine(_refillCo);
+            _refillCo = StartCoroutine(RefillAnimatedCo());
+        }
+        else
+        {
+            RefillImmediate(); // แบบเดิม (ไม่มีอนิเมชัน)
+        }
+    }
+
+    /// <summary>เติมแบบเดิม (อินสแตนซ์ในช่องเลย)</summary>
+    private void RefillImmediate()
+    {
+        if (letterTilePrefab == null) { Debug.LogError("[BenchManager] letterTilePrefab is null."); return; }
         if (TileBag.Instance == null) { Debug.LogWarning("[BenchManager] TileBag.Instance is null."); return; }
 
         foreach (Transform slot in slotTransforms)
@@ -302,43 +330,170 @@ public class BenchManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// เติมแค่ช่องแรกที่ว่าง (ถ้าไม่มีให้เตือน)
-    /// </summary>
-    public void RefillOneSlot()
+    /// <summary>รอจน Scoring จบก่อน แล้วค่อยเติมแบบแอนิเมชัน</summary>
+    private IEnumerator RefillAfterScoringThenAnimate()
     {
-        if (letterTilePrefab == null)
-        {
-            Debug.LogError("[BenchManager] letterTilePrefab is null.");
-            return;
-        }
-        if (TileBag.Instance == null) { Debug.LogWarning("[BenchManager] TileBag.Instance is null."); return; }
+        // รอจนกว่าจะไม่อยู่ในช่วง Scoring
+        while (TurnManager.Instance != null && TurnManager.Instance.IsScoringAnimation)
+            yield return null; // ใช้เฟรมจริง ไม่ขึ้นกับ timeScale
 
-        var empty = GetFirstEmptySlot();
-        if (empty == null)
-        {
-            Debug.LogWarning("[BenchManager] ไม่มีช่อง Bench ว่าง");
-            return;
-        }
-
-        var data = TileBag.Instance.DrawRandomTile();
-        if (data == null)
-        {
-            Debug.LogWarning("[BenchManager] ไม่มีตัวอักษรให้ดึงจาก TileBag");
-            return;
-        }
-
-        CreateTileInSlot(empty.transform, data);
+        if (_refillCo != null) _refillCo = null; // clear ตัวเอง
+        _refillQueued = false;
+        _refillCo = StartCoroutine(RefillAnimatedCo());
     }
 
     /// <summary>
-    /// คืน LetterTile กลับเข้าสล็อตว่างซ้ายสุด (ถ้าเต็มจะทำลายและคืนตัวอักษรกลับถุง)
+    /// เติมด้วยอนิเมชัน: โผล่เหนือถุง → ลอยนิ่งสั้น ๆ → บินเข้าสล็อต
     /// </summary>
+    private IEnumerator RefillAnimatedCo()
+    {
+        if (letterTilePrefab == null) yield break;
+        if (TileBag.Instance == null) yield break;
+        if (tileSpawnAnchor == null) { RefillImmediate(); yield break; }
+
+        // เด้งถุง (ใช้ Tools: Animator ที่ถุง + Trigger 'Refill')
+        if (tileBagAnimator) tileBagAnimator.SetTrigger("Refill");
+
+        // รวมช่องว่างทั้งหมด (ซ้าย→ขวา)
+        var emptySlots = new List<Transform>();
+        foreach (var slot in slotTransforms)
+            if (slot != null && slot.childCount == 0) emptySlots.Add(slot);
+
+        // เติมทีละช่อง
+        foreach (var slot in emptySlots)
+        {
+            var data = TileBag.Instance.DrawRandomTile();
+            if (data == null) break;
+
+            // สร้างตัวที่ anchor (ใต้ Anchor, ให้ลอยอยู่)
+            var tileGO = Instantiate(letterTilePrefab, tileSpawnAnchor, false);
+            var tile   = tileGO.GetComponent<LetterTile>();
+            if (tile != null) tile.Setup(data);
+
+            var rt = tileGO.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                // เริ่มเหนือ anchor นิดหน่อย
+                rt.anchoredPosition = new Vector2(0f, spawnHoverHeight);
+
+                // ลอยนิ่งสั้น ๆ (sin-bob เล็กน้อย)
+                float t = 0f, dur = Mathf.Max(0.0001f, spawnHoverTime);
+                while (t < dur)
+                {
+                    t += Time.unscaledDeltaTime;
+                    float k = Mathf.Clamp01(t / dur);
+                    float bob = Mathf.Sin(k * Mathf.PI) * 6f; // โยกเบา ๆ
+                    rt.anchoredPosition = new Vector2(0f, spawnHoverHeight + bob);
+                    yield return null;
+                }
+            }
+
+            // บินเข้าสล็อตจริง
+            if (tile != null)
+            {
+                tile.FlyTo(slot);
+                SfxPlayer.Play(SfxId.TileTransfer);
+                // เว้นจังหวะเล็กน้อยให้เห็นลำดับ (ไม่ต้องรอจนบินถึง 100%)
+                yield return new WaitForSecondsRealtime(refillStagger);
+            }
+            else
+            {
+                // fallback: วางแบบปกติ
+                CreateTileInSlot(slot, data);
+                yield return new WaitForSecondsRealtime(refillStagger);
+            }
+        }
+
+        _refillCo = null;
+    }
+    // เติม 1 ช่อง (ถ้าไม่ส่ง prefer จะหา First Empty ให้เอง)
+    // forceImmediate = true เพื่อข้ามอนิเมชันและวางลงช่องทันที
+    public void RefillOneSlot(BenchSlot prefer = null, bool forceImmediate = false)
+    {
+        if (!CanAutoRefill()) return;
+
+        // เลือกช่องเป้าหมาย
+        Transform slotT = null;
+        if (prefer != null && prefer.transform.childCount == 0) slotT = prefer.transform;
+        else
+        {
+            foreach (var s in slotTransforms)
+                if (s != null && s.childCount == 0) { slotT = s; break; }
+        }
+        if (slotT == null) return;                       // ไม่มีช่องว่าง
+        if (TileBag.Instance == null) return;            // ไม่มีถุง
+
+        bool wantAnim = animateRefill && !forceImmediate && tileSpawnAnchor && letterTilePrefab;
+
+        // ถ้ากำลังคิดคะแนน → รอก่อนค่อยเติมแบบอนิเมชัน
+        if (wantAnim && TurnManager.Instance != null && TurnManager.Instance.IsScoringAnimation)
+        {
+            StartCoroutine(RefillOneAfterScoring(slotT));
+            return;
+        }
+
+        if (wantAnim) StartCoroutine(RefillOneAnimated(slotT));
+        else
+        {
+            var data = TileBag.Instance.DrawRandomTile();
+            if (data == null) return;
+            CreateTileInSlot(slotT, data);
+        }
+    }
+
+    private IEnumerator RefillOneAfterScoring(Transform slotT)
+    {
+        while (TurnManager.Instance != null && TurnManager.Instance.IsScoringAnimation)
+            yield return null;
+        yield return RefillOneAnimated(slotT);
+    }
+
+    private IEnumerator RefillOneAnimated(Transform slotT)
+    {
+        if (slotT == null || TileBag.Instance == null || letterTilePrefab == null || tileSpawnAnchor == null)
+            yield break;
+
+        // เด้งถุง (ถ้าตั้ง Animator)
+        if (tileBagAnimator) tileBagAnimator.SetTrigger("Refill");
+
+        var data = TileBag.Instance.DrawRandomTile();
+        if (data == null) yield break;
+
+        // สร้างตัวที่ anchor แล้วโคลงนิดหน่อยก่อนบินเข้า
+        var tileGO = Instantiate(letterTilePrefab, tileSpawnAnchor, false);
+        var tile   = tileGO.GetComponent<LetterTile>();
+        tile.Setup(data);
+
+        var rt = tileGO.GetComponent<RectTransform>();
+        if (rt != null)
+        {
+            rt.anchoredPosition = new Vector2(0f, spawnHoverHeight);
+            float t = 0f, dur = Mathf.Max(0.0001f, spawnHoverTime);
+            while (t < dur)
+            {
+                t += Time.unscaledDeltaTime;
+                float k = Mathf.Clamp01(t / dur);
+                float bob = Mathf.Sin(k * Mathf.PI) * 6f;
+                rt.anchoredPosition = new Vector2(0f, spawnHoverHeight + bob);
+                yield return null;
+            }
+        }
+
+        if (tile != null)
+        {
+            tile.FlyTo(slotT);
+            SfxPlayer.Play(SfxId.TileTransfer);
+        }
+    }
+    #endregion
+    // ======================================================
+
+    #region Bench Utils / Specials (เดิม)
     public void ReturnTileToBench(LetterTile tile)
     {
         if (tile == null) return;
 
-        foreach (Transform slot in slotTransforms) // ซ้าย → ขวา
+        foreach (Transform slot in slotTransforms)
         {
             if (slot == null) continue;
             if (slot.childCount == 0)
@@ -351,14 +506,10 @@ public class BenchManager : MonoBehaviour
             }
         }
 
-        // Bench เต็ม (ไม่น่าจะเกิดบ่อย) → คืนตัวอักษรเข้า TileBag แล้วทำลาย GameObject
         if (TileBag.Instance != null) TileBag.Instance.ReturnTile(tile.GetData());
         Destroy(tile.gameObject);
     }
 
-    /// <summary>
-    /// เวอร์ชันเดิม: คืน Tile ไปยัง “ช่องแรกที่ว่าง” (ชื่อคงไว้ เผื่อมีที่อื่นเรียก)
-    /// </summary>
     public void ReturnTile(LetterTile tile)
     {
         if (tile == null) return;
@@ -380,16 +531,12 @@ public class BenchManager : MonoBehaviour
         RefillEmptySlots();
     }
 
-    /// <summary>
-    /// เลื่อนช่องตั้งแต่ถัดจาก removedIndex ให้ไหลมาชิดซ้าย (ช่องท้ายสุดจะว่าง)
-    /// </summary>
     public void CollapseFrom(int removedIndex)
     {
         for (int k = removedIndex + 1; k < slotTransforms.Count; k++)
             MoveChildToSlot(slotTransforms[k], slotTransforms[k - 1]);
     }
 
-    /// <summary>คืน BenchSlot แรกที่ว่าง</summary>
     public BenchSlot GetFirstEmptySlot()
     {
         foreach (Transform t in slotTransforms)
@@ -404,9 +551,6 @@ public class BenchManager : MonoBehaviour
         return null;
     }
 
-    /// <summary>
-    /// เมธอดช่วย: สร้าง LetterTile ลงใน slot ที่กำหนด และ SetUp + ปรับขนาดให้พอดี
-    /// </summary>
     private void CreateTileInSlot(Transform slot, LetterData data)
     {
         if (slot == null || data == null || letterTilePrefab == null) return;
@@ -422,41 +566,25 @@ public class BenchManager : MonoBehaviour
             tile.AdjustSizeToParent();
         }
     }
-    #endregion
-    // ======================================================
 
-    #region Bench FX / Specials
-    /// <summary>
-    /// (8) Full Rerack – ลบไทล์ทั้งหมดใน Bench แล้วสุ่มชุดใหม่จาก TileBag เติมเต็มทุกช่อง
-    /// </summary>
     public void FullRerack()
     {
         foreach (Transform slot in slotTransforms)
         {
             if (slot == null) continue;
             if (slot.childCount > 0)
-            {
-                // child ตัวเดียวคือ LetterTile
                 Destroy(slot.GetChild(0).gameObject);
-            }
         }
         RefillEmptySlots();
     }
 
-    /// <summary>
-    /// (9/10) ReplaceRandomWithSpecial(count)
-    /// - สุ่มช่องที่มีไทล์อยู่ แล้วแทนที่ด้วยตัวพิเศษจาก TileBag จำนวน count ช่อง
-    /// </summary>
     public void ReplaceRandomWithSpecial(int count)
     {
         if (TileBag.Instance == null || letterTilePrefab == null) return;
 
         var filledSlots = new List<Transform>();
         foreach (var slot in slotTransforms)
-        {
-            if (slot != null && slot.childCount > 0)
-                filledSlots.Add(slot);
-        }
+            if (slot != null && slot.childCount > 0) filledSlots.Add(slot);
         if (filledSlots.Count == 0) return;
 
         for (int i = 0; i < count && filledSlots.Count > 0; i++)
@@ -465,35 +593,25 @@ public class BenchManager : MonoBehaviour
             Transform slot = filledSlots[idx];
             if (slot == null) { filledSlots.RemoveAt(idx); continue; }
 
-            // ลบตัวเดิม
             if (slot.childCount > 0) Destroy(slot.GetChild(0).gameObject);
 
-            // ดึงตัวพิเศษจาก TileBag (วนจนเจอหรือถุงหมด)
             LetterData data = null;
-            int safety = 200; // ป้องกันลูปยาวเกินไป
+            int safety = 200;
             while (safety-- > 0)
             {
                 var d = TileBag.Instance.DrawRandomTile();
                 if (d == null) break;
                 if (d.isSpecial) { data = d; break; }
             }
+            if (data != null) CreateTileInSlot(slot, data);
 
-            if (data != null)
-            {
-                CreateTileInSlot(slot, data);
-            }
-
-            filledSlots.RemoveAt(idx); // กันแทนที่ช่องเดิมซ้ำ
+            filledSlots.RemoveAt(idx);
         }
     }
 
-    /// <summary>
-    /// OmniSpark – ทำให้ทุกตัวใน Bench กลายเป็น special (ถ้ามีตัวอยู่)
-    /// </summary>
     public void OmniSpark()
     {
         bool anyConverted = false;
-
         foreach (Transform slot in slotTransforms)
         {
             if (slot == null || slot.childCount == 0) continue;
@@ -505,12 +623,11 @@ public class BenchManager : MonoBehaviour
                 if (data != null)
                 {
                     data.isSpecial = true;
-                    lt.Setup(data); // อัปเดต UI ให้เห็นกรอบ special (ถ้า LetterTile รองรับ)
+                    lt.Setup(data);
                     anyConverted = true;
                 }
             }
         }
-
         if (anyConverted)
             Debug.Log("[BenchManager] OmniSpark: ทุกตัวใน Bench กลายเป็น special แล้ว");
         else

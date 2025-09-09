@@ -36,22 +36,55 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
     [HideInInspector] public bool IsLocked = false;
 
     private Coroutine _flashCo;
+    [Header("Hover (Animator optional)")]
+    public RectTransform pulseRoot;                  // รากที่ใช้สเกล (ครอบทั้ง highlight และกราฟิกช่อง)
+    public Animator hoverAnimator;                   // Animator ที่อยู่บน pulseRoot (ถ้าไม่ใส่จะ auto-get)
+    public string pulseTrigger = "Pulse";            // ชื่อ Trigger ที่ให้เด้ง
+    public string pulseStateTag = "Pulse";           // Tag ของสเตตเด้ง (ตั้งใน Animator)
+    public string previewBool = "PreviewOn";         // (ทางเลือก) ไว้ set bool ให้ Animator รู้ว่ากำลัง preview
+    public bool useUnscaledTimeForAnimator = true;   // ให้เด้งตอน Time.timeScale=0 ได้
+    Coroutine _hoverCo;       // สำหรับ fallback
+    Coroutine _waitAnimCo;    // รอ Animator จบ
+    bool _pendingHide;        // ขอซ่อนหลังจบแอนิเมชัน
+    bool _pulsePlaying;       // กำลังเด้งอยู่ไหม
+    // Fallback (ถ้าไม่ใช้ Animator)
+    [Range(1f, 1.2f)] public float hoverScale = 1.08f;
+    [Range(0.05f, 0.4f)] public float hoverDuration = 0.18f;   // เวลา “ขยายเข้า”
+    [Range(0.05f, 0.4f)] public float hoverOutDuration = 0.06f; // เวลา “หดออก”
+    public AnimationCurve hoverEase = AnimationCurve.EaseInOut(0,0,1,1);
+    // ชื่อ state Idle ใน Animator (สะกดตามคลิปคุณ)
+    public string idleStateName = "Idel";
+    static BoardSlot s_currentPreview;
+    
+    RectTransform PulseTarget => pulseRoot ? pulseRoot : (transform as RectTransform);
 
     // ===================== Unity Lifecycle =====================
+
+    void ResetPulseScale()
+    {
+        var t = PulseTarget; if (t) t.localScale = Vector3.one;
+    }
     void Awake()
     {
-        if (highlight != null)
-        {
-            highlight.raycastTarget = false;
-            highlight.enabled = false; // เริ่มปิดไว้
-        }
-        if (icon != null) icon.raycastTarget = false;
+        if (highlight) { highlight.raycastTarget = false; highlight.enabled = false; }
+        if (icon) icon.raycastTarget = false;
+
+        if (!pulseRoot) pulseRoot = transform as RectTransform;     // ใช้ตัวช่องเป็นรากตามค่าเริ่ม
+        if (!hoverAnimator && pulseRoot) hoverAnimator = pulseRoot.GetComponent<Animator>();
+        if (hoverAnimator && useUnscaledTimeForAnimator)
+            hoverAnimator.updateMode = AnimatorUpdateMode.UnscaledTime;
     }
 
     void OnDisable()
     {
-        // กันคอร์รุตีนค้างอ้างอิงวัตถุที่ถูกทำลาย/ปิด
         CancelFlash();
+
+        if (_hoverCo != null) { StopCoroutine(_hoverCo); _hoverCo = null; }
+        if (_waitAnimCo != null) { StopCoroutine(_waitAnimCo); _waitAnimCo = null; }
+        _pendingHide = false; _pulsePlaying = false;
+
+        if (highlight) highlight.enabled = false;
+        if (PulseTarget) PulseTarget.localScale = Vector3.one;
     }
 
     // ===================== Setup/Visual =====================
@@ -178,19 +211,155 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
     }
 
     /// <summary>ให้ PlacementManager เรียก: เปิดพรีวิวไฮไลต์สีที่กำหนด</summary>
+    // === ShowPreview: ขยาย + ค้าง (Animator ถ้ามี, ไม่งั้น fallback) ===
     public void ShowPreview(Color color)
     {
-        if (highlight == null) return;
+        if (!highlight) return;
+
+        // เอาไฮไลต์ขึ้นบนสุดและเปิดสี
         highlight.transform.SetAsLastSibling();
         highlight.enabled = true;
         highlight.color = color;
+
+        if (hoverAnimator) // --- ใช้ Animator ---
+        {
+            if (useUnscaledTimeForAnimator)
+                hoverAnimator.updateMode = AnimatorUpdateMode.UnscaledTime;
+
+            // ยกเลิกคอร์รุตีนก่อนหน้า (ถ้ามี)
+            if (_hoverCo != null) { StopCoroutine(_hoverCo); _hoverCo = null; }
+            if (_waitAnimCo != null) { StopCoroutine(_waitAnimCo); _waitAnimCo = null; }
+
+            // ถือค้างด้วย PreviewOn และ (ถ้าต้องการ) เด้งสั้นๆ หนึ่งทีตอนเริ่ม
+            if (!string.IsNullOrEmpty(previewBool))
+                hoverAnimator.SetBool(previewBool, true);
+
+            if (!string.IsNullOrEmpty(pulseTrigger))
+            {
+                hoverAnimator.ResetTrigger(pulseTrigger);
+                hoverAnimator.SetTrigger(pulseTrigger);   // optional
+            }
+            return;
+        }
+
+        // --- Fallback (ไม่มี Animator) → ใช้โค้ดคุมสเกล ---
+        if (_hoverCo != null) StopCoroutine(_hoverCo);
+        _hoverCo = StartCoroutine(HoverHoldCo(targetScale: hoverScale, dur: hoverDuration, disableAtEnd:false));
     }
 
-    /// <summary>ให้ PlacementManager เรียก: ปิดพรีวิวไฮไลต์</summary>
+    // === HidePreview: ค่อยๆ หดกลับ แล้วค่อยปิดไฮไลต์ ===
     public void HidePreview()
     {
-        if (highlight == null) return;
-        highlight.enabled = false;
+        if (!highlight) return;
+
+        if (hoverAnimator) // --- ใช้ Animator ---
+        {
+            if (!string.IsNullOrEmpty(previewBool))
+                hoverAnimator.SetBool(previewBool, false);
+
+            // รอเวลาหดแล้วค่อยปิดไฮไลต์ (อิงเวลา transition ออกจาก Inspector)
+            if (_waitAnimCo != null) StopCoroutine(_waitAnimCo);
+            _waitAnimCo = StartCoroutine(WaitPreviewOffCo());
+            return;
+        }
+
+        // --- Fallback (ไม่มี Animator) ---
+        if (_hoverCo != null) StopCoroutine(_hoverCo);
+        _hoverCo = StartCoroutine(HoverHoldCo(targetScale: 1f, dur: hoverOutDuration, disableAtEnd:true));
+    }
+
+    // คอร์รุตีน “เลื่อนสเกลไปยังเป้าหมาย” แล้ว (ถ้า disableAtEnd=true) ค่อยปิดไฮไลต์ตอนจบ
+    IEnumerator HoverHoldCo(float targetScale, float dur, bool disableAtEnd)
+    {
+        var t = PulseTarget; if (!t) { _hoverCo = null; yield break; }   // PulseTarget = pulseRoot ถ้ามี, ไม่งั้นใช้ RectTransform ของตัวช่อง
+        dur = Mathf.Max(0.0001f, dur);
+
+        Vector3 from = t.localScale;
+        Vector3 to   = Vector3.one * targetScale;
+
+        float time = 0f;
+        while (time < dur && t)
+        {
+            time += Time.unscaledDeltaTime;
+            float a = hoverEase.Evaluate(Mathf.Clamp01(time / dur));
+            t.localScale = Vector3.LerpUnclamped(from, to, a);
+            yield return null;
+        }
+
+        if (t) t.localScale = to;
+        _hoverCo = null;
+
+        if (disableAtEnd)
+            highlight.enabled = false;
+    }
+
+    IEnumerator WaitPreviewOffCo()
+    {
+        // safety: รอเท่ากับเวลาทรานซิชันออก (ตั้งใน Inspector)
+        float t = 0f, wait = Mathf.Max(0.05f, hoverOutDuration);
+        while (t < wait)
+        {
+            t += Time.unscaledDeltaTime;
+            yield return null;
+        }
+        if (highlight) highlight.enabled = false;
+        if (PulseTarget) PulseTarget.localScale = Vector3.one;
+        _waitAnimCo = null;
+    }
+
+    // (ถ้าต้องการแบบ event-driven) ใส่ Animation Event ปลายคลิปเรียกเมธอดนี้
+    public void Animator_PulseComplete()
+    {
+        _pulsePlaying = false;
+        if (_pendingHide)
+        {
+            _pendingHide = false;
+            if (highlight) highlight.enabled = false;
+            if (PulseTarget) PulseTarget.localScale = Vector3.one;
+            if (hoverAnimator) hoverAnimator.SetBool(previewBool, false);
+        }
+    }
+
+    // ===== Fallback: เด้งด้วยโค้ด โดยสเกลที่ pulseRoot (ช่องทั้งก้อน + highlight จะเด้งพร้อมกัน) =====
+    IEnumerator HoverPulseCo()
+    {
+        _pendingHide = false;
+        var t = PulseTarget; if (!t) { _hoverCo = null; yield break; }
+
+        float dur = Mathf.Max(0.0001f, hoverDuration);
+        float half = dur * 0.5f;
+
+        float time = 0f;
+        Vector3 from = Vector3.one;
+        Vector3 to = Vector3.one * hoverScale;
+        while (time < half && t)
+        {
+            time += Time.unscaledDeltaTime;
+            float a = hoverEase.Evaluate(Mathf.Clamp01(time / half));
+            t.localScale = Vector3.LerpUnclamped(from, to, a);
+            yield return null;
+        }
+
+        time = 0f;
+        from = t ? t.localScale : Vector3.one * hoverScale;
+        to = Vector3.one;
+        while (time < half && t)
+        {
+            time += Time.unscaledDeltaTime;
+            float a = hoverEase.Evaluate(Mathf.Clamp01(time / half));
+            t.localScale = Vector3.LerpUnclamped(from, to, a);
+            yield return null;
+        }
+
+        if (t) t.localScale = Vector3.one;
+        _hoverCo = null;
+
+        if (_pendingHide)
+        {
+            _pendingHide = false;
+            if (highlight) highlight.enabled = false;
+            if (PulseTarget) PulseTarget.localScale = Vector3.one;
+        }
     }
 
     // ===================== Tile helpers =====================

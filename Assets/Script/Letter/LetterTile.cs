@@ -53,12 +53,15 @@ public class LetterTile : MonoBehaviour,
     // NOTE: STATE_IDLE ไม่ได้ใช้งาน → ตัดออก
     [SerializeField] private string STATE_DRAG   = "Draggloop";
     [SerializeField] private string STATE_SETTLE = "Settle";
+    // บนคลาสเดียวกับ PlaySettle()
+    static readonly int HASH_DRAGGING = Animator.StringToHash("Dragging");
+    static readonly int HASH_INSPACE  = Animator.StringToHash("InSpace");
+    const string STATE_SPACEWAVE = "SpaceWave";
 
     [SerializeField] private float settleDuration = 0.22f; // ความยาวคลิป Settle
     [SerializeField] private float settleDebounce = 0.10f; // กันสั่งซ้อนถี่เกินไป
     private float lastSettleTime = -999f;
 
-    private static readonly int HASH_DRAGGING = Animator.StringToHash("Dragging");
 
     // ===================== Canvas / Rect =====================
     private Canvas canvas;           // Canvas หลัก (ใช้เป็นเลเยอร์ลาก/บิน)
@@ -233,8 +236,17 @@ public class LetterTile : MonoBehaviour,
         if (Time.unscaledTime - lastSettleTime < settleDebounce) return;
         lastSettleTime = Time.unscaledTime;
 
+        // 1) บอกสถานะให้ Animator รู้ก่อนว่าอยู่ Space ไหม
+        bool inSpace = transform.parent && transform.parent.GetComponent<SpaceSlot>() != null;
+        visualAnimator.updateMode = AnimatorUpdateMode.UnscaledTime; // กัน timeScale=0
         visualAnimator.SetBool(HASH_DRAGGING, false);
+        visualAnimator.SetBool(HASH_INSPACE,  inSpace);
+
+        // 2) เล่น Settle สั้น ๆ
         visualAnimator.CrossFadeInFixedTime(STATE_SETTLE, 0.02f, 0, 0f);
+
+        // (ทางเลือก) ถ้าอยาก “การันตี” เข้าคลื่นหลังจบ Settle แม้กราฟผิดพลาด:
+        //StartCoroutine(ForceWaveAfterSettle());
     }
 
     // ===================== Click-to-Move =====================

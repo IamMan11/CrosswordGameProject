@@ -41,6 +41,25 @@ public class SpaceManager : MonoBehaviour
 
     private int _lastHoverIndex = -1;
 
+    [Header("Space Clear/Discard Animation")]
+    public float clearStagger = 0.06f;      // ดีเลย์ต่อชิ้นตอน Clear
+    public float discardStagger = 0.03f;    // ดีเลย์ต่อชิ้นตอน Discard
+    [Tooltip("ความยาวคลิป DiscardPop (วินาที) — หน่วงก่อน Destroy")]
+    public float discardClipDuration = 0.30f;
+
+    [Tooltip("ชื่อ Trigger บน Animator ของไทล์")]
+    public string triggerKick = "Kick";
+    public string triggerDiscard = "Discard";
+    Animator GetTileAnimator(LetterTile t)
+    {
+        if (!t) return null;
+        var a = t.visualPivot ? t.visualPivot.GetComponent<Animator>() : null;
+        if (!a) a = t.GetComponent<Animator>() ?? t.GetComponentInChildren<Animator>();
+        if (a) a.updateMode = AnimatorUpdateMode.UnscaledTime;
+        return a;
+    }
+
+
     /* ===================== Unity ===================== */
 
     private void Awake()
@@ -61,7 +80,6 @@ public class SpaceManager : MonoBehaviour
     }
 
     /* ===================== Query / Index ===================== */
-
     /// <summary>คืน index ของช่อง (ไม่พบ = -1)</summary>
     public int IndexOfSlot(Transform t) => slotTransforms.IndexOf(t);
 
@@ -307,37 +325,126 @@ public class SpaceManager : MonoBehaviour
             }
         return list;
     }
+    static void TriggerAnim(Animator a, string trig)
+    {
+        if (!a || string.IsNullOrEmpty(trig)) return;
+        a.ResetTrigger(trig);
+        a.SetTrigger(trig);
+    }
 
-    /* ===================== Discard ===================== */
+    public void ClearAllToBench()
+    {
+        if (!isActiveAndEnabled) { ClearAllImmediate(); return; }
+        StartCoroutine(ClearAllToBenchCo());
+    }
 
-    /// <summary>ลบตัวอักษรทั้งหมดใน Space และหักคะแนน 25% ของคะแนนรวมตัวอักษร</summary>
+    void ClearAllImmediate()
+    {
+        var tiles = GetPreparedTiles();
+        foreach (var t in tiles) BenchManager.Instance?.ReturnTileToBench(t);
+        UpdateDiscardButton();
+    }
+
+    IEnumerator ClearAllToBenchCo()
+    {
+        var tiles = GetPreparedTiles();
+        if (tiles.Count == 0) yield break;
+
+        // 1) หยุด Auto Refill ชั่วคราว (กัน Bench เติมจากถุง)
+        BenchManager.Instance?.PauseAutoRefill();
+        UiGuard.Push();
+        try
+        {
+            // 2) snapshot ช่อง Bench ที่ "ว่าง" ตอนเริ่ม (ซ้าย→ขวา)
+            var empties = new System.Collections.Generic.List<Transform>();
+            if (BenchManager.Instance && BenchManager.Instance.slotTransforms != null)
+                foreach (var s in BenchManager.Instance.slotTransforms)
+                    if (s && s.childCount == 0) empties.Add(s);
+
+            int target = 0;
+            foreach (var tile in tiles)
+            {
+                if (!tile) continue;
+
+                // หยุดคลื่น / ออกสถานะ Space
+                var anim = GetTileAnimator(tile);               // หา Animator ของไทล์
+                TriggerAnim(anim, triggerKick);  // เด้งนิดก่อนบิน (ไม่บังคับ)
+                tile.IsInSpace = false;
+
+                // กำหนดจุดหมายเป็นช่องว่างที่ snapshot ไว้
+                Transform dst = null;
+                if (target < empties.Count) dst = empties[target++];
+                else
+                {
+                    // เผื่อกรณีผิดปกติ ไม่มี snapshot พอ
+                    dst = BenchManager.Instance?.GetFirstEmptySlot()?.transform;
+                }
+
+                if (dst)
+                {
+                    // บินเร็วหน่อย
+                    float bak = tile.flyDuration;
+                    tile.flyDuration = Mathf.Min(bak, 0.18f);
+                    tile.FlyTo(dst);
+                    tile.flyDuration = bak;
+                }
+                else
+                {
+                    // fallback ปลอดภัย
+                    BenchManager.Instance?.ReturnTileToBench(tile);
+                }
+
+                yield return new WaitForSecondsRealtime(0.04f); // หรือ clearStagger
+            }
+        }
+        finally
+        {
+            // 3) ปลดล็อกและอัปเดต UI (แต่ "ไม่ refill")
+            UiGuard.Pop();
+            BenchManager.Instance?.ResumeAutoRefill();
+            UpdateDiscardButton();
+            // ❌ อย่าเรียก BenchManager.Instance.RefillEmptySlots() ที่นี่
+        }
+    }
+
+    // ===================== DISCARD → ลบพร้อมอนิเมชัน =====================
+    // NOTE: คงชื่อ DiscardAll เดิม เพื่อไม่ให้ที่อื่นพัง
     public void DiscardAll()
     {
         var tiles = GetPreparedTiles();
-        if (tiles.Count == 0) return;
+        if (tiles.Count == 0) { UpdateDiscardButton(); return; }
 
-        int sumScores = 0;
-        foreach (var tile in tiles)
-        {
-            var d = tile?.GetData();
-            if (d != null) sumScores += d.score;
-        }
-
-        // หัก 25% (ปัดขึ้น)
-        int penalty = Mathf.CeilToInt(sumScores * 0.25f);
+        // โทษ 25% (รวมจากคะแนนตัวอักษร)
+        int sum = 0;
+        foreach (var t in tiles) { var d = t?.GetData(); if (d != null) sum += d.score; }
+        int penalty = Mathf.CeilToInt(sum * 0.25f);
         TurnManager.Instance?.AddScore(-penalty);
-        if (debug) Debug.Log($"[Space] Discard all – penalty: {penalty}");
 
-        // ทำลายตัวอักษรทั้งหมด แล้วเติม Bench ใหม่
-        foreach (var tile in tiles)
+        StartCoroutine(DiscardAllCo());
+    }
+
+    IEnumerator DiscardAllCo()
+    {
+        var tiles = GetPreparedTiles();
+        if (tiles.Count == 0) yield break;
+
+        UiGuard.Push();
+        try
         {
-            if (tile == null) continue;
-            tile.transform.SetParent(null);
-            Destroy(tile.gameObject);
+            foreach (var tile in tiles)
+            {
+                if (!tile) continue;
+                TileAnimatorBinder.Trigger(GetTileAnimator(tile), triggerDiscard);
+                Destroy(tile.gameObject, Mathf.Max(0.05f, discardClipDuration)); // ลบหลังคลิปจบ
+                yield return new WaitForSecondsRealtime(Mathf.Max(0f, discardStagger));
+            }
         }
-
-        BenchManager.Instance?.RefillEmptySlots();
-        UpdateDiscardButton();
+        finally
+        {
+            UiGuard.Pop();
+            BenchManager.Instance?.RefillEmptySlots();
+            UpdateDiscardButton();
+        }
     }
 
     /* ===================== UI ===================== */
