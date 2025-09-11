@@ -1073,7 +1073,7 @@ public class TurnManager : MonoBehaviour
                 bounced,
                 dictPenaltyApplied ? dictionaryPenaltyPercent : 0
             ));
-        }
+        }   }
         finally
         {
             // เผื่อ exception ใด ๆ — อย่าให้ปุ่มค้าง
