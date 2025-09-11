@@ -55,6 +55,14 @@ public class UICardSelect : MonoBehaviour
 
     Coroutine[] hoverScaleCo;   // ต่อปุ่ม
     static readonly int IdleHash = Animator.StringToHash("Idle_Wave");
+    // เก็บ CanvasGroup ที่เราเปิดแบบโปร่งระหว่างบิน เพื่อคืนค่าทีหลัง
+    struct SavedCG
+    {
+        public CanvasGroup cg;
+        public float alpha;
+        public bool interact, blocks;
+    }
+    readonly List<SavedCG> _revealQueue = new List<SavedCG>();
 
     // ---------- Public states ----------
     public bool IsOpen => panel && panel.activeSelf && panelGroup && panelGroup.alpha > 0.99f;
@@ -150,6 +158,7 @@ public class UICardSelect : MonoBehaviour
             flyToSlotDur);
 
         yield return PulseScale(activeCloneRect, landBounceScale, landBounceDur);
+        RevealActivated();
 
         yield return new WaitForEndOfFrame();
 
@@ -228,6 +237,7 @@ public class UICardSelect : MonoBehaviour
             flyToSlotDur);
 
         yield return PulseScale(activeCloneRect, landBounceScale, landBounceDur);
+        RevealActivated();
         // ⭐ เพิ่มบรรทัดนี้ เพื่อให้ Destroy()/การซ่อนมีผลก่อน
         yield return new WaitForEndOfFrame();
 
@@ -558,17 +568,11 @@ public class UICardSelect : MonoBehaviour
     void EnsureSlotIsLandable(RectTransform target)
     {
         if (!target) return;
-
-        // เปิด GameObject ทั้งสายจนถึง Canvas
         var t = target.transform;
         while (t != null)
         {
-            if (!t.gameObject.activeSelf) t.gameObject.SetActive(true);
-
-            var cg = t.GetComponent<CanvasGroup>();
-            if (cg) { cg.alpha = 1f; cg.blocksRaycasts = true; cg.interactable = true; }
-
-            if (t.GetComponent<Canvas>()) break; // พอถึง Canvas ก็พอ
+            ActivateInvisible(t);      // ← เปิดแต่โปร่ง ไม่เห็น/ไม่รับคลิก
+            if (t.GetComponent<Canvas>()) break;
             t = t.parent;
         }
     }
@@ -612,5 +616,28 @@ public class UICardSelect : MonoBehaviour
 
         // ปิดจริงๆ เพื่อกันเผลอคลิกได้ และกันเห็นในเฟรมแรก
         if (panel.activeSelf) panel.SetActive(false);
+    }
+    void ActivateInvisible(Transform t) {
+        // เปิด GO ถ้ายังปิดอยู่ แล้วทำให้โปร่ง/ไม่รับคลิก
+        if (!t.gameObject.activeSelf) {
+            t.gameObject.SetActive(true);
+            var cg = t.GetComponent<CanvasGroup>() ?? t.gameObject.AddComponent<CanvasGroup>();
+            _revealQueue.Add(new SavedCG { cg=cg, alpha=cg.alpha, interact=cg.interactable, blocks=cg.blocksRaycasts });
+            cg.alpha = 0f;
+            cg.interactable = false;
+            cg.blocksRaycasts = false;
+        }
+    }
+
+    void RevealActivated() {
+        for (int i = 0; i < _revealQueue.Count; i++) {
+            var s = _revealQueue[i];
+            if (!s.cg) continue;
+            // ถ้าของเดิมไม่มี alpha ก็เผยเป็น 1 ไปเลย
+            s.cg.alpha = (s.alpha <= 0f ? 1f : s.alpha);
+            s.cg.interactable   = true;
+            s.cg.blocksRaycasts = true;
+        }
+        _revealQueue.Clear();
     }
 }

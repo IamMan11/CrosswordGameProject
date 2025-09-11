@@ -110,19 +110,33 @@ public class UIManager : MonoBehaviour
         if (cardSlotButtons.Count != cardSlotIcons.Count)
             Debug.LogWarning("[UIManager] จำนวนปุ่มและไอคอนไม่เท่ากัน");
 
+        // ⭐ บังคับเปิดสายพาเรนต์/CanvasGroup ให้แน่ใจว่า UI โหมดแทนที่มองเห็น
+        if (replaceMode) ForceShowReplaceUI();
+
+        // ปุ่มยกเลิก Replace + prompt
+        if (cancelReplacementButton != null)
+            cancelReplacementButton.gameObject.SetActive(replaceMode);
+
+        if (replaceModePromptText != null)
+        {
+            replaceModePromptText.gameObject.SetActive(replaceMode);
+            if (replaceMode) replaceModePromptText.text = "Chose card";
+        }
+
         var sel = GetSelect();
         bool busy = sel != null && (sel.IsOpen || sel.HasActiveClone || sel.IsAnimating);
 
-        if (busy)
+        // ⭐ แก้หลัก: "หน่วงเฉพาะตอนที่ไม่ใช่โหมดแทนที่"
+        if (busy && !replaceMode)
         {
             _pendingCards = new List<CardData>(cards);
-            _pendingReplaceMode = replaceMode;
-
+            _pendingReplaceMode = false;
             if (_applyPendingCo != null) StopCoroutine(_applyPendingCo);
             _applyPendingCo = StartCoroutine(ApplySlotsWhenSafe());
             return;
         }
 
+        // โหมดแทนที่ให้ "อัปเดตทันที" เพื่อผูกปุ่ม ReplaceSlot(index)
         ApplySlotsImmediate(cards, replaceMode);
     }
     private IEnumerator ApplySlotsWhenSafe()
@@ -155,8 +169,8 @@ public class UIManager : MonoBehaviour
         int n = cardSlotButtons.Count;
         for (int i = 0; i < n; i++)
         {
-            var btn   = cardSlotButtons[i];
-            var icon  = (i < cardSlotIcons.Count) ? cardSlotIcons[i] : null;
+            var btn = cardSlotButtons[i];
+            var icon = (i < cardSlotIcons.Count) ? cardSlotIcons[i] : null;
             var hover = btn ? btn.GetComponent<CardSlotUI>() : null;
             if (btn == null || icon == null) continue;
 
@@ -166,7 +180,7 @@ public class UIManager : MonoBehaviour
                 var data = cards[i];
 
                 // กราฟิก
-                icon.sprite  = data.icon;
+                icon.sprite = data.icon;
                 icon.enabled = true;
                 btn.gameObject.SetActive(true);
 
@@ -174,7 +188,7 @@ public class UIManager : MonoBehaviour
                 if (hover != null)
                 {
                     hover.cardInSlot = data;
-                    hover.slotIndex  = index;
+                    hover.slotIndex = index;
                 }
 
                 // Drag helper (มีอยู่เดิม)
@@ -185,7 +199,7 @@ public class UIManager : MonoBehaviour
                 // Click
                 btn.onClick.RemoveAllListeners();
                 if (replaceMode) btn.onClick.AddListener(() => CardManager.Instance?.ReplaceSlot(index));
-                else             btn.onClick.AddListener(() => CardManager.Instance?.UseCard(index));
+                else btn.onClick.AddListener(() => CardManager.Instance?.UseCard(index));
             }
             else
             {
@@ -194,11 +208,47 @@ public class UIManager : MonoBehaviour
                 if (hover != null)
                 {
                     hover.cardInSlot = null;
-                    hover.slotIndex  = index;
+                    hover.slotIndex = index;
                 }
                 var drag = icon.GetComponent<CardDraggable>();
                 if (drag != null) drag.SetData(index, null);
             }
         }
     }
-}
+    // ===== Force show helpers =====
+    void ForceShowTransform(Transform t)
+    {
+        // เปิดขึ้นมาจนถึง Canvas เพื่อกันกรณีพาเรนต์ถูกซ่อน/ปิดไว้
+        while (t != null)
+        {
+            if (!t.gameObject.activeSelf) t.gameObject.SetActive(true);
+
+            var cg = t.GetComponent<CanvasGroup>();
+            if (cg)
+            {
+                if (cg.alpha < 1f) cg.alpha = 1f;
+                cg.blocksRaycasts = true;
+                cg.interactable   = true;
+            }
+
+            if (t.GetComponent<Canvas>()) break;
+            t = t.parent;
+        }
+    }
+
+    void ForceShowReplaceUI()
+    {
+        if (cancelReplacementButton)
+            ForceShowTransform(cancelReplacementButton.transform);
+
+        if (replaceModePromptText)
+            ForceShowTransform(replaceModePromptText.transform);
+
+        // เผื่อกลุ่ม Card Slots ถูกปิดไว้ ตั้งแต่ container ขึ้นไปถึง Canvas
+        if (cardSlotButtons != null)
+        {
+            foreach (var btn in cardSlotButtons)
+                if (btn) { ForceShowTransform(btn.transform); break; } // เอาต้นหนึ่งต้นก็พอ
+        }
+    }
+    }

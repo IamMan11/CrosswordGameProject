@@ -320,38 +320,35 @@ public class CardManager : MonoBehaviour
 
     private IEnumerator ApplyPickAfterEndOfFrame(CardData picked)
     {
-        // ให้ UICardSelect ซ่อน/ทำลายโคลนในเฟรมปัจจุบันให้เรียบร้อยก่อน
+        // ให้ UICardSelect ปิด/ซ่อนโคลนในเฟรมปัจจุบันก่อน
         yield return new WaitForEndOfFrame();
 
-        // ⭐ รอจน panel ปิด, ไม่มีโคลน และไม่อยู่ระหว่างอนิเมชัน
+        // ===== เคส "ช่องเต็ม" → เข้าสู่โหมด Replace ทันที (อย่ารอโคลนหาย) =====
+        if (heldCards.Count >= maxHeldCards)
+        {
+            pendingReplacementCard = picked;
+            isReplaceMode = true;
+
+            // โชว์ UI โหมดแทนที่ทันที เพื่อให้กดสลอตได้
+            UIManager.Instance?.UpdateCardSlots(heldCards, true);
+            yield break; // จบที่นี่ รอผู้เล่นคลิกสลอต → ReplaceSlot/ReplaceWithAnim
+        }
+
+        // ===== เคส "มีที่ว่าง" → ค่อยรอให้ UI ปิด/โคลนหายก่อนอัปเดต =====
         if (uiSelect != null)
             yield return new WaitUntil(() =>
                 !uiSelect.IsOpen && !uiSelect.HasActiveClone && !uiSelect.IsAnimating
             );
 
-        // เผื่อระบบ Layout/Rebuild ของ Unity ให้รออีก 1 เฟรม
-        yield return null;
+        yield return null; // เผื่อ layout รีเฟรช
 
-        if (!isReplaceMode)
-        {
-            if (heldCards.Count < maxHeldCards)
-            {
-                heldCards.Add(picked);
-                UIManager.Instance?.UpdateCardSlots(heldCards);
-            }
-            else
-            {
-                pendingReplacementCard = picked;
-                isReplaceMode = true;
-                UIManager.Instance?.UpdateCardSlots(heldCards, true);
-                yield break;
-            }
-        }
-
+        heldCards.Add(picked);
         UIManager.Instance?.UpdateCardSlots(heldCards);
+
         isReplaceMode = false;
         TryOpenNextSelection();
     }
+
 
     /// <summary>ยกเลิกโหมดแทนที่ แล้วเปิดชุดเดิมซ้ำอีกครั้ง</summary>
     public void CancelReplacement()
