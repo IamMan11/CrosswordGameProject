@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -121,6 +122,7 @@ public static class ScoreManager
                     break;
             }
 
+
             total += letter;
 
             // ถึงตัวสุดท้ายแล้ว → จบลูป
@@ -132,6 +134,9 @@ public static class ScoreManager
 
         // ใช้แล้วเคลียร์ override (ดีไซน์เดิม)
         doubleLetterOverride = 0;
+        doubleWordOverride   = 0;
+
+        return total * Mathf.Max(1, wordMul);
         doubleWordOverride   = 0;
 
         return total * Mathf.Max(1, wordMul);

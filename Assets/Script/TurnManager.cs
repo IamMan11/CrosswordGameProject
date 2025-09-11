@@ -55,6 +55,12 @@ public class TurnManager : MonoBehaviour
     [Header("Scoring Overlay / FX")]
     public GameObject inputBlocker;       // ภาพทับทั้งจอ (Raycast Target = true)
     public Animator scoreOverlayAnimator; // แอนิเมชันโอเวอร์เลย์คะแนน
+    public GameObject inputBlocker;
+    public Animator scoreOverlayAnimator;
+    public TMP_Text phaseLabel;
+    public float letterStepDelay = 0.08f;
+    public float setDelay = 0.20f;
+    public float phaseDelay = 0.25f;
     public bool pauseTimeDuringScoring = true;
 
     [Header("Score Pop (Anchors & Prefab)")]
@@ -89,14 +95,20 @@ public class TurnManager : MonoBehaviour
 
         if (confirmBtn != null) confirmBtn.onClick.AddListener(OnConfirm);
         else Debug.LogWarning("[TurnManager] confirmBtn not assigned.");
+        if (confirmBtn != null) confirmBtn.onClick.AddListener(OnConfirm);
+        else Debug.LogWarning("[TurnManager] confirmBtn not assigned.");
     }
 
     void OnDisable()
     {
         if (confirmBtn != null) confirmBtn.onClick.RemoveListener(OnConfirm);
+        if (confirmBtn != null) confirmBtn.onClick.RemoveListener(OnConfirm);
 
         if (fadeCo != null) { StopCoroutine(fadeCo); fadeCo = null; }
         if (manaInfiniteCoroutine != null) { StopCoroutine(manaInfiniteCoroutine); manaInfiniteCoroutine = null; }
+
+        // กันหลงเหลือสถานะชั่วคราว
+        ScoreManager.ClearZeroScoreTiles();
     }
 
     void Start()
@@ -117,9 +129,30 @@ public class TurnManager : MonoBehaviour
 
     void Update()
     {
+        if (inConfirmProcess) return;
+        if (confirmBtn == null) return;
+
         if (inConfirmProcess || confirmBtn == null) return;
         confirmBtn.interactable = BoardHasAnyTile();
+
+        var bm = BoardManager.Instance;
+        if (bm == null || bm.grid == null) { confirmBtn.interactable = false; return; }
+
+        bool hasTile = false;
+        int rowCount = bm.grid.GetLength(0);
+        int colCount = bm.grid.GetLength(1);
+        for (int r = 0; r < rowCount; r++)
+        {
+            for (int c = 0; c < colCount; c++)
+            {
+                var slot = bm.grid[r, c];
+                if (slot != null && slot.HasLetterTile()) { hasTile = true; break; }
+            }
+            if (hasTile) break;
+        }
+        confirmBtn.interactable = hasTile;
     }
+
 
     /* ===================== Helpers (UI/Overlay) ===================== */
 
@@ -166,6 +199,9 @@ public class TurnManager : MonoBehaviour
 
         // ปลด hold เพื่อให้ RandomCard UI โชว์หลังคิดคะแนนเสร็จ
         CardManager.Instance?.HoldUI(false);
+
+        // เคลียร์ zero-score (ใช้เฉพาะรอบนี้)
+        ScoreManager.ClearZeroScoreTiles();
         IsScoringAnimation = false;
     }
 
@@ -388,6 +424,7 @@ public class TurnManager : MonoBehaviour
     void ShowMessage(string msg, Color? col = null)
     {
         if (messageText == null) return;
+
         if (fadeCo != null) { StopCoroutine(fadeCo); fadeCo = null; }
 
         messageText.text  = msg;
@@ -418,6 +455,23 @@ public class TurnManager : MonoBehaviour
     {
         inConfirmProcess = false;
         if (confirmBtn == null) return;
+
+        var bm = BoardManager.Instance;
+        if (bm == null || bm.grid == null) { confirmBtn.interactable = false; return; }
+
+        bool hasTile = false;
+        int rowCount = bm.grid.GetLength(0);
+        int colCount = bm.grid.GetLength(1);
+        for (int r = 0; r < rowCount; r++)
+        {
+            for (int c = 0; c < colCount; c++)
+            {
+                var slot = bm.grid[r, c];
+                if (slot != null && slot.HasLetterTile()) { hasTile = true; break; }
+            }
+            if (hasTile) break;
+        }
+        confirmBtn.interactable = hasTile;
         confirmBtn.interactable = BoardHasAnyTile();
     }
 
@@ -464,6 +518,10 @@ public class TurnManager : MonoBehaviour
             {
                 var t = s.GetLetterTile(); if (!t) continue;
                 int baseSc = Mathf.Max(0, t.GetData().score);
+
+                // NEW: รองรับ bench issue zero-score
+                if (ScoreManager.IsZeroScoreTile(t)) baseSc = 0;
+
                 int lm     = ScoreManager.EffectiveLetterMulFor(s.type); // DL/TL
                 adds.Add(baseSc * Mathf.Max(1, lm));
             }
@@ -480,6 +538,10 @@ public class TurnManager : MonoBehaviour
             {
                 var t = s.GetLetterTile(); if (!t) continue;
                 int baseSc = Mathf.Max(0, t.GetData().score);
+
+                // NEW: รองรับ bench issue zero-score
+                if (ScoreManager.IsZeroScoreTile(t)) baseSc = 0;
+
                 int lm     = ScoreManager.EffectiveLetterMulFor(s.type); // DL/TL
                 steps.Add((t, s, baseSc * Mathf.Max(1, lm)));
             }
@@ -528,6 +590,7 @@ public class TurnManager : MonoBehaviour
         LevelManager.Instance?.PauseLevelTimer();
         float prevTimeScale = Time.timeScale;
         Time.timeScale = 0f;
+        Time.timeScale = 0f;
 
         if (scoreOverlayAnimator)
             scoreOverlayAnimator.updateMode = AnimatorUpdateMode.UnscaledTime;
@@ -536,6 +599,8 @@ public class TurnManager : MonoBehaviour
         {
             BeginScoreSequence();
 
+            var letterAdds = BuildLetterAdds(correct);
+            var mulFactors = BuildMultiplierFactors(correct);
             var letterAdds = BuildLetterAdds(correct);
             var mulFactors = BuildMultiplierFactors(correct);
 
@@ -596,7 +661,7 @@ public class TurnManager : MonoBehaviour
             yield return new WaitForSecondsRealtime(sectionDelay);
             if (mulRunning <= 0) mulRunning = 1;
 
-            // รวมเข้ากลาง (C)
+            // Join to total
             float joinDur = 0.35f;
             var flyA = uiA.FlyTo(anchorTotal, joinDur);
             var flyB = uiB.FlyTo(anchorTotal, joinDur);
@@ -673,7 +738,6 @@ public class TurnManager : MonoBehaviour
         }
         finally
         {
-            // ==== ออกจากเฟสคิดคะแนน ====
             Time.timeScale = prevTimeScale;
             LevelManager.Instance?.ResumeLevelTimer();
         }
@@ -750,7 +814,6 @@ public class TurnManager : MonoBehaviour
 
     void OnConfirm()
     {
-        // กันกดยืนยันตอนจบเกม
         if (LevelManager.Instance != null && LevelManager.Instance.IsGameOver())
         {
             EnableConfirm();
@@ -773,11 +836,7 @@ public class TurnManager : MonoBehaviour
         try
         {
             var bm = BoardManager.Instance;
-            if (bm == null || bm.grid == null)
-            {
-                EnableConfirm();
-                return;
-            }
+            if (bm == null || bm.grid == null) { EnableConfirm(); return; }
 
             // รวบรวม "ตัวที่วางใหม่" เฉพาะเทิร์นนี้ (ยังไม่ล็อก)
             var placed = new List<(LetterTile t, BoardSlot s)>();
@@ -791,7 +850,6 @@ public class TurnManager : MonoBehaviour
                     var lt = sl.GetLetterTile();
                     if (!lt.isLocked) placed.Add((lt, sl));
                 }
-            }
 
             if (placed.Count == 0) { EnableConfirm(); return; }
 
@@ -802,7 +860,7 @@ public class TurnManager : MonoBehaviour
                 return;
             }
 
-            // ---------- 1) แยกหมวดคำ ----------
+            // ------ 1) แยกหมวดคำ ------
             int minLen = WordChecker.Instance?.minWordLength ?? 2;
             bool IsShort(MoveValidator.WordInfo wi)
                 => string.IsNullOrWhiteSpace(wi.word) || wi.word.Trim().Length < minLen;
@@ -834,7 +892,7 @@ public class TurnManager : MonoBehaviour
                 return;
             }
 
-            // ---------- 2) หา main-word ----------
+            // ------ 2) หา main-word ------
             var placedSet = placed.Select(p => (p.s.row, p.s.col)).ToHashSet();
             MoveValidator.WordInfo mainWord;
             bool hasMain;
@@ -856,7 +914,7 @@ public class TurnManager : MonoBehaviour
 
             LastConfirmedWord = hasMain ? mainWord.word : string.Empty;
 
-            // ---------- 3) เตรียมคำที่จะเด้ง + โทษ ----------
+            // ------ 3) เตรียมคำที่จะเด้ง + โทษ ------
             int penalty = 0;
             var toBounceRed    = new List<MoveValidator.WordInfo>();    // ผิดดิก → หักโทษ
             var toBounceYellow = new List<MoveValidator.WordInfo>();    // สั้น/เตือน → ไม่หัก
@@ -899,12 +957,40 @@ public class TurnManager : MonoBehaviour
             foreach (var w in toBounceYellow) BounceWord(w, placed, Color.yellow, bounced);
             foreach (var w in toBounceDup)    BounceWord(w, placed, Color.yellow, bounced);
 
+            foreach (var w in toBounceRed)    BounceWord(w, placed, Color.red,    bounced);
+            foreach (var w in toBounceYellow) BounceWord(w, placed, Color.yellow, bounced);
+            foreach (var w in toBounceDup)    BounceWord(w, placed, Color.yellow, bounced);
+
             bool skipTurn = mainShort || mainInvalid || mainDuplicate;
 
             // เริ่มเดินเวลาของด่าน เมื่อยืนยันครั้งแรก
             LevelManager.Instance?.OnFirstConfirm();
 
-            // ---------- 5) คำนวณคะแนน ----------
+            // ------ 4) Bench issue (Level 2): mark zero-score letters แบบสุ่มบางตัว ------
+            ScoreManager.ClearZeroScoreTiles();
+            if (LevelManager.Instance != null &&
+                LevelManager.Instance.CurrentLevel >= 0 &&
+                LevelManager.Instance.GetCurrentLevelIndex() == 2 &&     // helper we’ll add in LevelManager
+                LevelManager.Instance.Level2_IsBenchIssueActive())
+            {
+                int k = LevelManager.Instance.Level2_SelectZeroCount(placed.Count);
+                if (k > 0)
+                {
+                    var pool = new List<LetterTile>(placed.Select(p => p.t));
+                    var chosen = new List<LetterTile>();
+                    for (int i = 0; i < k && pool.Count > 0; i++)
+                    {
+                        int idx = Random.Range(0, pool.Count);
+                        chosen.Add(pool[idx]);
+                        pool.RemoveAt(idx);
+                    }
+                    ScoreManager.MarkZeroScoreTiles(chosen);
+                    if (chosen.Count > 0)
+                        ShowMessage($"Bench bug: {chosen.Count} letter(s) score 0", Color.yellow);
+                }
+            }
+
+            // ------ 5) คำนวณคะแนน ------
             int moveScore = 0;
             int newWordCountThisMove = 0;
 
@@ -938,6 +1024,7 @@ public class TurnManager : MonoBehaviour
 
             // Combo (จำนวนคำใหม่ในเทิร์น) สูงสุด x4
             int comboMul = Mathf.Clamp(newWordCountThisMove, 1, 4);
+            if (comboMul > 1) moveScore = Mathf.CeilToInt(moveScore * comboMul);
             if (comboMul > 1) moveScore = Mathf.CeilToInt(moveScore * comboMul);
 
             // ยึด UI แจกการ์ดไว้ก่อน จนกว่าจะจบนับคะแนน
@@ -1014,5 +1101,50 @@ public class TurnManager : MonoBehaviour
             r += dr; c += dc;
         }
         return cnt;
+    }
+
+    void RejectMove(List<(LetterTile t, BoardSlot s)> tiles, string reason, bool applyPenalty)
+    {
+        int penalty = 0;
+        if (applyPenalty)
+        {
+            int sum = tiles.Sum(p => p.t.GetData().score);
+            penalty = Mathf.CeilToInt(sum * 0.5f);
+            Score = Mathf.Max(0, Score - penalty);
+            UpdateScoreUI();
+            LevelManager.Instance?.OnScoreOrWordProgressChanged();
+        }
+
+        foreach (var (t, _) in tiles)
+            SpaceManager.Instance.RemoveTile(t);
+
+        LastConfirmedWord = string.Empty;
+
+        string msg = applyPenalty ? $"{reason}  -{penalty}" : reason;
+        ShowMessage(msg, Color.red);
+        UpdateBagUI();
+        EnableConfirm();
+    }
+
+    // ===== Small helper for tween HUD =====
+    IEnumerator TweenHudScoreTemp(int start, int target, float dur)
+    {
+        float t = 0f; int last = -1;
+        while (t < 1f)
+        {
+            t += Time.unscaledDeltaTime / Mathf.Max(0.001f, dur);
+            int v = Mathf.RoundToInt(Mathf.Lerp(start, target, 1 - Mathf.Pow(1 - t, 3)));
+            if (v != last) { if (scoreText) scoreText.text = $"Score : {v}"; last = v; }
+            yield return null;
+        }
+        if (scoreText) scoreText.text = $"Score : {target}";
+    }
+
+    // ===== Public small helper for LevelManager (index) =====
+    public int GetCurrentLevelIndex()
+    {
+        // LevelConfig.levelIndex (1-based) – return 1/2/3...
+        var cfg = LevelManager.Instance != null ? LevelManager.Instance.levels[LevelManager.Instance.CurrentLevel] : null;
+        return cfg != null ? cfg.levelIndex : 0;
     }
 }
