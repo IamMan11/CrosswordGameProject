@@ -11,7 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using TMPro;
-
+using UnityEngine.SceneManagement;
 public class LevelManager : MonoBehaviour
 {
     public static LevelManager Instance { get; private set; }
@@ -39,6 +39,9 @@ public class LevelManager : MonoBehaviour
     private bool levelTimerRunning;
     bool timerStarted;
     bool timerPaused;
+    [Header("Stage Clear UI")]
+    public StageClearPanel stageClearPanel;
+    public string shopSceneName = "Shop";     // ตั้งชื่อซีน Shop ใน Inspector
 
     // ===== Level 1 – IT words requirement =====
     [Header("Level 1 – IT Words")]
@@ -129,12 +132,16 @@ public class LevelManager : MonoBehaviour
 
     private void Start()
     {
-        if (levels == null || levels.Length == 0)
+        if (levels == null || levels.Length == 0) { Debug.LogError("No level configuration provided!"); return; }
+
+        // ถ้ากลับมาจาก Shop และมีเลเวลถัดไปค้างอยู่ ให้เริ่มที่ค่านั้น
+        int startIndex = 0;
+        if (StageResultBus.HasPendingNextLevel)
         {
-            Debug.LogError("[LevelManager] No level configuration provided!");
-            return;
+            startIndex = Mathf.Clamp(StageResultBus.NextLevelIndex, 0, levels.Length - 1);
+            StageResultBus.ClearNextLevelFlag();
         }
-        SetupLevel(0);
+        SetupLevel(startIndex);
     }
 
     private void OnDisable() => StopAllLoops();
@@ -210,11 +217,10 @@ public class LevelManager : MonoBehaviour
                 level2_benchIssueRoutine = StartCoroutine(Level2_BenchIssueLoop());
         }
 
-        // เงื่อนไขผ่านด่าน
-        if (CheckWinConditions(cfg))
+        // ✅ เงื่อนไขผ่านด่าน
+        if (CheckWinConditions(cfg) && !(TurnManager.Instance?.IsScoringAnimation ?? false))
         {
-            AnnounceLevelComplete();
-            _ = StartCoroutine(GoToNextLevel());
+            ShowStageClearAndShop(cfg);
         }
     }
 
@@ -231,11 +237,34 @@ public class LevelManager : MonoBehaviour
         }
 
         var cfg = GetCurrentConfig();
-        if (cfg != null && CheckWinConditions(cfg))
+        if (CheckWinConditions(cfg) && !(TurnManager.Instance?.IsScoringAnimation ?? false))
         {
-            AnnounceLevelComplete();
-            _ = StartCoroutine(GoToNextLevel());
+            ShowStageClearAndShop(cfg);
         }
+    }
+    private void ShowStageClearAndShop(LevelConfig cfg)
+    {
+        if (phase == GamePhase.Transition || phase == GamePhase.GameOver) return;
+        SetPhase(GamePhase.Transition);
+
+        StopAllLoops(); // หยุดคอร์รุตีน/โซนชั่วคราวของด่าน
+
+        var result = BuildStageResult(cfg);
+
+        // ตัวอย่าง: ย้ายเหรียญเข้าระบบคุณทันที (ถ้ามี Economy)
+        // GameEconomy.Instance.AddCoins(result.totalCoins);
+
+        stageClearPanel?.Show(result, next: () =>
+        {
+            // เก็บค่าที่ต้องใช้ใน Shop/ตอนกลับ
+            StageResultBus.LastResult = result;
+            StageResultBus.NextLevelIndex = Mathf.Clamp(currentLevel + 1, 0, levels.Length - 1);
+            StageResultBus.GameplaySceneName = SceneManager.GetActiveScene().name;
+
+            // ปลด timeScale กันค้างแล้วไป Shop
+            Time.timeScale = 1f;
+            SceneManager.LoadScene(shopSceneName);
+        });
     }
 
     // ===== ด่าน 1: รับคำ IT ถูกแล้วอัปเดต progress =====
@@ -278,6 +307,50 @@ public class LevelManager : MonoBehaviour
         }
 
         return true;
+    }
+    private StageResult BuildStageResult(LevelConfig cfg)
+    {
+        var tm = TurnManager.Instance;
+        int timeUsed = Mathf.FloorToInt(levelTimeElapsed);
+        int wordsUnique = tm != null ? tm.UniqueWordsThisLevel : 0;
+        int turns = tm != null ? tm.ConfirmsThisLevel : 0;
+        int tilesLeft = TileBag.Instance != null ? TileBag.Instance.Remaining : 0;
+        int moveScore = tm != null ? tm.Score : 0;
+
+        // โบนัสคะแนน
+        int timeLeft = Mathf.Max(0, cfg.targetTimeSec - timeUsed);
+        int wordsScoreCount = Mathf.Min(wordsUnique, Mathf.Max(0, cfg.maxWordsForScore));
+        int bonusScore =
+            Mathf.Max(0, Mathf.RoundToInt(timeLeft * cfg.coefTimeScore)) +
+            (wordsScoreCount * cfg.coefWordScore) +
+            (turns * cfg.coefTurnScore) +
+            (tilesLeft * cfg.coefTilesLeftScore);
+
+        int totalScore = Mathf.Max(0, moveScore + bonusScore);
+
+        // เหรียญ
+        int wordsMoneyCount = Mathf.Min(wordsUnique, Mathf.Max(0, cfg.maxWordsForMoney));
+        int bonusCoins =
+            Mathf.Max(0, Mathf.RoundToInt(timeLeft * cfg.coefTimeMoney)) +
+            (wordsMoneyCount * cfg.coefWordMoney) +
+            (turns * cfg.coefTurnMoney) +
+            (tilesLeft * cfg.coefTilesLeftMoney);
+
+        int totalCoins = Mathf.Max(0, cfg.baseCoins + bonusCoins);
+
+        return new StageResult {
+            levelIndex  = cfg.levelIndex,
+            timeUsedSec = timeUsed,
+            words       = wordsUnique,
+            turns       = turns,
+            tilesLeft   = tilesLeft,
+            moveScore   = moveScore,
+            bonusScore  = bonusScore,
+            totalScore  = totalScore,
+            baseCoins   = cfg.baseCoins,
+            bonusCoins  = bonusCoins,
+            totalCoins  = totalCoins
+        };
     }
 
     // ------------------------------ Level flow ------------------------------
@@ -816,6 +889,7 @@ public class LevelManager : MonoBehaviour
         {
             UIManager.Instance?.ShowMessage("x2 Zones appeared!", 2f);
             StartCoroutine(Level2_RevertZonesAfter(duration));
+            Debug.LogWarning("เริ่ม โซน x2");
         }
     }
 
@@ -824,6 +898,7 @@ public class LevelManager : MonoBehaviour
         yield return new WaitForSecondsRealtime(duration);
         Level2_RevertAllZones();
         UIManager.Instance?.ShowMessage("x2 Zones ended", 1.5f);
+        Debug.LogWarning("จบ โซน x2");
     }
 
     private void Level2_RevertAllZones()

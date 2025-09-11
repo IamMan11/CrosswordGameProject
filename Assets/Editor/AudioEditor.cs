@@ -334,15 +334,12 @@ namespace SimblendTools
             {
                 int fadeOutSampleCount = Mathf.FloorToInt(fadeEndDuration * clip.frequency * clip.channels);
                 // Ensure fade out does not exceed the length of the trimmed data
-                int fadeOutStart = trimmedSamples.Length - fadeOutSampleCount;
-
-                for (int i = 0; i < fadeOutSampleCount && i < trimmedSamples.Length; i++)
+                int fadeOutStart = trimmedData.Length - fadeOutSampleCount;
+                for (int i = 0; i < fadeOutSampleCount && i < trimmedData.Length; i++)
                 {
-                    // Calculate the fade factor, which starts at 1 and decreases to 0
                     float fadeFactor = 1f - ((float)i / fadeOutSampleCount);
-
-                    // Apply fade-out to the end of the trimmed data
-                    trimmedData[fadeOutStart + i] *= fadeFactor;
+                    int idx = Mathf.Clamp(fadeOutStart + i, 0, trimmedData.Length - 1);
+                    trimmedData[idx] *= fadeFactor;
                 }
             }
 

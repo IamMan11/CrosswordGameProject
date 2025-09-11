@@ -2409,6 +2409,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 4505266695746796307, guid: d649ff90d1409c74d883490fa830a36c, type: 3}
+      propertyPath: startCoins
+      value: 100
+      objectReference: {fileID: 0}
     - target: {fileID: 6424686999464177413, guid: d649ff90d1409c74d883490fa830a36c, type: 3}
       propertyPath: m_Name
       value: Gamemanager
@@ -6128,7 +6132,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 20531dad03fa272479208c6277d04dd8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  startCoins: 9999
+  startCoins: 100
 --- !u!1 &1867443429
 GameObject:
   m_ObjectHideFlags: 0
