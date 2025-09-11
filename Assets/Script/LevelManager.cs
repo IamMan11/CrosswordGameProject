@@ -1,10 +1,4 @@
-// ========== LevelManager.cs (stable) ==========
-// - เพิ่ม GetCurrentLevelIndex()
-// - ใช้ reflection มอบ CogCoin ถ้ามีจริงใน PlayerProgressSO.data (ไม่พังถ้าไม่มี)
-// - โซน x2 เริ่มทำงานทันทีที่เข้า Level 2 (spawnImmediately) และรันเป็นคาบ
-// - กัน NPE หลายจุด, กัน start ซ้ำ, revert โซนอย่างปลอดภัย
-// - ระบบ Garbled (Level 1) และ Bench Issue/Locked Board (Level 2) คงเดิม แต่ออกแบบกันพังมากขึ้น
-
+// ========== LevelManager.cs (wired with UIManager) ==========
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -198,6 +192,8 @@ public class LevelManager : MonoBehaviour
                 {
                     level2_triangleCheckTimer = 0f;
                     level2_triangleComplete = CheckTriangleComplete();
+                    // >>> อัปเดต UI Indicator ทุกครั้งที่เช็ก
+                    UIManager.Instance?.UpdateTriangleHint(level2_triangleComplete);
                 }
             }
 
@@ -304,7 +300,7 @@ public class LevelManager : MonoBehaviour
         timerPaused  = false;
         UpdateLevelTimerText(levelTimeLimit > 0 ? levelTimeLimit : 0f);
 
-        // ด่าน 1 reset
+        // ===== ด่าน 1 reset =====
         itWordsFound.Clear();
         if (itProgressText)
         {
@@ -319,7 +315,10 @@ public class LevelManager : MonoBehaviour
         level1_garbleResumeTime = 0f;
         if (level1_garbleRoutine != null) { StopCoroutine(level1_garbleRoutine); level1_garbleRoutine = null; }
 
-        // ด่าน 2 reset
+        // แสดง/ซ่อนแผงเดาคำ IT
+        UIManager.Instance?.ShowGarbledUI(cfg.levelIndex == 1 && level1_enableGarbled);
+
+        // ===== ด่าน 2 reset =====
         level2_triangleComplete = false;
         level2_triangleCheckTimer = 0f;
         Level2_RevertAllZones();
@@ -328,6 +327,9 @@ public class LevelManager : MonoBehaviour
         level2_benchIssueActive = false;
         level2_benchIssueEndTime = 0f;
         level2_lastPenalizedWord = "";
+
+        // ซ่อน Triangle hint ตอนเข้าเลเวลอื่น, เปิดตอนเลเวล 2
+        UIManager.Instance?.SetTriangleHintVisible(cfg.levelIndex == 2);
 
         // Prepare board & turn
         if (BoardManager.Instance != null) BoardManager.Instance.GenerateBoard();
@@ -346,9 +348,11 @@ public class LevelManager : MonoBehaviour
             Level2_ApplyThemeAndUpgrades();
             if (level2_enableLockedBoard) Level2_SeedLockedSlots();
 
-            // เริ่มโซน x2 ทันที (กันลืม OnFirstConfirm)
+            // เริ่มโซน x2 ทันที (กันลืม OnFirstConfirm) และอัปเดต triangle hint ครั้งแรก
             if (level2_enablePeriodicX2Zones && level2_x2Routine == null)
                 level2_x2Routine = StartCoroutine(Level2_PeriodicX2Zones(spawnImmediately: true));
+
+            UIManager.Instance?.UpdateTriangleHint(level2_triangleComplete);
         }
 
         Debug.Log($"▶ เริ่มด่าน {cfg.levelIndex} | Time: {cfg.timeLimit}s | Score target: {cfg.requiredScore}");
@@ -417,6 +421,10 @@ public class LevelManager : MonoBehaviour
         if (timerText) timerText.gameObject.SetActive(false);
         if (levelTimerText) levelTimerText.color = win ? Color.green : Color.red;
 
+        // ปิด UI เฉพาะเลเวล
+        UIManager.Instance?.ShowGarbledUI(false);
+        UIManager.Instance?.SetTriangleHintVisible(false);
+
         if (win && GetCurrentConfig()?.levelIndex == 2 && level2_grantWinRewards)
         {
             TryGrantLevel2Rewards(level2_winCogCoin, level2_nextFloorClue);
@@ -429,7 +437,7 @@ public class LevelManager : MonoBehaviour
     {
         if (level1_garbleRoutine != null) { StopCoroutine(level1_garbleRoutine); level1_garbleRoutine = null; }
 
-        if (level2_x2Routine != null)      { StopCoroutine(level2_x2Routine);      level2_x2Routine = null; }
+        if (level2_x2Routine != null)         { StopCoroutine(level2_x2Routine);         level2_x2Routine = null; }
         if (level2_benchIssueRoutine != null) { StopCoroutine(level2_benchIssueRoutine); level2_benchIssueRoutine = null; }
         Level2_RevertAllZones();
     }
@@ -447,7 +455,7 @@ public class LevelManager : MonoBehaviour
         return levels[idx];
     }
 
-    // >>> Public API ที่ TurnManager เคยเรียกหา <<<
+    // >>> Public API ที่ TurnManager หรือไฟล์อื่นอาจเรียก <<<
     public int GetCurrentLevelIndex()
     {
         var cfg = GetCurrentConfig();
@@ -848,7 +856,6 @@ public class LevelManager : MonoBehaviour
         }
         level2_activeZoneChanges.Clear();
     }
-
 
     // ===== Rewards (safe reflection, ไม่พังถ้าไม่มีฟิลด์/พร็อพ) =====
     private void TryGrantLevel2Rewards(int addCogCoin, string clue)
