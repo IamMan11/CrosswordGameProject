@@ -474,6 +474,22 @@ public class LetterTile : MonoBehaviour,
         // Fallback: เด้งด้วยโค้ด
         StartCoroutine(QuickBounceCo());
     }
+    public void PlaySpawnPop()
+    {
+        var anim = FindAnimatorForPulse(); // หา Animator จาก visualPivot/ตัวเอง/ลูก
+        if (anim)
+        {
+            anim.updateMode = AnimatorUpdateMode.UnscaledTime; // เล่นตอน timeScale=0 ได้
+            if (AnimatorHasParam(anim, "Spawn", AnimatorControllerParameterType.Trigger))
+            {
+                anim.ResetTrigger("Spawn");
+                anim.SetTrigger("Spawn");
+                return; // ใช้อนิเมชันจริง
+            }
+        }
+        // ถ้าไม่มี Animator/Trigger → เด้งด้วยโค้ดเป็น fallback
+        StartCoroutine(QuickBounceCo(0.16f, 1.18f));
+    }
 
     private IEnumerator QuickBounceCo(float dur = 0.12f, float scale = 1.15f)
     {

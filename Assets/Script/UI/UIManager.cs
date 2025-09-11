@@ -24,11 +24,23 @@ public class UIManager : MonoBehaviour
 
     [Header("Card Slots")]
     [SerializeField] private List<Button> cardSlotButtons; // ปุ่มกดใช้/แทนที่
-    [SerializeField] private List<Image>  cardSlotIcons;   // ไอคอนการ์ดในช่อง
+    [SerializeField] private List<Image> cardSlotIcons;   // ไอคอนการ์ดในช่อง
 
     [Header("Replace Mode")]
-    [SerializeField] private Button   cancelReplacementButton;
+    [SerializeField] private Button cancelReplacementButton;
     [SerializeField] private TMP_Text replaceModePromptText;
+    // === Defer apply เพื่อกันไอคอนโผล่ก่อนแอนิเมชันบินจบ ===
+    private UICardSelect _uiSelectCached;   // <-- ไม่มี UI.
+    private Coroutine _applyPendingCo;
+    private List<CardData> _pendingCards;
+    private bool _pendingReplaceMode;
+
+    private UICardSelect GetSelect()
+    {
+        if (_uiSelectCached == null)
+            _uiSelectCached = FindObjectOfType<UICardSelect>(true); // หาแม้ inactive
+        return _uiSelectCached;
+    }
 
     void Awake()
     {
@@ -53,9 +65,9 @@ public class UIManager : MonoBehaviour
     }
 
     /// <summary>แสดงหน้าชนะเกม</summary>
-    public void ShowGameWin()      { if (gameWinPanel  != null) gameWinPanel.SetActive(true); }
+    public void ShowGameWin() { if (gameWinPanel != null) gameWinPanel.SetActive(true); }
     /// <summary>แสดงหน้าล้มเหลวในด่าน</summary>
-    public void ShowLevelFail()    { if (levelFailPanel != null) levelFailPanel.SetActive(true); }
+    public void ShowLevelFail() { if (levelFailPanel != null) levelFailPanel.SetActive(true); }
 
     /// <summary>แสดงข้อความสั้นตามค่า default</summary>
     public void ShowMessageDictionary(string message) => ShowMessage(message, displayTime);
@@ -98,6 +110,38 @@ public class UIManager : MonoBehaviour
         if (cardSlotButtons.Count != cardSlotIcons.Count)
             Debug.LogWarning("[UIManager] จำนวนปุ่มและไอคอนไม่เท่ากัน");
 
+        var sel = GetSelect();
+        bool busy = sel != null && (sel.IsOpen || sel.HasActiveClone || sel.IsAnimating);
+
+        if (busy)
+        {
+            _pendingCards = new List<CardData>(cards);
+            _pendingReplaceMode = replaceMode;
+
+            if (_applyPendingCo != null) StopCoroutine(_applyPendingCo);
+            _applyPendingCo = StartCoroutine(ApplySlotsWhenSafe());
+            return;
+        }
+
+        ApplySlotsImmediate(cards, replaceMode);
+    }
+    private IEnumerator ApplySlotsWhenSafe()
+    {
+        var sel = GetSelect();
+        while (sel != null && (sel.IsOpen || sel.HasActiveClone || sel.IsAnimating))
+            yield return null;                 // รอจน UI เลือกการ์ดปิด/จบอนิเมชัน
+
+        yield return new WaitForEndOfFrame();  // เผื่อ layout รีเฟรช
+
+        if (_pendingCards != null)
+            ApplySlotsImmediate(_pendingCards, _pendingReplaceMode);
+
+        _pendingCards = null;
+        _applyPendingCo = null;
+    }
+
+    void ApplySlotsImmediate(List<CardData> cards, bool replaceMode)
+    {
         // ปุ่มยกเลิก Replace + prompt
         if (cancelReplacementButton != null)
             cancelReplacementButton.gameObject.SetActive(replaceMode);
@@ -111,14 +155,12 @@ public class UIManager : MonoBehaviour
         int n = cardSlotButtons.Count;
         for (int i = 0; i < n; i++)
         {
-            var btn  = cardSlotButtons[i];
-            var icon = (i < cardSlotIcons.Count) ? cardSlotIcons[i] : null;
+            var btn   = cardSlotButtons[i];
+            var icon  = (i < cardSlotIcons.Count) ? cardSlotIcons[i] : null;
             var hover = btn ? btn.GetComponent<CardSlotUI>() : null;
-
             if (btn == null || icon == null) continue;
 
             int index = i;
-
             if (i < cards.Count && cards[i] != null)
             {
                 var data = cards[i];
@@ -128,24 +170,22 @@ public class UIManager : MonoBehaviour
                 icon.enabled = true;
                 btn.gameObject.SetActive(true);
 
-                // Hover / Drop info
+                // Hover / meta
                 if (hover != null)
                 {
                     hover.cardInSlot = data;
                     hover.slotIndex  = index;
                 }
 
-                // Drag helper (ถ้ามีระบบลาก)
+                // Drag helper (มีอยู่เดิม)
                 var drag = icon.GetComponent<CardDraggable>();
                 if (drag == null) drag = icon.gameObject.AddComponent<CardDraggable>();
                 drag.SetData(index, data);
 
                 // Click
                 btn.onClick.RemoveAllListeners();
-                if (replaceMode)
-                    btn.onClick.AddListener(() => CardManager.Instance?.ReplaceSlot(index));
-                else
-                    btn.onClick.AddListener(() => CardManager.Instance?.UseCard(index));
+                if (replaceMode) btn.onClick.AddListener(() => CardManager.Instance?.ReplaceSlot(index));
+                else             btn.onClick.AddListener(() => CardManager.Instance?.UseCard(index));
             }
             else
             {
@@ -156,7 +196,6 @@ public class UIManager : MonoBehaviour
                     hover.cardInSlot = null;
                     hover.slotIndex  = index;
                 }
-
                 var drag = icon.GetComponent<CardDraggable>();
                 if (drag != null) drag.SetData(index, null);
             }

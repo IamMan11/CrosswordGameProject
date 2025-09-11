@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections;
 using UnityEngine;
 using System.Linq;
 using UnityEngine.SceneManagement;
@@ -297,23 +298,39 @@ public class CardManager : MonoBehaviour
     }
 
     /// <summary>ถ้าไม่ถูก hold และไม่มี UI เปิด/replace อยู่ จะเปิดชุดถัดไปจากคิว</summary>
-    private void TryOpenNextSelection()
+    void TryOpenNextSelection()
     {
-        if (_uiHoldCount > 0) return;
-        if (isReplaceMode) return;
-        if (optionsQueue.Count == 0) return;
-        if (uiSelect == null) return;           // UI ยังไม่พร้อม
-        if (uiSelect.IsOpen) return;            // มีหน้าเปิดอยู่แล้ว
+        if (_uiHoldCount > 0) { Debug.Log("Hold UI"); return; }
+        if (isReplaceMode)    { Debug.Log("Replace mode pending"); return; }
+        if (optionsQueue.Count == 0) { Debug.Log("No options queued"); return; }
+        if (uiSelect == null) { Debug.Log("No UICardSelect in scene"); return; }
 
-        processedCount++;
+        if (uiSelect.IsOpen || uiSelect.IsWaitingReplace || uiSelect.HasActiveClone)
+        { Debug.Log("UI busy (open/replace/clone)"); return; }
+
         lastOptions = optionsQueue.Dequeue();
         uiSelect.Open(lastOptions, OnCardPicked);
     }
-
     /// <summary>callback เมื่อเลือกการ์ดจาก UI 3 ใบ</summary>
     private void OnCardPicked(CardData picked)
     {
         if (picked == null) { TryOpenNextSelection(); return; }
+        StartCoroutine(ApplyPickAfterEndOfFrame(picked));
+    }
+
+    private IEnumerator ApplyPickAfterEndOfFrame(CardData picked)
+    {
+        // ให้ UICardSelect ซ่อน/ทำลายโคลนในเฟรมปัจจุบันให้เรียบร้อยก่อน
+        yield return new WaitForEndOfFrame();
+
+        // ⭐ รอจน panel ปิด, ไม่มีโคลน และไม่อยู่ระหว่างอนิเมชัน
+        if (uiSelect != null)
+            yield return new WaitUntil(() =>
+                !uiSelect.IsOpen && !uiSelect.HasActiveClone && !uiSelect.IsAnimating
+            );
+
+        // เผื่อระบบ Layout/Rebuild ของ Unity ให้รออีก 1 เฟรม
+        yield return null;
 
         if (!isReplaceMode)
         {
@@ -324,11 +341,10 @@ public class CardManager : MonoBehaviour
             }
             else
             {
-                // เต็ม → เข้าสู่โหมด Replace
                 pendingReplacementCard = picked;
                 isReplaceMode = true;
                 UIManager.Instance?.UpdateCardSlots(heldCards, true);
-                return;
+                yield break;
             }
         }
 
@@ -340,21 +356,47 @@ public class CardManager : MonoBehaviour
     /// <summary>ยกเลิกโหมดแทนที่ แล้วเปิดชุดเดิมซ้ำอีกครั้ง</summary>
     public void CancelReplacement()
     {
-        if (!isReplaceMode) return;
+        if (!isReplaceMode && !(uiSelect != null && (uiSelect.IsWaitingReplace || uiSelect.HasActiveClone)))
+            return;
+
         pendingReplacementCard = null;
         isReplaceMode = false;
+
         UIManager.Instance?.HideMessage();
         UIManager.Instance?.UpdateCardSlots(heldCards);
 
+        if (uiSelect != null) uiSelect.OnReplaceCanceled();
+
         if (uiSelect != null && lastOptions != null && lastOptions.Count > 0)
             uiSelect.Open(lastOptions, OnCardPicked);
+        else
+            TryOpenNextSelection();
     }
 
-    /// <summary>แทนที่การ์ดในช่อง index ด้วย pendingReplacementCard</summary>
     public void ReplaceSlot(int index)
     {
-        if (!isReplaceMode || pendingReplacementCard == null) return;
         if (index < 0 || index >= heldCards.Count) return;
+
+        if (uiSelect != null && (uiSelect.IsWaitingReplace || uiSelect.HasActiveClone))
+        {
+            StartCoroutine(ReplaceWithAnim(index));
+            return;
+        }
+
+        if (!isReplaceMode || pendingReplacementCard == null) return;
+
+        heldCards[index] = pendingReplacementCard;
+        pendingReplacementCard = null;
+        isReplaceMode = false;
+
+        UIManager.Instance?.HideMessage();
+        UIManager.Instance?.UpdateCardSlots(heldCards);
+        TryOpenNextSelection();
+    }
+
+    private IEnumerator ReplaceWithAnim(int index)
+    {
+        yield return uiSelect.AnimatePendingToSlot(index);
 
         heldCards[index] = pendingReplacementCard;
         pendingReplacementCard = null;

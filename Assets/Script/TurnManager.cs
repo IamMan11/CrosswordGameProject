@@ -73,6 +73,8 @@ public class TurnManager : MonoBehaviour
 
     [Header("Dictionary Penalty")]
     [Range(0,100)] public int dictionaryPenaltyPercent = 50;
+    Coroutine bagTweenCo = null;
+    int lastBagShown = -1;
 
     // cache yields
     static readonly WaitForSeconds WFS_06 = new WaitForSeconds(0.6f);
@@ -329,9 +331,56 @@ public class TurnManager : MonoBehaviour
 
     public void UpdateBagUI()
     {
-        if (bagCounterText == null) return;
-        if (TileBag.Instance == null) { bagCounterText.text = "—"; return; }
-        bagCounterText.text = $"{TileBag.Instance.Remaining}/{TileBag.Instance.TotalInitial}";
+        if (bagCounterText == null)
+            return;
+
+        var bag = TileBag.Instance;
+        if (bag == null)
+        {
+            bagCounterText.text = "—";
+            return;
+        }
+
+        int remain = bag.Remaining;
+        int total  = bag.TotalInitial;
+
+        // ค่าแรก ให้เซ็ตตรงๆ
+        if (lastBagShown < 0)
+        {
+            lastBagShown = remain;
+            bagCounterText.text = $"{remain}/{total}";
+            return;
+        }
+
+        // แอนิเมตจากค่าเดิม → ค่าใหม่ (โฟกัสที่ตัวเศษ/Remaining)
+        if (bagTweenCo != null) StopCoroutine(bagTweenCo);
+        bagTweenCo = StartCoroutine(AnimateBagRemaining(lastBagShown, remain, total, 0.20f));
+        lastBagShown = remain;
+    }
+
+    IEnumerator AnimateBagRemaining(int from, int to, int total, float dur)
+    {
+        if (from == to)
+        {
+            bagCounterText.text = $"{to}/{total}";
+            yield break;
+        }
+
+        float t = 0f;
+        int last = from;
+        while (t < 1f)
+        {
+            t += Time.unscaledDeltaTime / Mathf.Max(0.0001f, dur);
+            // ใช้ ease out cubic
+            int v = Mathf.RoundToInt(Mathf.Lerp(from, to, 1 - Mathf.Pow(1 - t, 3)));
+            if (v != last)
+            {
+                bagCounterText.text = $"{v}/{total}";
+                last = v;
+            }
+            yield return null;
+        }
+        bagCounterText.text = $"{to}/{total}";
     }
 
     /* ===================== Message (HUD) ===================== */
