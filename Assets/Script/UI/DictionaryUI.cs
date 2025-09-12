@@ -5,35 +5,42 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
+/// <summary>
+/// DictionaryUI
+/// - หน้าพจนานุกรมในเกม: เลือกความยาวคำ → ดึงคำจากฐาน → กรองด้วยตัวอักษรที่มี (Bench+Space+Blank)
+/// - คลิกคำเพื่อเตรียมไทล์ใน Space ให้พร้อมวาง (รองรับ BLANK ที่ยังไม่ resolve และกรณี resolve แล้ว)
+/// - รองรับแบ่งหน้า (PAGE_SIZE = 10)
+/// </summary>
+[DisallowMultipleComponent]
 public class DictionaryUI : MonoBehaviour
 {
     public static DictionaryUI Instance { get; private set; }
 
     /* ---------- Parents / Prefabs ---------- */
     [Header("Root & Panel")]
-    [SerializeField]  GameObject panel;
+    [SerializeField] GameObject panel;
 
     [Header("Columns (Vertical Layout)")]
-    [SerializeField]  Transform colWord;      // คอลัมน์ซ้าย (ปุ่มคำ)
-    [SerializeField]  Transform colType;      // คอลัมน์กลาง (ชนิดคำ)
-    [SerializeField]  Transform colTrans;     // คอลัมน์ขวา  (คำแปล)
+    [SerializeField] Transform colWord;      // คอลัมน์ซ้าย (ปุ่มคำ)
+    [SerializeField] Transform colType;      // คอลัมน์กลาง (ชนิดคำ)
+    [SerializeField] Transform colTrans;     // คอลัมน์ขวา  (คำแปล)
 
     [Header("Text/Btn Prefabs")]
-    [SerializeField]  Button   prefabWordButton;
-    [SerializeField]  TMP_Text prefabType;
-    [SerializeField]  TMP_Text prefabTrans;
+    [SerializeField] Button   prefabWordButton;
+    [SerializeField] TMP_Text prefabType;
+    [SerializeField] TMP_Text prefabTrans;
 
     [Header("Navigation")]
-    [SerializeField]  Button   btnPrev;
-    [SerializeField]  Button   btnNext;
-    [SerializeField]  Button   btnClear;
-    [SerializeField]  TMP_Text pageLabel;    // "Page X / Y"
+    [SerializeField] Button   btnPrev;
+    [SerializeField] Button   btnNext;
+    [SerializeField] Button   btnClear;
+    [SerializeField] TMP_Text pageLabel;    // "Page X / Y"
 
     [Header("Create-Word Buttons (1-10)")]
-    [SerializeField]  Button[] btnLen;        // index 0 = 1, …, 9 = 10
+    [SerializeField] Button[] btnLen;       // index 0 = 1, …, 9 = 10
 
     [Header("Query Settings")]
-    [SerializeField, Tooltip("ดึงคำจากฐานต่อความยาวสูงสุดกี่คำ ก่อนคัดกรองกับตัวอักษรบน Bench")]
+    [SerializeField, Tooltip("ดึงคำจากฐานต่อความยาวสูงสุดกี่คำ ก่อนคัดกรองกับตัวอักษรบน Bench/Space")]
     private int fetchLimitPerLen = 8000;
 
     [SerializeField, Tooltip("ความยาวคำสูงสุดที่อนุญาตให้กดเลือกได้")]
@@ -41,16 +48,14 @@ public class DictionaryUI : MonoBehaviour
 
     /* ---------- State ---------- */
     const int PAGE_SIZE = 10;
-    int  pageIdx = 0;
-    int  currentLen = 0;                // ความยาวที่กำลังแสดง (0 = ยังไม่เลือก)
-    readonly List<string> viewWords = new(); // รายการคำที่ “ประกอบได้จริง” หลังกรองแล้ว
+    int pageIdx = 0;
+    int currentLen = 0;                  // ความยาวที่กำลังแสดง (0 = ยังไม่เลือก)
+    readonly List<string> viewWords = new(); // คำที่ “ประกอบได้จริง” หลังกรองแล้ว
 
     /* ---------- Awake ---------- */
     void Awake()
     {
-        if (Instance == null) Instance = this;
-        else { Destroy(gameObject); return; }
-
+        if (Instance == null) Instance = this; else { Destroy(gameObject); return; }
         BindButtons();
         if (panel) panel.SetActive(false);
     }
@@ -58,38 +63,49 @@ public class DictionaryUI : MonoBehaviour
     /* ---------- Public API ---------- */
     public void Open()
     {
-        TurnManager.Instance.SetDictionaryUsed();
+        // บันทึกว่าใช้พจนานุกรมในเทิร์นนี้ (ถ้ามีระบบจำกัด)
+        TurnManager.Instance?.SetDictionaryUsed();
 
         if (panel) panel.SetActive(true);
 
-        // เดิม: นับเฉพาะ Bench → ปรับเป็น Bench+Space+Blank
+        // เริ่มจากความยาวเท่าจำนวนตัวทั้งหมดที่มี (Bench+Space+Blank) แต่ไม่เกิน maxLenSelectable และ ≥ 2
         int blank;
         var avail = GetAvailableLetterCounts(out blank);
         int totalLetters = avail.Values.Sum() + blank;
 
         int startLen = Mathf.Clamp(Mathf.Max(2, totalLetters), 2, Math.Max(2, maxLenSelectable));
-        ApplyLengthFilter(startLen, autoFallbackToShorter:true);
+        ApplyLengthFilter(startLen, autoFallbackToShorter: true);
         RenderPage();
     }
 
-    public void Close() { if (panel) panel.SetActive(false); }
+    public void Close()
+    {
+        if (panel) panel.SetActive(false);
+    }
 
     /* ---------- Buttons ---------- */
     void BindButtons()
     {
-        if (btnPrev) btnPrev.onClick.AddListener(OnPrevPage);
-        if (btnNext) btnNext.onClick.AddListener(OnNextPage);
+        if (btnPrev)  btnPrev.onClick.AddListener(OnPrevPage);
+        if (btnNext)  btnNext.onClick.AddListener(OnNextPage);
         if (btnClear) btnClear.onClick.AddListener(OnClear);
 
-        // map ปุ่มยาว 1..N เข้าฟังก์ชันกรองตามความยาว
+        if (btnLen == null) return;
         for (int i = 0; i < btnLen.Length; i++)
         {
-            int len = i + 1;
-            if (len > maxLenSelectable) { btnLen[i].gameObject.SetActive(false); continue; }
+            var b = btnLen[i];
+            if (b == null) continue;
 
-            btnLen[i].onClick.RemoveAllListeners();
-            btnLen[i].onClick.AddListener(() => {
-                ApplyLengthFilter(len, autoFallbackToShorter:false);
+            int len = i + 1;
+            if (len > maxLenSelectable)
+            {
+                b.gameObject.SetActive(false);
+                continue;
+            }
+            b.onClick.RemoveAllListeners();
+            b.onClick.AddListener(() =>
+            {
+                ApplyLengthFilter(len, autoFallbackToShorter: false);
                 RenderPage();
             });
         }
@@ -98,7 +114,7 @@ public class DictionaryUI : MonoBehaviour
     /* ---------- Filtering / Fetching ---------- */
 
     /// <summary>
-    /// ดึงคำจากฐานตามความยาว len แล้วกรองให้ “ประกอบได้จริง” จากตัวอักษรบน Bench
+    /// ดึงคำจากฐานตามความยาว len แล้วกรองให้ “ประกอบได้จริง” จากตัวอักษรบน Bench+Space
     /// ถ้าไม่เจอคำเลยและ autoFallbackToShorter=true จะลองลดความยาวลงทีละ 1 จนถึง 2
     /// </summary>
     void ApplyLengthFilter(int len, bool autoFallbackToShorter)
@@ -112,9 +128,8 @@ public class DictionaryUI : MonoBehaviour
         int blank;
         var avail = GetAvailableLetterCounts(out blank);
 
-        // ถ้า len มากกว่าจำนวนตัวอักษรทั้งหมด (รวม blank) ให้หดลง
+        // ถ้า len มากกว่าจำนวนตัวทั้งหมด (รวม blank) → ลดลง
         int capLen = Mathf.Min(len, Mathf.Max(0, avail.Values.Sum() + blank));
-
         int tryLen = Mathf.Clamp(capLen, 1, maxLenSelectable);
         bool found = false;
 
@@ -141,68 +156,77 @@ public class DictionaryUI : MonoBehaviour
         pageIdx = 0;
     }
 
+    /// <summary>
+    /// นับจำนวนตัวอักษรที่ “ใช้ได้จริงตอนนี้”
+    /// - รวมทั้งจาก BENCH และจาก SPACE
+    /// - ถ้าเป็น BLANK ที่ยัง “ไม่ resolve” → นับเป็นโควต้า blank
+    /// - ถ้า BLANK ถูก resolve แล้ว → นับตามตัวอักษรที่เลือก (เช็คผ่าน LetterTile.CurrentLetter)
+    /// </summary>
     Dictionary<char, int> GetAvailableLetterCounts(out int blankCount)
     {
         var cnt = new Dictionary<char, int>();
-        blankCount = 0;
+        int blanks = 0;
 
         // นับจาก BENCH
-        if (BenchManager.Instance)
-        {
-            foreach (Transform slot in BenchManager.Instance.slotTransforms)
-            {
-                if (slot.childCount == 0) continue;
-                var tile = slot.GetChild(0).GetComponent<LetterTile>();
-                var data = tile.GetData();
-                if (data == null || string.IsNullOrEmpty(data.letter)) continue;
-
-                // BLANK ที่ยังเป็น Blank → เก็บเป็นโควต้า blank
-                if (data.letter.Equals("Blank", StringComparison.OrdinalIgnoreCase))
-                {
-                    blankCount++;
-                }
-                else
-                {
-                    char ch = char.ToUpperInvariant(data.letter[0]);
-                    if (!cnt.ContainsKey(ch)) cnt[ch] = 0;
-                    cnt[ch]++;
-                }
-            }
-        }
+        if (BenchManager.Instance != null)
+            blanks += CountAndTallyFromSlots(BenchManager.Instance.slotTransforms, cnt);
 
         // นับจาก SPACE
-        if (SpaceManager.Instance)
-        {
-            foreach (Transform slot in SpaceManager.Instance.slotTransforms) // ช่อง Space ที่ใช้อยู่
-            {
-                if (slot.childCount == 0) continue;
-                var tile = slot.GetChild(0).GetComponent<LetterTile>();
-                var data = tile.GetData();
-                if (data == null || string.IsNullOrEmpty(data.letter)) continue;
+        if (SpaceManager.Instance != null)
+            blanks += CountAndTallyFromSlots(SpaceManager.Instance.slotTransforms, cnt);
 
-                // หมายเหตุ: ถ้า BLANK ถูกตั้งค่าเป็นตัวอักษรไปแล้ว (score=0 แต่ letter = "A"/"B"...)
-                // เราจะนับตามตัวอักษรนั้นเลย (ไม่ถือเป็น blank อีก)
-                if (data.letter.Equals("Blank", StringComparison.OrdinalIgnoreCase))
+        blankCount = blanks;
+        return cnt;
+    }
+    // เพิ่ม helper เมธอดนี้ (นอกเมธอดอื่น ๆ ในคลาส DictionaryUI)
+    int CountAndTallyFromSlots(IEnumerable<Transform> slots, Dictionary<char, int> cnt)
+    {
+        if (slots == null) return 0;
+
+        int blanks = 0;
+        foreach (var slot in slots)
+        {
+            if (slot == null || slot.childCount == 0) continue;
+
+            var tile = slot.GetChild(0).GetComponent<LetterTile>();
+            if (tile == null) continue;
+
+            // เคส BLANK
+            if (tile.IsBlank)
+            {
+                if (tile.IsBlankResolved)
                 {
-                    blankCount++;
+                    var cl = tile.CurrentLetter;
+                    if (!string.IsNullOrEmpty(cl))
+                    {
+                        char ch = char.ToUpperInvariant(cl[0]);
+                        if (!cnt.ContainsKey(ch)) cnt[ch] = 0;
+                        cnt[ch]++;
+                    }
                 }
                 else
                 {
-                    char ch = char.ToUpperInvariant(data.letter[0]);
-                    if (!cnt.ContainsKey(ch)) cnt[ch] = 0;
-                    cnt[ch]++;
+                    blanks++; // ยังไม่ resolve → นับเป็นโควต้า blank
                 }
+                continue;
             }
-        }
 
-        return cnt;
+            // ตัวอักษรปกติ
+            var data = tile.GetData();
+            if (data == null || string.IsNullOrEmpty(data.letter)) continue;
+
+            char c = char.ToUpperInvariant(data.letter[0]);
+            if (!cnt.ContainsKey(c)) cnt[c] = 0;
+            cnt[c]++;
+        }
+        return blanks;
     }
 
+    /// <summary>ตรวจว่า word นี้ประกอบได้จาก pool + โควต้า blank หรือไม่</summary>
     bool CanMake(string word, Dictionary<char, int> pool, int blankCount)
     {
         if (string.IsNullOrWhiteSpace(word)) return false;
 
-        // ใช้สำเนา (เพื่อลด side-effect)
         var tmp = new Dictionary<char, int>(pool);
         int blanks = blankCount;
 
@@ -210,15 +234,15 @@ public class DictionaryUI : MonoBehaviour
         {
             if (tmp.TryGetValue(c, out int n) && n > 0)
             {
-                tmp[c] = n - 1;   // ใช้ตัวตรง
+                tmp[c] = n - 1;      // ใช้ตัวตรง
             }
             else if (blanks > 0)
             {
-                blanks--;         // ใช้ BLANK แทน
+                blanks--;            // ใช้ BLANK แทน
             }
             else
             {
-                return false;     // ไม่มีตัวพอ
+                return false;        // ไม่มีพอ
             }
         }
         return true;
@@ -234,7 +258,7 @@ public class DictionaryUI : MonoBehaviour
 
         if (currentLen == 0 || viewWords.Count == 0)
         {
-            pageLabel.text = "No results";
+            if (pageLabel) pageLabel.text = "No results";
             if (btnPrev) btnPrev.interactable = false;
             if (btnNext) btnNext.interactable = false;
             return;
@@ -244,7 +268,7 @@ public class DictionaryUI : MonoBehaviour
         pageIdx = Mathf.Clamp(pageIdx, 0, Math.Max(0, totalPages - 1));
 
         int start = pageIdx * PAGE_SIZE;
-        int end   = Mathf.Min(start + PAGE_SIZE, viewWords.Count);
+        int end = Mathf.Min(start + PAGE_SIZE, viewWords.Count);
 
         for (int i = start; i < end; i++)
         {
@@ -252,27 +276,27 @@ public class DictionaryUI : MonoBehaviour
 
             // ปุ่มคำ (ซ้าย)
             var btn = Instantiate(prefabWordButton, colWord, false);
-            btn.GetComponentInChildren<TMP_Text>().text = word;
-            btn.onClick.AddListener(() => OnWordButtonClicked(word));
+            var label = btn ? btn.GetComponentInChildren<TMP_Text>() : null;
+            if (label) label.text = word;
+            if (btn) btn.onClick.AddListener(() => OnWordButtonClicked(word));
 
             // ชนิด/คำแปล (คิวรีทีละคำ — PAGE_SIZE=10 จึงโอเค)
             string pos, th;
-            if (WordChecker.Instance.TryGetInfo(word, out pos, out th))
+            if (WordChecker.Instance != null && WordChecker.Instance.TryGetInfo(word, out pos, out th))
             {
-                Instantiate(prefabType , colType , false).text = pos    ?? "";
-                Instantiate(prefabTrans, colTrans, false).text = th     ?? "";
+                if (prefabType) Instantiate(prefabType,  colType,  false).text = pos ?? "";
+                if (prefabTrans) Instantiate(prefabTrans, colTrans, false).text = th  ?? "";
             }
             else
             {
-                Instantiate(prefabType , colType , false).text = "";
-                Instantiate(prefabTrans, colTrans, false).text = "";
+                if (prefabType)  Instantiate(prefabType,  colType,  false).text = "";
+                if (prefabTrans) Instantiate(prefabTrans, colTrans, false).text = "";
             }
         }
 
         if (btnPrev) btnPrev.interactable = pageIdx > 0;
         if (btnNext) btnNext.interactable = pageIdx < totalPages - 1;
-
-        pageLabel.text = $"Len {currentLen} — Page {pageIdx + 1}/{Mathf.Max(1,totalPages)}";
+        if (pageLabel) pageLabel.text = $"Len {currentLen} — Page {pageIdx + 1}/{Mathf.Max(1, totalPages)}";
     }
 
     void OnPrevPage()
@@ -293,7 +317,7 @@ public class DictionaryUI : MonoBehaviour
         int totalLetters = avail.Values.Sum() + blank;
 
         int startLen = Mathf.Clamp(Mathf.Max(2, totalLetters), 2, Math.Max(2, maxLenSelectable));
-        ApplyLengthFilter(startLen, autoFallbackToShorter:true);
+        ApplyLengthFilter(startLen, autoFallbackToShorter: true);
         RenderPage();
     }
 
@@ -307,11 +331,14 @@ public class DictionaryUI : MonoBehaviour
     /* ---------- Create-Word Action ---------- */
 
     /// <summary>
-    /// ผู้ใช้คลิกคำ → นำไทล์จาก Bench ไปเตรียมวาง (รองรับ BLANK ด้วย)
+    /// ผู้ใช้คลิกคำ → เคลียร์ Space เดิม → ดึงตัวจาก Bench ไปไว้ที่ Space ตามคำที่เลือก
+    /// - ถ้าไม่พอ: พยายามใช้ BLANK (และ resolve ให้เป็นตัวที่ต้องการ)
     /// </summary>
     void OnWordButtonClicked(string word)
     {
-        // เคลียร์ของเดิม
+        if (string.IsNullOrWhiteSpace(word) || SpaceManager.Instance == null) return;
+
+        // เคลียร์ของเดิมใน Space
         foreach (var tile in SpaceManager.Instance.GetPreparedTiles().ToArray())
             SpaceManager.Instance.RemoveTile(tile);
 
@@ -321,35 +348,42 @@ public class DictionaryUI : MonoBehaviour
         foreach (char ch in word.ToUpperInvariant())
         {
             var benchTiles = SpaceManager.Instance.GetAllBenchTiles();
+            if (benchTiles == null || benchTiles.Count == 0) break;
 
-            // 1) หาตัวตรงก่อน
-            LetterTile found = benchTiles.Find(t => string.Equals(
-                t.GetData().letter, ch.ToString(), StringComparison.OrdinalIgnoreCase));
+            // 1) หา "ตัวตรง" ก่อน (รวมเคส BLANK ที่ถูก resolve แล้ว — ใช้ CurrentLetter เปรียบเทียบ)
+            LetterTile found = benchTiles.Find(t =>
+            {
+                if (t == null) return false;
 
-            // 2) ถ้าไม่เจอ — ใช้ BLANK
+                // ถ้าเป็น Blank และ resolve แล้ว → เปรียบเทียบกับ CurrentLetter
+                if (t.IsBlank && t.IsBlankResolved)
+                    return string.Equals(t.CurrentLetter, ch.ToString(), StringComparison.OrdinalIgnoreCase);
+
+                // ตัวปกติ → ใช้ letter จาก data
+                var d = t.GetData();
+                return d != null && string.Equals(d.letter, ch.ToString(), StringComparison.OrdinalIgnoreCase);
+            });
+
+            // 2) ถ้าไม่เจอ → ใช้ BLANK ที่ยังไม่ resolve แล้วตั้งค่าให้เป็นตัวอักษรนี้
             if (found == null)
             {
-                found = benchTiles.Find(t => t.GetData().letter.Equals("Blank", StringComparison.OrdinalIgnoreCase));
+                found = benchTiles.Find(t => t != null && t.IsBlank && !t.IsBlankResolved);
                 if (found != null)
-                {
                     found.ResolveBlank(ch);
-                }
             }
 
-            if (found != null)
-            {
-                SpaceManager.Instance.AddTile(found);
+            // 3) ใส่ลง Space
+            if (found != null && SpaceManager.Instance.AddTile(found))
                 placed++;
-            }
         }
 
         // แจ้งผล
         if (placed == needed)
-            UIManager.Instance.ShowMessageDictionary("Done!");
+            UIManager.Instance?.ShowMessageDictionary("Done!");
         else
-            UIManager.Instance.ShowMessageDictionary("Letter Not Enough!");
+            UIManager.Instance?.ShowMessageDictionary("Letter Not Enough!");
 
-        // พรีวิวการวางลงกระดาน
-        PlacementManager.Instance.TryPlace();
+        // ให้ระบบพรีวิววางลงบอร์ดทันที (ถ้ามี)
+        PlacementManager.Instance?.TryPlace();
     }
 }

@@ -3,6 +3,15 @@ using UnityEngine.UI;
 using TMPro;
 using UnityEngine.EventSystems;
 
+/// <summary>
+/// ShopCardSlot
+/// - แสดงการ์ดในร้านค้า (ไอคอน/ชื่อ/ราคา) + ปุ่มซื้อ
+/// - โชว์ Popup รายละเอียดเมื่อโฮเวอร์
+/// - ตัดสินใจ enable ปุ่มซื้อจากเงื่อนไข: ยังไม่เป็นเจ้าของ && เหรียญพอ
+///
+/// หมายเหตุ: คงการเรียกใช้ Singletons (PlayerProgressSO, CurrencyManager, ShopManager) ตามเดิม
+/// </summary>
+[DisallowMultipleComponent]
 public class ShopCardSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
     [Header("UI")]
@@ -15,53 +24,101 @@ public class ShopCardSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
     [SerializeField] GameObject popupRoot;   // Panel ของ popup (SetActive false ไว้)
     [SerializeField] TMP_Text   popupText;
 
-    CardData card;
+    private CardData card;
 
-    // ให้ ShopManager เรียกเวลาสุ่มใหม่
+    void Awake()
+    {
+        // กันลืม: ซ่อน popup ตั้งต้น
+        if (popupRoot) popupRoot.SetActive(false);
+    }
+
+    /// <summary>
+    /// ให้ ShopManager เรียกเมื่อต้องการตั้งค่าการ์ดในสลอตนี้
+    /// จะอัปเดต UI ทั้งหมด + สถานะปุ่มซื้อ
+    /// </summary>
     public void SetCard(CardData data)
     {
         card = data;
 
         if (card != null)
         {
-            if (icon)     icon.sprite = card.icon;
-            if (nameText) nameText.text = card.displayName;
-            if (priceText) priceText.text = card.price.ToString();
+            if (icon)      icon.sprite = card.icon;
+            if (nameText)  nameText.text = card.displayName;
+            if (priceText) priceText.text = card.price.ToString("N0"); // คั่นหลักพันให้อ่านง่าย
             if (popupText) popupText.text = card.description;
 
-            bool owned = PlayerProgressSO.Instance.HasCard(card.id);
-            buyButton.interactable = !owned && CurrencyManager.Instance.Has(card.price);
+            UpdateBuyButtonInteractable();
         }
         else
         {
+            if (icon)      icon.sprite = null;
             if (nameText)  nameText.text = "-";
             if (priceText) priceText.text = "-";
-            buyButton.interactable = false;
+            if (popupText) popupText.text = "";
+            if (buyButton) buyButton.interactable = false;
         }
 
         if (popupRoot) popupRoot.SetActive(false);
     }
 
-    // ผูกปุ่ม Buy ของสลอตนี้ให้เรียกฟังก์ชันนี้
+    /// <summary>
+    /// ผูกกับปุ่ม Buy ของสลอตนี้
+    /// - หักเหรียญผ่าน CurrencyManager
+    /// - บันทึกการเป็นเจ้าของการ์ดผ่าน PlayerProgressSO
+    /// - รีเฟรช UI ผ่าน ShopManager
+    /// </summary>
     public void OnBuy()
     {
         if (card == null) return;
 
-        if (!CurrencyManager.Instance.Spend(card.price))
+        // เช็ก singleton ให้ปลอดภัยก่อน
+        var cm  = CurrencyManager.Instance;
+        var sm  = ShopManager.Instance;
+        var pso = PlayerProgressSO.Instance;
+
+        if (cm == null || sm == null || pso == null)
         {
-            ShopManager.Instance.ShowToast("เหรียญไม่พอ");
+            Debug.LogWarning("[ShopCardSlot] Singletons ยังไม่พร้อม (Currency/Shop/Progress)");
+            return;
+        }
+
+        // เหรียญไม่พอ
+        if (!cm.Spend(card.price))
+        {
+            sm.ShowToast("เหรียญไม่พอ");
             return;
         }
 
         // ปลดล็อกการ์ดใบนี้ให้ผู้เล่น (มีใช้ใน CardManager: HasCard())
-        PlayerProgressSO.Instance.AddCard(card.id);
+        pso.AddCard(card.id);
 
         // รีเฟรช coin UI ที่มุมซ้ายทันที
-        ShopManager.Instance.RefreshUI();
+        sm.RefreshUI();
 
         // ซื้อสำเร็จแล้ว ปิดปุ่มซื้อไว้
-        buyButton.interactable = false;
-        ShopManager.Instance.ShowToast($"ซื้อ {card.displayName} สำเร็จ");
+        if (buyButton) buyButton.interactable = false;
+
+        sm.ShowToast($"ซื้อ {card.displayName} สำเร็จ");
+    }
+
+    /// <summary>อัปเดตสถานะปุ่มซื้อ จาก “ยังไม่เป็นเจ้าของ && เหรียญพอ”</summary>
+    private void UpdateBuyButtonInteractable()
+    {
+        if (!buyButton) return;
+
+        bool owned = false;
+        bool hasMoney = false;
+
+        var pso = PlayerProgressSO.Instance;
+        var cm  = CurrencyManager.Instance;
+
+        if (pso != null && card != null)
+            owned = pso.HasCard(card.id);
+
+        if (cm != null && card != null)
+            hasMoney = cm.Has(card.price);
+
+        buyButton.interactable = (!owned && hasMoney);
     }
 
     // ===== Hover Popup =====
