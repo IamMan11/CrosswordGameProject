@@ -165,6 +165,8 @@ public class LevelManager : MonoBehaviour
                 {
                     level2_triangleCheckTimer = 0f;
                     level2_triangleComplete = CheckTriangleComplete();
+                    // >>> อัปเดต UI Indicator ทุกครั้งที่เช็ก
+                    UIManager.Instance?.UpdateTriangleHint(level2_triangleComplete);
                 }
             }
 
@@ -284,6 +286,8 @@ public class LevelManager : MonoBehaviour
             if (level2_enableLockedBoard) Level2_SeedLockedSlots();
             if (level2_enablePeriodicX2Zones && level2_x2Routine == null)
                 level2_x2Routine = StartCoroutine(Level2_PeriodicX2Zones(spawnImmediately: true));
+
+            UIManager.Instance?.UpdateTriangleHint(level2_triangleComplete);
         }
 
         Debug.Log($"▶ เริ่มด่าน {currentLevelConfig.levelIndex} | Time: {currentLevelConfig.timeLimit}s | Score target: {currentLevelConfig.requiredScore}");
@@ -385,6 +389,10 @@ public class LevelManager : MonoBehaviour
         phase = GamePhase.GameOver;
 
         if (levelTimerText) levelTimerText.color = win ? Color.green : Color.red;
+
+        // ปิด UI เฉพาะเลเวล
+        UIManager.Instance?.ShowGarbledUI(false);
+        UIManager.Instance?.SetTriangleHintVisible(false);
 
         if (win && currentLevelConfig?.levelIndex == 2 && level2_grantWinRewards)
             TryGrantLevel2Rewards(level2_winCogCoin, level2_nextFloorClue);
