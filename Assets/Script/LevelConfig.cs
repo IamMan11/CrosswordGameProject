@@ -3,6 +3,17 @@ using UnityEngine;
 [System.Serializable]
 public class LevelConfig
 {
+    [Header("Level 1 - Garbled IT Obstacle")]
+    public bool  level1_enableGarbledIT = true;
+    [Min(1)] public int level1_garbledCount = 3;          // จำนวนชุดคำ IT
+    [Min(1)] public int level1_minGapBetweenSets = 2;     // ระยะห่างขั้นต่ำ (Chebyshev/Manhattan)
+    [Min(1)] public int level1_placeMaxRetries = 200;     // max วนลองวาง
+    public string[] level1_itWords = new string[] { "code","dev","server","client","api","cloud","sql","python","java","unity","debug","kernel","socket","router" };
+
+    // สีแสดงผล
+    public Color level1_garbledSlotBg       = Color.black;      // พื้นหลังช่องในชุด
+    public Color level1_outlineDefaultColor = Color.black;      // กรอบปกติ (ยังไม่แตะ)
+    public Color level1_outlineTouchedColor = Color.yellow;     // กรอบเมื่อแตะแล้ว
     [Header("Display / Index")]
     [Tooltip("Show number for this level (1-based).")]
     public int levelIndex = 1;

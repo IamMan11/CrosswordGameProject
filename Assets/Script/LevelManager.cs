@@ -18,6 +18,7 @@ public class LevelManager : MonoBehaviour
 
     [Header("Configs")]
     public LevelConfig[] levels;
+    [HideInInspector] public LevelConfig currentLevelConfig;
 
     [Header("UI (ผูกใน Inspector)")]
     public TMP_Text levelText;
@@ -160,6 +161,12 @@ public class LevelManager : MonoBehaviour
         if (phase != GamePhase.Running || levels == null || levels.Length == 0) return;
 
         var cfg = GetCurrentConfig();
+        currentLevelConfig = cfg;
+        if (cfg.levelIndex == 1)
+        {
+            var garbled = Level1GarbledIT.Instance;
+            if (garbled) garbled.Setup(cfg);
+        }
         if (cfg == null) return;
 
         // เดินเวลา
@@ -404,6 +411,12 @@ public class LevelManager : MonoBehaviour
 
         // Prepare board & turn
         if (BoardManager.Instance != null) BoardManager.Instance.GenerateBoard();
+        if (currentLevelConfig.levelIndex == 1) // หรือเช็คจากชื่อ/อินเด็กซ์ตามโปรเจกต์
+        {
+            var garbled = FindObjectOfType<Level1GarbledIT>();
+            if (garbled)
+                garbled.Setup(currentLevelConfig);
+        }
         if (TurnManager.Instance != null)
         {
             TurnManager.Instance.ResetForNewLevel();
@@ -426,6 +439,11 @@ public class LevelManager : MonoBehaviour
 
         Debug.Log($"▶ เริ่มด่าน {cfg.levelIndex} | Time: {cfg.timeLimit}s | Score target: {cfg.requiredScore}");
         SetPhase(GamePhase.Ready);
+    }
+    public void ShowToast(string msg, Color col)
+    {
+        if (UIManager.Instance != null) UIManager.Instance.ShowFloatingToast(msg, col, 2f);
+        else Debug.Log(msg);
     }
 
     private IEnumerator GoToNextLevel()

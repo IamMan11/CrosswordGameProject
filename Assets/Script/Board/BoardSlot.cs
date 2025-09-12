@@ -27,6 +27,12 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
     [Tooltip("ภาพไอคอนช่องพิเศษ/ช่องกลาง (วางเป็น First Sibling)")]
     public Image icon;               // Image สำหรับโชว์รูปพิเศษ/รูปช่องกลาง
 
+    [Header("Special BG (runtime)")]
+    [SerializeField] private Image specialBg; // ลาก Image ว่าง (เต็มช่อง) ใส่ช่องนี้ใน Prefab/Scene
+    [Header("Special BG Override")]
+    private bool specialBgOverride = false;
+    private Color specialBgColor;
+
     // ---------- Runtime ----------
     [HideInInspector] public int manaGain;
     [HideInInspector] public int row;
@@ -103,6 +109,7 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
     public void ApplyVisual()
     {
         if (bg == null) return;
+        if (specialBgOverride) { bg.color = specialBgColor; return; }
 
         bg.color = type switch
         {
@@ -136,6 +143,43 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
             icon.transform.SetAsFirstSibling(); // ไอคอนอยู่ล่างสุด (พื้น)
         }
     }
+    public void SetSpecialBg(Color c)
+    {
+        specialBgOverride = true;
+        specialBgColor    = c;
+        if (bg) bg.color = c;
+    }
+
+    public void ClearSpecialBg()
+    {
+        specialBgOverride = false;
+        ApplyVisual();
+    }
+
+    /// <summary>บังคับวางตัวอักษรลงช่องนี้ทันที (ไม่เล่นอนิเมชันบิน)</summary>
+    public void ForcePlaceLetter(LetterTile t)
+    {
+        if (!t) return;
+        var current = GetLetterTile();
+        if (current && current != t) current.transform.SetParent(null, false);
+
+        t.transform.SetParent(transform, false);
+        t.transform.SetAsLastSibling();
+        t.transform.localPosition = Vector3.zero;
+        t.AdjustSizeToParent();
+        if (icon != null) icon.transform.SetAsFirstSibling();
+        t.IsInSpace = false;
+    }
+
+    public void SwapWith(BoardSlot other)
+    {
+        if (other == null || other == this) return;
+        var A = GetLetterTile();
+        var B = other.GetLetterTile();
+        if (!A && !B) return;
+        if (B) ForcePlaceLetter(B);
+        if (A) other.ForcePlaceLetter(A);
+    }
 
     // ===================== Mouse Interactions =====================
     /// <summary>โฮเวอร์: แจ้ง PlacementManager เพื่อพรีวิว/ตำแหน่งวาง</summary>
@@ -149,6 +193,10 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
     /// <summary>คลิกซ้าย: โหมด Targeted Flux ก่อน, ไม่งั้นให้วางตัวอักษร</summary>
     public void OnPointerClick(PointerEventData eventData)
     {
+        if (Level1GarbledIT.Instance != null && Level1GarbledIT.Instance.enabledThisLevel)
+        {
+            if (Level1GarbledIT.Instance.HandleClickSlot(this)) return;
+        }
         if (eventData == null) return;
         if (eventData.button != PointerEventData.InputButton.Left) return;
 

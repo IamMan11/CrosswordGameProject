@@ -639,6 +639,10 @@ public class TurnManager : MonoBehaviour
             BenchManager.Instance.RefillEmptySlots();
             UpdateBagUI();
             EnableConfirm();
+            if (Level1GarbledIT.Instance != null && LevelManager.Instance != null)
+            {
+                yield return Level1GarbledIT.Instance.ProcessAfterMainScoring(LevelManager.Instance.currentLevelConfig);
+            }
 
             EndScoreSequence();
         }

@@ -85,6 +85,16 @@ public class UIManager : MonoBehaviour
         if (seconds > 0f)
             hideRoutine = StartCoroutine(HideAfterDelay(seconds));
     }
+    /// <summary>แสดงข้อความสั้นแบบเลือกสีได้ (Toast ลอย)</summary>
+    public void ShowFloatingToast(string message, Color color, float seconds = 2f)
+    {
+        if (popupPanel == null || messageText == null) { Debug.Log(message); return; }
+        if (hideRoutine != null) StopCoroutine(hideRoutine);
+        messageText.color = color;
+        messageText.text  = message;
+        popupPanel.SetActive(true);
+        if (seconds > 0f) hideRoutine = StartCoroutine(HideAfterDelay(seconds));
+    }
 
     /// <summary>ปิดข้อความทันที</summary>
     public void HideMessage()
