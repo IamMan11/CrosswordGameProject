@@ -15,7 +15,12 @@ public enum SlotType { Normal, DoubleLetter, TripleLetter, DoubleWord, TripleWor
 /// หมายเหตุ: คงชื่อฟิลด์/เมธอดเดิมทั้งหมด เพื่อไม่ให้กระทบสคริปต์อื่น
 /// </summary>
 [DisallowMultipleComponent]
-public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandler
+public class BoardSlot : MonoBehaviour,
+    IDropHandler,
+    IPointerEnterHandler,
+    IPointerClickHandler,
+    IPointerDownHandler,     // ← เพิ่ม
+    IPointerUpHandler       // ← เพิ่ม
 {
     [Header("UI")]
     [Tooltip("ภาพพื้นหลังของช่อง")]
@@ -26,6 +31,12 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
     [Header("Icon")]
     [Tooltip("ภาพไอคอนช่องพิเศษ/ช่องกลาง (วางเป็น First Sibling)")]
     public Image icon;               // Image สำหรับโชว์รูปพิเศษ/รูปช่องกลาง
+
+    [Header("Special BG (runtime)")]
+    [SerializeField] private Image specialBg; // ลาก Image ว่าง (เต็มช่อง) ใส่ช่องนี้ใน Prefab/Scene
+    [Header("Special BG Override")]
+    private bool specialBgOverride = false;
+    private Color specialBgColor;
 
     // ---------- Runtime ----------
     [HideInInspector] public int manaGain;
@@ -69,7 +80,9 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
         if (highlight) { highlight.raycastTarget = false; highlight.enabled = false; }
         if (icon) icon.raycastTarget = false;
 
-        if (!pulseRoot) pulseRoot = transform as RectTransform;     // ใช้ตัวช่องเป็นรากตามค่าเริ่ม
+        if (bg) bg.raycastTarget = true;  // ← สำคัญ: ต้องรับ raycast เพื่อให้ Drop ตกใส่ช่องได้
+
+        if (!pulseRoot) pulseRoot = transform as RectTransform;
         if (!hoverAnimator && pulseRoot) hoverAnimator = pulseRoot.GetComponent<Animator>();
         if (hoverAnimator && useUnscaledTimeForAnimator)
             hoverAnimator.updateMode = AnimatorUpdateMode.UnscaledTime;
@@ -85,6 +98,37 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
 
         if (highlight) highlight.enabled = false;
         if (PulseTarget) PulseTarget.localScale = Vector3.one;
+    }
+    public void OnDrop(UnityEngine.EventSystems.PointerEventData eventData)
+    {
+        if (eventData == null) return;
+
+        var tileGO = eventData.pointerDrag;
+        var tile   = tileGO ? tileGO.GetComponent<LetterTile>() : null;
+        if (tile == null) return;
+
+        // ต้องลากมาจาก "สลอตบนบอร์ด" และทั้งสองสลอตต้องเป็น Garbled ชุดเดียวกัน
+        var src = tile.OriginalParent ? tile.OriginalParent.GetComponent<BoardSlot>() : null;
+        var garbled = Level1GarbledIT.Instance;
+
+        if (src == null || garbled == null || !garbled.AreInSameActiveSet(src, this))
+            return; // ไม่ใช่เคสที่อนุญาต → ปล่อยให้ LetterTile บินกลับเองใน OnEndDrag
+
+        // วางลงที่เดิม ก็แค่ใส่กลับ
+        if (src == this)
+        {
+            this.ForcePlaceLetter(tile);
+            garbled.MarkSetTouched(this);
+            return;
+        }
+
+        // สลับแบบ snap (ไม่ทำแอนิเมชัน)
+        var other = GetLetterTile();    // ตัวที่อยู่ในปลายทาง (ถ้ามี)
+        if (other) src.ForcePlaceLetter(other);
+        this.ForcePlaceLetter(tile);
+
+        garbled.MarkSetTouched(this);
+        SfxPlayer.Play(SfxId.TileDrop);
     }
 
     // ===================== Setup/Visual =====================
@@ -103,6 +147,7 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
     public void ApplyVisual()
     {
         if (bg == null) return;
+        if (specialBgOverride) { bg.color = specialBgColor; return; }
 
         bg.color = type switch
         {
@@ -136,9 +181,54 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
             icon.transform.SetAsFirstSibling(); // ไอคอนอยู่ล่างสุด (พื้น)
         }
     }
+    public void SetSpecialBg(Color c)
+    {
+        specialBgOverride = true;
+        specialBgColor    = c;
+        if (bg) bg.color = c;
+    }
+
+    public void ClearSpecialBg()
+    {
+        specialBgOverride = false;
+        ApplyVisual();
+    }
+
+    /// <summary>บังคับวางตัวอักษรลงช่องนี้ทันที (ไม่เล่นอนิเมชันบิน)</summary>
+    public void ForcePlaceLetter(LetterTile t)
+    {
+        if (!t) return;
+        var current = GetLetterTile();
+        if (current && current != t) current.transform.SetParent(null, false);
+
+        t.transform.SetParent(transform, false);
+        t.transform.SetAsLastSibling();
+        t.transform.localPosition = Vector3.zero;
+        t.AdjustSizeToParent();
+        if (icon != null) icon.transform.SetAsFirstSibling();
+        t.IsInSpace = false;
+    }
+
+    public void SwapWith(BoardSlot other)
+    {
+        if (other == null || other == this) return;
+        var A = GetLetterTile();
+        var B = other.GetLetterTile();
+        if (!A && !B) return;
+        if (B) ForcePlaceLetter(B);
+        if (A) other.ForcePlaceLetter(A);
+    }
 
     // ===================== Mouse Interactions =====================
     /// <summary>โฮเวอร์: แจ้ง PlacementManager เพื่อพรีวิว/ตำแหน่งวาง</summary>
+    public void OnPointerDown(UnityEngine.EventSystems.PointerEventData e)
+    {
+        Level1GarbledIT.Instance?.BeginDrag(this);
+    }
+    public void OnPointerUp(UnityEngine.EventSystems.PointerEventData e)
+    {
+        Level1GarbledIT.Instance?.EndDrag(this);
+    }
     public void OnPointerEnter(PointerEventData eventData)
     {
         var pm = PlacementManager.Instance;
@@ -149,6 +239,8 @@ public class BoardSlot : MonoBehaviour, IPointerEnterHandler, IPointerClickHandl
     /// <summary>คลิกซ้าย: โหมด Targeted Flux ก่อน, ไม่งั้นให้วางตัวอักษร</summary>
     public void OnPointerClick(PointerEventData eventData)
     {
+        if (Level1GarbledIT.Instance != null &&
+            Level1GarbledIT.Instance.HandleClickSlot(this)) return;
         if (eventData == null) return;
         if (eventData.button != PointerEventData.InputButton.Left) return;
 

@@ -46,6 +46,7 @@ public static class MoveValidator
         bool firstMove = !grid.Cast<BoardSlot>().Any(sl =>
         {
             if (sl == null || !sl.HasLetterTile()) return false;
+            if (Level1GarbledIT.Instance != null && Level1GarbledIT.Instance.IsGarbledSlot(sl)) return false;
             var lt = sl.GetLetterTile();
             return lt != null && lt.isLocked;
         });
@@ -169,14 +170,20 @@ public static class MoveValidator
         {
             int rr = r + dr[k], cc = c + dc[k];
             if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue;
-            var slot = g[rr, cc];
-            if (slot == null || !slot.HasLetterTile()) continue;
 
-            var lt = slot.GetLetterTile();
+            var nb = g[rr, cc];
+            if (nb == null || !nb.HasLetterTile()) continue;
+
+            // ข้ามสลอต Garbled ที่ยังไม่ถูกแก้
+            if (Level1GarbledIT.Instance != null && Level1GarbledIT.Instance.IsGarbledSlot(nb))
+                continue;
+
+            var lt = nb.GetLetterTile();
             if (lt != null && lt.isLocked) return true;
         }
         return false;
     }
+
 
     /// <summary>โครงสร้างเก็บคำที่เจอ</summary>
     public struct WordInfo { public string word; public int r0, c0, r1, c1; }

@@ -51,6 +51,8 @@ public class BoardManager : MonoBehaviour
     public GameObject boardSlotPrefab;
     [Tooltip("RectTransform ที่จะวางกริดของบอร์ด")]
     public RectTransform boardParent;
+    [Header("Auto Generate")]
+    public bool autoGenerateOnStart = false;
 
     // -------------------- Specials --------------------
     [Header("Special Slots")]
@@ -102,7 +104,8 @@ public class BoardManager : MonoBehaviour
 
     private void Start()
     {
-        GenerateBoard();
+        if (autoGenerateOnStart)
+            GenerateBoard();
     }
 
 #if UNITY_EDITOR
