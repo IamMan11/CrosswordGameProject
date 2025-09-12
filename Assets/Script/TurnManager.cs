@@ -623,6 +623,8 @@ public class TurnManager : MonoBehaviour
             yield return StartCoroutine(fly);
 
             AddScore(displayedTotal);
+            if (Level1GarbledIT.Instance != null)
+                yield return Level1GarbledIT.Instance.ProcessAfterMainScoring();
 
             // sync กับคะแนนจริง (เผื่อ moveScore สุดท้ายต่าง)
             if (displayedTotal != moveScore)
@@ -639,10 +641,8 @@ public class TurnManager : MonoBehaviour
             BenchManager.Instance.RefillEmptySlots();
             UpdateBagUI();
             EnableConfirm();
-            if (Level1GarbledIT.Instance != null && LevelManager.Instance != null)
-            {
-                yield return Level1GarbledIT.Instance.ProcessAfterMainScoring(LevelManager.Instance.currentLevelConfig);
-            }
+            if (Level1GarbledIT.Instance != null)
+                yield return Level1GarbledIT.Instance.ProcessAfterMainScoring();
 
             EndScoreSequence();
         }
@@ -976,7 +976,8 @@ public class TurnManager : MonoBehaviour
     // helper (ซ้ำของ LevelManager แต่เผื่อจุดอื่นเรียก)
     public int GetCurrentLevelIndex()
     {
-        var cfg = LevelManager.Instance != null ? LevelManager.Instance.levels[LevelManager.Instance.CurrentLevel] : null;
-        return cfg != null ? cfg.levelIndex : 0;
+        return (LevelManager.Instance != null)
+            ? LevelManager.Instance.GetCurrentLevelIndex()
+            : 0;
     }
 }

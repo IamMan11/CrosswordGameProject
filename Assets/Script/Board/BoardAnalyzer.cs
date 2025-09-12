@@ -19,6 +19,12 @@ public static class BoardAnalyzer
     /// - r0,c0: ตำแหน่งหัวคำ
     /// - r1,c1: ตำแหน่งท้ายคำ
     /// </summary>
+    public static bool IsRealLetter(BoardSlot s)
+    {
+        if (s == null || !s.HasLetterTile()) return false;
+        if (Level1GarbledIT.Instance != null && Level1GarbledIT.Instance.IsGarbledSlot(s)) return false;
+        return true;
+    }
     public static bool GetWord(
         BoardSlot start, Orient orient,
         out string word,
@@ -50,7 +56,7 @@ public static class BoardAnalyzer
 
         // ---------- หา head (ถอยไปจนกว่าช่องก่อนหน้าจะไม่ใช่ตัวอักษร) ----------
         int r = start.row, c = start.col;
-        while (InBounds(r + dr, c + dc, rows, cols) && g[r + dr, c + dc] != null && g[r + dr, c + dc].HasLetterTile())
+        while (InBounds(r + dr, c + dc, rows, cols) && g[r + dr, c + dc] != null && IsRealLetter(g[r+dr,c+dc]))
         {
             r += dr;
             c += dc;
@@ -66,11 +72,7 @@ public static class BoardAnalyzer
         {
             // ถ้าตำแหน่งปัจจุบันไม่มีตัวอักษร ถือว่าล้มเหลว
             var cur = g[r, c];
-            if (cur == null || !cur.HasLetterTile())
-            {
-                word = string.Empty;
-                return false;
-            }
+            if (!IsRealLetter(cur)) { word = string.Empty; return false; }
 
             // อ่านอักษรจาก LetterTile (ป้องกัน null)
             LetterTile tile = cur.GetLetterTile();

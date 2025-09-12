@@ -66,6 +66,11 @@ public class PlacementManager : MonoBehaviour
     // =====================================================================
 
     #region Public API (จาก BoardSlot / UI)
+    public bool TrySwapGarbledPair(BoardSlot fromSlot, BoardSlot toSlot)
+    {
+        if (Level1GarbledIT.Instance == null) return false;
+        return Level1GarbledIT.Instance.TrySwapIfGarbledPair(fromSlot, toSlot);
+    }
 
     /// <summary>
     /// เรียกเมื่อเมาส์โฮเวอร์ BoardSlot (ให้เป็น "จุดเริ่ม" ใหม่ แล้วพรีวิว)

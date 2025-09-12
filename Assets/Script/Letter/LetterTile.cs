@@ -27,6 +27,7 @@ public class LetterTile : MonoBehaviour,
     private bool isBusy = false;                       // กันคลิก/ลากซ้อนตอนกำลังบิน
     private bool isSpecialTile;                        // สถานะ special (ซิงก์กับ data)
     public  bool isLocked = false;                     // ล็อกการอินพุตสำหรับไทล์นี้
+    private bool _garbledBoardDrag = false;
 
     [HideInInspector] public bool IsInSpace = false;   // สถานะขณะอยู่ใน Space (เผื่อ UI ใช้)
     private bool wasInSpaceAtDragStart = false;        // จำค่าสถานะตอนเริ่มลาก
@@ -110,15 +111,34 @@ public class LetterTile : MonoBehaviour,
         RectTransformUtility.ScreenPointToLocalPointInRectangle(rootCanvasRect, screenPos, eventCam, out var lp);
         return lp;
     }
+    private bool IsOnGarbledSlot()
+    {
+        var slot = GetComponentInParent<BoardSlot>();
+        return Level1GarbledIT.Instance != null && Level1GarbledIT.Instance.IsGarbledSlot(slot);
+    }
 
     // ===================== Drag Handlers =====================
     public void OnBeginDrag(PointerEventData e)
     {
-        // ห้ามลากจากบอร์ด (วางในบอร์ดแล้วให้คลิกเพื่อกลับ Space แทน)
-        if (IsOnBoard()) { dragging = false; return; }
-        if (isLocked || isBusy || UiGuard.IsBusy) { dragging = false; return; }
+        bool onBoard = IsOnBoard();
+        bool allowBoardDrag = onBoard &&
+                            Level1GarbledIT.Instance != null &&
+                            Level1GarbledIT.Instance.IsGarbledTile(this);
 
-        // Blank ต้องเลือกตัวอักษรก่อนถึงจะลากได้
+        if (onBoard && !allowBoardDrag) { dragging = false; return; }
+
+        // เดิม: if (isLocked || isBusy || UiGuard.IsBusy) { ... }
+        // ใหม่: อนุญาตถ้าเป็น Garbled แม้ isLocked = true
+        if ((isLocked && !allowBoardDrag) || isBusy || UiGuard.IsBusy)
+        {
+            dragging = false;
+            return;
+        }
+
+        dragging = true;
+        OriginalParent = transform.parent;
+        _garbledBoardDrag = allowBoardDrag;
+
         if (IsBlank && !IsBlankResolved)
         {
             BlankPopup.Show(ch => ResolveBlank(ch));
@@ -127,23 +147,26 @@ public class LetterTile : MonoBehaviour,
 
         dragging = true;
         OriginalParent = transform.parent;
+        _garbledBoardDrag = allowBoardDrag;
 
-        // แจ้งต้นทางเพื่อทำ "ช่องว่าง" และเลื่อนเพื่อนบ้านให้ถูก
+        // แจ้ง Bench/Space เฉพาะถ้าไม่ใช่กรณีลากบนบอร์ด Garbled
         int benchIdx = BenchManager.Instance ? BenchManager.Instance.IndexOfSlot(OriginalParent) : -1;
         int spaceIdx = SpaceManager.Instance ? SpaceManager.Instance.IndexOfSlot(OriginalParent) : -1;
-        if (benchIdx >= 0) { _fromBenchDrag = true;  BenchManager.Instance.BeginDrag(this, benchIdx); }
-        else if (spaceIdx >= 0) { _fromBenchDrag = false; SpaceManager.Instance.BeginDrag(this, spaceIdx); }
+        if (!_garbledBoardDrag)
+        {
+            if (benchIdx >= 0) { _fromBenchDrag = true;  BenchManager.Instance.BeginDrag(this, benchIdx); }
+            else if (spaceIdx >= 0) { _fromBenchDrag = false; SpaceManager.Instance.BeginDrag(this, spaceIdx); }
+        }
 
         wasInSpaceAtDragStart = IsInSpace;
 
-        // ย้ายมาอยู่ใต้ Canvas ชั่วคราวเพื่อให้ลอยเหนือ UI อื่น
         if (canvas != null)
         {
             transform.SetParent(canvas.transform, true);
             transform.SetAsLastSibling();
         }
-        canvasGroup.blocksRaycasts = false; // ให้ช่องปลายทางรับ Drop/Enter ได้
-        SetDragging(true);                  // อนิเมชันลาก
+        canvasGroup.blocksRaycasts = false;
+        SetDragging(true);
     }
 
     public void OnDrag(PointerEventData e)
@@ -162,12 +185,38 @@ public class LetterTile : MonoBehaviour,
 
         canvasGroup.blocksRaycasts = true;
 
-        // ถ้า OnDrop ถูกช่องรับวาง → parent จะถูกเปลี่ยนออกจาก canvas แล้ว
-        bool placed = (canvas != null) ? (transform.parent != canvas.transform) : true;
-
-        if (!placed)
+        // เคสลากบนบอร์ด (Garbled)
+        if (_garbledBoardDrag)
         {
-            // ไม่โดนอะไรเลย → บินกลับไปยังช่องว่างของต้นทาง (หรือ parent เดิม)
+            bool placed = (canvas != null) ? (transform.parent != canvas.transform) : true;
+            bool droppedOnBoard = GetComponentInParent<BoardSlot>() != null;
+
+            if (!placed || !droppedOnBoard)
+            {
+                // ไม่ได้ปล่อยบนช่องบอร์ด → กลับที่เดิม
+                if (OriginalParent) FlyTo(OriginalParent);
+                IsInSpace = false;
+                SfxPlayer.Play(SfxId.TileDrop);
+                PlaySettle();
+            }
+            else
+            {
+                // วางบนบอร์ดแล้ว (BoardSlot.OnDrop จะสลับให้เอง ถ้าเป็นชุดเดียวกัน)
+                IsInSpace = false;
+                SfxPlayer.Play(SfxId.TileDrop);
+                PlaySettle();
+            }
+
+            SetDragging(false);
+            _garbledBoardDrag = false;
+            return;
+        }
+
+        // ---- พฤติกรรมเดิม (Bench/Space) ----
+        bool placedDefault = (canvas != null) ? (transform.parent != canvas.transform) : true;
+
+        if (!placedDefault)
+        {
             Transform target = OriginalParent;
 
             if (_fromBenchDrag && BenchManager.Instance)
@@ -189,11 +238,12 @@ public class LetterTile : MonoBehaviour,
         }
         else
         {
-            // ปรับเสียงตามการย้ายข้ามฝั่ง/ฝั่งเดิม
             var board = GetComponentInParent<BoardSlot>();
             var space = GetComponentInParent<SpaceSlot>();
 
-            IsInSpace = true; // (พฤติกรรมเดิมของโค้ดคุณ)
+            // เดิมตั้งตายตัวเป็น true → แก้ให้ถูกตามที่อยู่จริง
+            IsInSpace = (space != null && board == null);
+
             if (IsInSpace != wasInSpaceAtDragStart) SfxPlayer.Play(SfxId.TileTransfer);
             else                                     SfxPlayer.Play(SfxId.TileDrop);
 
@@ -202,9 +252,8 @@ public class LetterTile : MonoBehaviour,
 
         SetDragging(false);
 
-        // แจ้ง manager ว่าจบการลากแล้ว
-        if (_fromBenchDrag) BenchManager.Instance?.EndDrag(placed);
-        else                SpaceManager.Instance?.EndDrag(placed);
+        if (_fromBenchDrag) BenchManager.Instance?.EndDrag(placedDefault);
+        else                SpaceManager.Instance?.EndDrag(placedDefault);
     }
 
     // ===================== Animator State =====================
@@ -552,4 +601,13 @@ public class LetterTile : MonoBehaviour,
 
     public void Lock() => isLocked = true;
     public bool IsSpecial => isSpecialTile;
+    void LateUpdate()
+    {
+        if (canvasGroup == null) return;
+
+        // ปล่อยให้ไทล์รับเมาส์ตามปกติทั้งบน Bench/Space/Board
+        // (ระหว่างลาก OnBeginDrag จะปิด raycast เอง เพื่อให้ BoardSlot จับ OnDrop ได้)
+        if (!dragging && !isBusy)
+            canvasGroup.blocksRaycasts = true;
+    }
 }

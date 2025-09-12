@@ -2832,10 +2832,36 @@ MonoBehaviour:
     requiredScore: 10
     requiredWords: 0
     timeLimit: 900
-    requireThemedWords: 0
+    level1_enableGarbledIT: 1
+    level1_garbledCount: 4
+    level1_minGapBetweenSets: 2
+    level1_placeMaxRetries: 200
+    level1_itWords:
+    - code
+    - dev
+    - server
+    - client
+    - api
+    - cloud
+    - sql
+    - python
+    - java
+    - unity
+    - debug
+    - kernel
+    - socket
+    - router
+    level1_garbledSlotBg: {r: 0, g: 0, b: 0, a: 1}
+    level1_outlineDefaultColor: {r: 0, g: 0, b: 0, a: 1}
+    level1_outlineTouchedColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    requireThemedWords: 1
     requiredThemeTag: IT
-    requiredThemeCount: 0
-    manualThemeWords: []
+    requiredThemeCount: 4
+    manualThemeWords:
+    - qwer
+    - asdf
+    - zxcv
+    - ghjk
     baseCoins: 50
     targetTimeSec: 900
     maxWordsForScore: 10
@@ -2852,6 +2878,71 @@ MonoBehaviour:
     requiredScore: 5
     requiredWords: 0
     timeLimit: 900
+    level1_enableGarbledIT: 1
+    level1_garbledCount: 3
+    level1_minGapBetweenSets: 2
+    level1_placeMaxRetries: 200
+    level1_itWords:
+    - code
+    - dev
+    - server
+    - client
+    - api
+    - cloud
+    - sql
+    - python
+    - java
+    - unity
+    - debug
+    - kernel
+    - socket
+    - router
+    level1_garbledSlotBg: {r: 0, g: 0, b: 0, a: 1}
+    level1_outlineDefaultColor: {r: 0, g: 0, b: 0, a: 1}
+    level1_outlineTouchedColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    requireThemedWords: 0
+    requiredThemeTag: IT
+    requiredThemeCount: 0
+    manualThemeWords: []
+    baseCoins: 50
+    targetTimeSec: 900
+    maxWordsForScore: 10
+    coefTimeScore: 0.2
+    coefWordScore: 50
+    coefTurnScore: -10
+    coefTilesLeftScore: 2
+    maxWordsForMoney: 10
+    coefTimeMoney: 0.05
+    coefWordMoney: 2
+    coefTurnMoney: -1
+    coefTilesLeftMoney: 1
+  currentLevelConfig:
+    levelIndex: 1
+    requiredScore: 100
+    requiredWords: 5
+    timeLimit: 120
+    level1_enableGarbledIT: 1
+    level1_garbledCount: 3
+    level1_minGapBetweenSets: 2
+    level1_placeMaxRetries: 200
+    level1_itWords:
+    - code
+    - dev
+    - server
+    - client
+    - api
+    - cloud
+    - sql
+    - python
+    - java
+    - unity
+    - debug
+    - kernel
+    - socket
+    - router
+    level1_garbledSlotBg: {r: 0, g: 0, b: 0, a: 1}
+    level1_outlineDefaultColor: {r: 0, g: 0, b: 0, a: 1}
+    level1_outlineTouchedColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
     requireThemedWords: 0
     requiredThemeTag: IT
     requiredThemeCount: 0
@@ -2869,7 +2960,6 @@ MonoBehaviour:
     coefTurnMoney: -1
     coefTilesLeftMoney: 1
   levelText: {fileID: 880912805}
-  timerText: {fileID: 232373}
   levelTimerText: {fileID: 117497059}
   itProgressText: {fileID: 0}
   stageClearPanel: {fileID: 1914259710}
@@ -2906,11 +2996,6 @@ MonoBehaviour:
   - cache
   - login
   - token
-  level1_enableGarbled: 1
-  level1_garbleTickSec: 3
-  level1_garbleClusterSize: 6
-  level1_wrongGuessPenalty: 20
-  level1_garbleSuspendDuration: 10
   level2_useTriangleObjective: 1
   level2_triangleTargets:
   - {x: 2, y: 2}
@@ -2946,7 +3031,8 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 1639265747}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &272039406
@@ -4828,6 +4914,7 @@ RectTransform:
   - {fileID: 1690410525}
   - {fileID: 1160055181}
   - {fileID: 2146283255}
+  - {fileID: 937109536}
   - {fileID: 427263723}
   - {fileID: 1480716708}
   - {fileID: 1745993520}
@@ -8218,7 +8305,7 @@ PrefabInstance:
     - target: {fileID: 4018721459530623314, guid: dbabd47e13bf09346a342f3697607528, type: 3}
       propertyPath: m_fontAsset
       value: 
-      objectReference: {fileID: 11400000, guid: ecaf0cb53ee8b914bbe3c3857b17256f, type: 2}
+      objectReference: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
     - target: {fileID: 4018721459530623314, guid: dbabd47e13bf09346a342f3697607528, type: 3}
       propertyPath: m_fontColor.b
       value: 0.9304913
@@ -8234,7 +8321,7 @@ PrefabInstance:
     - target: {fileID: 4018721459530623314, guid: dbabd47e13bf09346a342f3697607528, type: 3}
       propertyPath: m_sharedMaterial
       value: 
-      objectReference: {fileID: 7368666561820961849, guid: ecaf0cb53ee8b914bbe3c3857b17256f, type: 2}
+      objectReference: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
     - target: {fileID: 4018721459530623314, guid: dbabd47e13bf09346a342f3697607528, type: 3}
       propertyPath: m_fontColor32.rgba
       value: 4293783029
@@ -8290,11 +8377,11 @@ PrefabInstance:
     - target: {fileID: 5828916665373185956, guid: dbabd47e13bf09346a342f3697607528, type: 3}
       propertyPath: m_fontAsset
       value: 
-      objectReference: {fileID: 11400000, guid: ecaf0cb53ee8b914bbe3c3857b17256f, type: 2}
+      objectReference: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
     - target: {fileID: 5828916665373185956, guid: dbabd47e13bf09346a342f3697607528, type: 3}
       propertyPath: m_sharedMaterial
       value: 
-      objectReference: {fileID: 7368666561820961849, guid: ecaf0cb53ee8b914bbe3c3857b17256f, type: 2}
+      objectReference: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
     - target: {fileID: 5828916665373185956, guid: dbabd47e13bf09346a342f3697607528, type: 3}
       propertyPath: m_hasFontAssetChanged
       value: 0
@@ -8306,11 +8393,11 @@ PrefabInstance:
     - target: {fileID: 8452414056499163996, guid: dbabd47e13bf09346a342f3697607528, type: 3}
       propertyPath: m_fontAsset
       value: 
-      objectReference: {fileID: 11400000, guid: ecaf0cb53ee8b914bbe3c3857b17256f, type: 2}
+      objectReference: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
     - target: {fileID: 8452414056499163996, guid: dbabd47e13bf09346a342f3697607528, type: 3}
       propertyPath: m_sharedMaterial
       value: 
-      objectReference: {fileID: 7368666561820961849, guid: ecaf0cb53ee8b914bbe3c3857b17256f, type: 2}
+      objectReference: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
     - target: {fileID: 8452414056499163996, guid: dbabd47e13bf09346a342f3697607528, type: 3}
       propertyPath: m_hasFontAssetChanged
       value: 0
@@ -9355,6 +9442,37 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 930403099}
   m_CullTransparentMesh: 1
+--- !u!1 &937109535
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 937109536}
+  m_Layer: 0
+  m_Name: Outline
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &937109536
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 937109535}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 420713075}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &938800348
 GameObject:
   m_ObjectHideFlags: 0
@@ -10471,6 +10589,7 @@ MonoBehaviour:
   boardOffset: {x: 0, y: 150}
   boardSlotPrefab: {fileID: 6223383681551687179, guid: dda11a0225d9ba44f9078c68c564ce64, type: 3}
   boardParent: {fileID: 2146283255}
+  autoGenerateOnStart: 0
   specials:
   - row: 14
     col: 0
@@ -16331,6 +16450,59 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1635937825}
   m_CullTransparentMesh: 1
+--- !u!1 &1639265746
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1639265747}
+  - component: {fileID: 1639265748}
+  m_Layer: 0
+  m_Name: Level1Grapbled
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1639265747
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1639265746}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 260603165}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1639265748
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1639265746}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe13e29360e31f748a7c7b85eff4703b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  board: {fileID: 1062467450}
+  letterTilePrefab: {fileID: 7642126956220534543, guid: a76ea4c09e9f8b14ea9b65a5c054e155, type: 3}
+  letterDatabase: []
+  outlineParent: {fileID: 937109536}
+  autoFillFromTileBag: 1
+  tileBagOverride: {fileID: 2067957760}
+  enableClickSwap: 1
+  outlineWidth: 0.025
+  outlinePadding: 0.25
 --- !u!1 &1658035593
 GameObject:
   m_ObjectHideFlags: 0
