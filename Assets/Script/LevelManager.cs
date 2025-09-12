@@ -167,7 +167,6 @@ public class LevelManager : MonoBehaviour
                     level2_triangleCheckTimer = 0f;
                     level2_triangleComplete = CheckTriangleComplete();
                     // >>> อัปเดต UI Indicator ทุกครั้งที่เช็ก
-                    UIManager.Instance?.UpdateTriangleHint(level2_triangleComplete);
                 }
             }
 
@@ -291,7 +290,6 @@ public class LevelManager : MonoBehaviour
             if (level2_enablePeriodicX2Zones && level2_x2Routine == null)
                 level2_x2Routine = StartCoroutine(Level2_PeriodicX2Zones(spawnImmediately: true));
 
-            UIManager.Instance?.UpdateTriangleHint(level2_triangleComplete);
         }
 
         Debug.Log($"▶ เริ่มด่าน {currentLevelConfig.levelIndex} | Time: {currentLevelConfig.timeLimit}s | Score target: {currentLevelConfig.requiredScore}");
