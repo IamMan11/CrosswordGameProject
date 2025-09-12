@@ -5,7 +5,9 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
+
 /// จัดการ UI ทั่วไป: ชนะ/แพ้ด่าน, ข้อความสถานะ, และ Card Slots + โหมด Replace
+
 /// </summary>
 [DisallowMultipleComponent]
 public class UIManager : MonoBehaviour
@@ -42,9 +44,20 @@ public class UIManager : MonoBehaviour
         return _uiSelectCached;
     }
 
+    // ===== NEW: Level 1 – Garbled IT UI =====
+    [Header("Level 1 – Garbled IT UI")]
+    [SerializeField] private GameObject garbledPanel;         // แผงกรอกคำ IT
+    [SerializeField] private TMP_InputField garbledInput;     // ช่องกรอกคำ
+    [SerializeField] private Button garbledSubmitButton;      // ปุ่มยืนยันเดา
+
+    // ===== NEW: Level 2 – Triangle hint (optional label) =====
+    [Header("Level 2 – Triangle Objective (optional)")]
+    [SerializeField] private TMP_Text triangleHintText;       // ถ้ามี: โชว์ Connected/Not connected
+
     void Awake()
     {
         if (Instance == null) Instance = this; else { Destroy(gameObject); return; }
+
 
         if (popupPanel) popupPanel.SetActive(false);
 
@@ -67,6 +80,7 @@ public class UIManager : MonoBehaviour
     /// <summary>แสดงหน้าชนะเกม</summary>
     public void ShowGameWin() { if (gameWinPanel != null) gameWinPanel.SetActive(true); }
     /// <summary>แสดงหน้าล้มเหลวในด่าน</summary>
+
     public void ShowLevelFail() { if (levelFailPanel != null) levelFailPanel.SetActive(true); }
 
     /// <summary>แสดงข้อความสั้นตามค่า default</summary>
@@ -76,6 +90,8 @@ public class UIManager : MonoBehaviour
     public void ShowMessage(string message, float seconds)
     {
         if (popupPanel == null || messageText == null) { Debug.Log(message); return; }
+
+        if (messageText == null || popupPanel == null) return;
 
         if (hideRoutine != null) StopCoroutine(hideRoutine);
 
@@ -100,13 +116,21 @@ public class UIManager : MonoBehaviour
     public void HideMessage()
     {
         if (hideRoutine != null) StopCoroutine(hideRoutine);
+
         if (popupPanel) popupPanel.SetActive(false);
+
+        if (popupPanel != null) popupPanel.SetActive(false);
+
     }
 
     IEnumerator HideAfterDelay(float seconds)
     {
         yield return new WaitForSeconds(seconds);
+
         if (popupPanel) popupPanel.SetActive(false);
+
+        if (popupPanel != null) popupPanel.SetActive(false);
+
     }
 
     /// <summary>
@@ -116,6 +140,7 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void UpdateCardSlots(List<CardData> cards, bool replaceMode = false)
     {
+
         if (cards == null || cardSlotButtons == null || cardSlotIcons == null) return;
         if (cardSlotButtons.Count != cardSlotIcons.Count)
             Debug.LogWarning("[UIManager] จำนวนปุ่มและไอคอนไม่เท่ากัน");
@@ -124,10 +149,16 @@ public class UIManager : MonoBehaviour
         if (replaceMode) ForceShowReplaceUI();
 
         // ปุ่มยกเลิก Replace + prompt
+
+        if (cardSlotButtons == null || cardSlotIcons == null) return;
+
+        // ควบคุมปุ่มยกเลิก Replace Mode
+
         if (cancelReplacementButton != null)
             cancelReplacementButton.gameObject.SetActive(replaceMode);
 
         if (replaceModePromptText != null)
+
         {
             replaceModePromptText.gameObject.SetActive(replaceMode);
             if (replaceMode) replaceModePromptText.text = "Chose card";
@@ -186,6 +217,7 @@ public class UIManager : MonoBehaviour
 
             int index = i;
             if (i < cards.Count && cards[i] != null)
+
             {
                 var data = cards[i];
 
