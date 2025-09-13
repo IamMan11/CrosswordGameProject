@@ -107,7 +107,7 @@ public class UIManager : MonoBehaviour
         if (popupPanel == null || messageText == null) { Debug.Log(message); return; }
         if (hideRoutine != null) StopCoroutine(hideRoutine);
         messageText.color = color;
-        messageText.text  = message;
+        messageText.text = message;
         popupPanel.SetActive(true);
         if (seconds > 0f) hideRoutine = StartCoroutine(HideAfterDelay(seconds));
     }
@@ -270,7 +270,7 @@ public class UIManager : MonoBehaviour
             {
                 if (cg.alpha < 1f) cg.alpha = 1f;
                 cg.blocksRaycasts = true;
-                cg.interactable   = true;
+                cg.interactable = true;
             }
 
             if (t.GetComponent<Canvas>()) break;
@@ -293,4 +293,12 @@ public class UIManager : MonoBehaviour
                 if (btn) { ForceShowTransform(btn.transform); break; } // เอาต้นหนึ่งต้นก็พอ
         }
     }
+    /// <summary>อัพเดตข้อความ/สีของ Triangle objective (ถ้าอยากใช้เป็น indicator คงที่)</summary>
+    public void UpdateTriangleHint(bool connected)
+    {
+        if (triangleHintText == null) return;
+        triangleHintText.gameObject.SetActive(true);
+        triangleHintText.text  = connected ? "Triangle: Connected" : "Triangle: Not connected";
+        triangleHintText.color = connected ? new Color32(0,180,60,255) : new Color32(220,60,40,255);
     }
+}
