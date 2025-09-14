@@ -60,7 +60,6 @@ public class Level1GarbledIT : MonoBehaviour
 
     // ---------- Runtime / State ----------
     public bool IsActive { get; private set; } = false;
-    bool _initializedThisLevel = false;
 
     // สี/ค่าจาก LevelConfig จะถูกคงไว้ที่นี่เพื่อไม่ต้องอ้าง LevelManager ขณะรัน
     Color _colSlotBg, _colOutlineDefault, _colOutlineTouched;
@@ -150,7 +149,6 @@ public class Level1GarbledIT : MonoBehaviour
         }
 
         if (fail > 0) Debug.Log($"[GarbledIT] วางไม่ได้ {fail} คำ (พื้นที่ไม่พอ/ชนเงื่อนไขเว้นระยะ)");
-        _initializedThisLevel = true;
     }
     // === Public helpers ===
     public bool IsGarbledSlot(BoardSlot slot)
@@ -311,7 +309,6 @@ public class Level1GarbledIT : MonoBehaviour
         _sets.Clear();
         _slot2set.Clear();
         _pendingSwap = null;
-        _initializedThisLevel = false;
         IsActive = false;
     }
 

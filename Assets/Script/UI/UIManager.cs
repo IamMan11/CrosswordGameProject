@@ -40,7 +40,11 @@ public class UIManager : MonoBehaviour
     private UICardSelect GetSelect()
     {
         if (_uiSelectCached == null)
-            _uiSelectCached = FindObjectOfType<UICardSelect>(true); // หาแม้ inactive
+            #if UNITY_2023_1_OR_NEWER
+            _uiSelectCached = UnityEngine.Object.FindFirstObjectByType<UICardSelect>(FindObjectsInactive.Include);
+            #else
+            _uiSelectCached = FindObjectOfType<UICardSelect>(true);
+            #endif
         return _uiSelectCached;
     }
 
@@ -241,7 +245,12 @@ public class UIManager : MonoBehaviour
                 // Click
                 btn.onClick.RemoveAllListeners();
                 if (replaceMode) btn.onClick.AddListener(() => CardManager.Instance?.ReplaceSlot(index));
-                else btn.onClick.AddListener(() => CardManager.Instance?.UseCard(index));
+                else
+                {
+                    // ❌ เดิม: เล่นอนิเมชันหดก่อน -> StartCoroutine(UseWithFx(slot, index));
+                    // ✅ ใหม่: แค่ขอ “ใช้การ์ด” เพื่อให้โชว์ป๊อปอัปก่อน
+                    btn.onClick.AddListener(() => CardManager.Instance?.UseCard(index));
+                }
             }
             else
             {
@@ -256,6 +265,10 @@ public class UIManager : MonoBehaviour
                 if (drag != null) drag.SetData(index, null);
             }
         }
+    }
+    private IEnumerator UseWithFx(CardSlotUI slot, int index)
+    {
+        yield return slot.PlayUseThen(() => CardManager.Instance?.UseCard(index));
     }
     // ===== Force show helpers =====
     void ForceShowTransform(Transform t)

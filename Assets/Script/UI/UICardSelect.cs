@@ -311,7 +311,11 @@ public class UICardSelect : MonoBehaviour
             var a = cardAnimators[idx];
             if (a)
             {
+                #if UNITY_2023_1_OR_NEWER
+                a.keepAnimatorStateOnDisable = false;
+                #else
                 a.keepAnimatorControllerStateOnDisable = false;
+                #endif
                 a.ResetTrigger("Hide");
                 a.ResetTrigger("Click");
                 a.SetBool("Hover", false);
@@ -485,7 +489,20 @@ public class UICardSelect : MonoBehaviour
     {
         if (slotTargets != null && slotTargets.Count > 0) return;
 
-        var slots = FindObjectsOfType<CardSlotUI>(true); // รวม inactive
+        #if UNITY_2023_1_OR_NEWER
+        var slots = UnityEngine.Object.FindObjectsByType<CardSlotUI>(
+            FindObjectsInactive.Include,          // เทียบเท่า true เดิม = รวม inactive
+            FindObjectsSortMode.None              // เราไป .OrderBy(slotIndex) เองอยู่แล้ว เร็วกว่า
+        );
+        #else
+        var slots = FindObjectsOfType<CardSlotUI>(true);
+        #endif
+
+        slotTargets = slots
+            .OrderBy(s => s.slotIndex)
+            .Select(s => s.transform as RectTransform)
+            .Where(rt => rt != null)
+            .ToList();
         slotTargets = slots
             .OrderBy(s => s.slotIndex)
             .Select(s => s.transform as RectTransform)
