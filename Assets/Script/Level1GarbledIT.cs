@@ -56,7 +56,14 @@ public class Level1GarbledIT : MonoBehaviour
     [Header("Outline")]
     [Min(0.001f)] public float outlineWidth = 0.025f;
     [Min(0.0f)]   public float outlinePadding = 0.25f;
+
+    // ==== Drag preview state (สำหรับเลื่อนช่องระหว่างลาก) ====
+    GarbledSet _dragSet;
+    LetterTile _dragTile;
+    List<LetterTile> _origTiles;
+    int _lastPreviewIndex = -1;
     BoardSlot _dragStart;
+    
 
     // ---------- Runtime / State ----------
     public bool IsActive { get; private set; } = false;
@@ -251,10 +258,112 @@ public class Level1GarbledIT : MonoBehaviour
         SetOutlineColor(sa, _colOutlineTouched);
         return true;
     }
-    public void BeginDrag(BoardSlot s)
+    public void BeginDrag(BoardSlot s, LetterTile t)
     {
-        if (!IsActive || s == null) { _dragStart = null; return; }
-        _dragStart = IsGarbledSlot(s) ? s : null;
+        if (!IsActive || s == null || t == null) { ClearDragState(); return; }
+        if (!IsGarbledSlot(s)) { ClearDragState(); return; }
+
+        _dragStart = s;
+        _dragTile  = t;
+        _dragSet   = _slot2set.TryGetValue(s, out var set) ? set : null;
+        if (_dragSet == null || _dragSet.solved) { ClearDragState(); return; }
+
+        // จำออร์เดอร์เดิมของไทล์ในชุด
+        _origTiles = new List<LetterTile>(_dragSet.slots.Count);
+        for (int i = 0; i < _dragSet.slots.Count; i++)
+            _origTiles.Add(_dragSet.slots[i].GetLetterTile());
+
+        _lastPreviewIndex = -1;
+    }
+
+    public void HoverDrag(BoardSlot hovered)
+    {
+        if (_dragSet == null) return;
+
+        // ไม่ได้ชี้ชุดเดียวกัน → ยกเลิก preview
+        if (hovered == null || !_slot2set.TryGetValue(hovered, out var set) || set != _dragSet)
+        {
+            ApplyPreview(-1);
+            return;
+        }
+
+        int targetIndex = _dragSet.slots.IndexOf(hovered);
+        if (targetIndex == _lastPreviewIndex) return; // ไม่ต้องทำซ้ำ
+        ApplyPreview(targetIndex);
+    }
+
+    // สร้าง/ล้างภาพ preview ของการแทรกไทล์ที่ลากลง index เป้าหมาย
+    void ApplyPreview(int targetIndex)
+    {
+        if (_dragSet == null || _origTiles == null) return;
+
+        // ล้างให้กลับออร์เดอร์เดิม
+        if (targetIndex < 0)
+        {
+            for (int i = 0; i < _dragSet.slots.Count; i++)
+                _dragSet.slots[i].ForcePlaceLetter(_origTiles[i]);
+            _lastPreviewIndex = -1;
+            return;
+        }
+
+        int startIndex = _dragSet.slots.IndexOf(_dragStart);
+        if (startIndex < 0) { _lastPreviewIndex = -1; return; }
+
+        // ORIG2 = ออร์เดอร์เดิมที่ตัดตัวที่กำลังลากออก
+        var orig2 = new List<LetterTile>(_origTiles);
+        orig2.RemoveAt(startIndex);
+
+        // กระจาย tile ลงช่อง: เว้นช่อง targetIndex ไว้ให้ตัวที่ลาก
+        for (int i = 0; i < _dragSet.slots.Count; i++)
+        {
+            if (i == targetIndex) continue; // ช่องว่างไว้สำหรับผู้ลาก
+            int src = i < targetIndex ? i : i - 1;
+            var tile = (src >= 0 && src < orig2.Count) ? orig2[src] : null;
+            _dragSet.slots[i].ForcePlaceLetter(tile);
+        }
+
+        _lastPreviewIndex = targetIndex;
+    }
+
+    public bool CommitDrag(BoardSlot hovered, LetterTile draggingTile)
+    {
+        if (_dragSet == null || _dragTile != draggingTile)
+            { CancelDrag(); return false; }
+
+        if (hovered == null || !_slot2set.TryGetValue(hovered, out var set) || set != _dragSet || set.solved)
+            { CancelDrag(); return false; }
+
+        int targetIndex = _dragSet.slots.IndexOf(hovered);
+        if (targetIndex < 0) { CancelDrag(); return false; }
+
+        // คอนเฟิร์ม preview ให้แน่ใจ แล้ววางตัวที่ลากลงช่องเป้าหมาย
+        ApplyPreview(targetIndex);
+        hovered.ForcePlaceLetter(draggingTile);
+
+        set.touched = true;
+        SetOutlineColor(set, _colOutlineTouched);
+
+        ClearDragState();
+        return true;
+    }
+
+    public void CancelDrag()
+    {
+        if (_dragSet != null && _origTiles != null)
+        {
+            for (int i = 0; i < _dragSet.slots.Count; i++)
+                _dragSet.slots[i].ForcePlaceLetter(_origTiles[i]);
+        }
+        ClearDragState();
+    }
+
+    void ClearDragState()
+    {
+        _dragStart = null;
+        _dragSet = null;
+        _dragTile = null;
+        _origTiles = null;
+        _lastPreviewIndex = -1;
     }
     public void EndDrag(BoardSlot s)
     {
