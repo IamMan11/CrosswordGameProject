@@ -21,6 +21,10 @@ public class LevelConfig
     [Min(1)] public int level1_garbledCount        = 3;    // จำนวนคำ IT ที่จะสุ่มวาง
     [Min(1)] public int level1_minGapBetweenSets   = 2;    // ระยะห่างขั้นต่ำระหว่างชุด
     [Min(1)] public int level1_placeMaxRetries     = 200;  // ความพยายามในการวาง
+    // ---- NEW: กันโซนกึ่งกลาง ----
+    [Header("Level 1 - Center Safe Zone")]
+    public bool level1_reserveCenterBox = true;          // เปิด/ปิดโซนปลอดภัย
+    [Min(0)] public int level1_centerBoxHalfExtent = 1;  // 1 = กรอบ 3x3, 2 = 5x5, ...
     public string[] level1_itWords = new string[] {
         "code","dev","server","client","api","cloud","sql","python","java","unity","debug","kernel","socket","router"
     };
@@ -63,6 +67,7 @@ public class LevelConfig
         if (requiredWords < 0) requiredWords = 0;
         if (timeLimit < 0f) timeLimit = 0f;
         if (requiredThemeCount < 0) requiredThemeCount = 0;
+        if (level1_centerBoxHalfExtent < 0) level1_centerBoxHalfExtent = 0;
     }
 #endif
 }

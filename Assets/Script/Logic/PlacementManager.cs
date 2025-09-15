@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -15,8 +16,10 @@ public enum Orient { Horizontal, Vertical }
 /// - วางจริง: ย้ายไทล์จาก Space ไปยัง Board ตามพรีวิว และเปิดปุ่ม Confirm
 /// - ยกเลิกการวาง: บินไทล์กลับ Bench/Space ตามช่องว่าง
 ///
-/// หมายเหตุ:
-/// - คงพฤติกรรมเดิมทั้งหมด (ชื่อเมธอด/ฟิลด์เดิม) แต่เพิ่มกัน NRE/ขอบเขต และคำอธิบาย
+/// อัปเดต (2025-09-13):
+/// - เพิ่มการ "วางทีละตัว" แบบหน่วงจังหวะ/รอเป็นตัวๆ ผ่านคอร์รูทีน PlacePairsSequentially
+/// - ปรับ TryPlace ให้ใช้คอร์รูทีนแทนการวางพร้อมกันทั้งหมด
+/// - ยังใช้ LetterTile.FlyTo(...) ในการบิน + ไล่สเกลให้พอดี Boardslot ขณะบิน
 /// </summary>
 public class PlacementManager : MonoBehaviour
 {
@@ -25,6 +28,11 @@ public class PlacementManager : MonoBehaviour
     [Header("Colors")]
     public Color validColor   = new(0, 1, 0, 0.25f);
     public Color invalidColor = new(1, 0, 0, 0.25f);
+
+    [Header("Placement Stagger (ทีละตัว)")]
+    [SerializeField] float placeStagger = 0.08f;    // หน่วงก่อนเริ่มตัวถัดไป (วินาที) แบบรัวๆ
+    [SerializeField] bool  waitEachTile = false;    // true = รอให้ตัวก่อนหน้า "ลงจอด" (ประมาณจาก flyDurationHint) ก่อนเริ่มตัวถัดไป
+    [SerializeField] float flyDurationHint = 0.35f; // เวลาโดยประมาณที่ LetterTile ใช้บิน (ถ้า LetterTile ตั้งค่าไม่เท่ากัน ปรับค่านี้ใน Inspector ได้)
 
     [Header("Debug")]
     public bool debug = true;
@@ -238,7 +246,7 @@ public class PlacementManager : MonoBehaviour
     /// <summary>
     /// วางจริง: ย้ายไทล์ตามพรีวิวทั้งหมดไปลงบอร์ด
     /// - หากพรีวิวไม่ valid หรือไทล์ไม่ครบ → ไม่ทำอะไร
-    /// - สำเร็จ: ล้างพรีวิว, เคลียร์ startSlot, เปิดปุ่ม Confirm
+    /// - สำเร็จ: ใช้คอร์รูทีนวางทีละตัว จากนั้นล้างพรีวิว, เคลียร์ startSlot, เปิดปุ่ม Confirm
     /// </summary>
     public void TryPlace()
     {
@@ -255,40 +263,29 @@ public class PlacementManager : MonoBehaviour
         List<LetterTile> tiles = spaceMgr.GetPreparedTiles();
         if (tiles == null || tiles.Count == 0 || currentPreview.Count == 0) return;
 
+        // จับคู่ "ไทล์จาก Space" → "สลอตว่างในพรีวิว" ตามลำดับ
         int tileIdx = 0;
-        lastPlacedTiles.Clear();
-
+        var pairs = new List<(LetterTile tile, BoardSlot slot)>();
         foreach (var slot in currentPreview)
         {
             if (slot == null) { previewIsValid = false; break; }
-
-            // ข้ามช่องที่มีตัวอยู่แล้ว (เช่น ตัวเก่า)
-            if (slot.HasLetterTile()) continue;
-
-            if (tileIdx >= tiles.Count)
-            {
-                // ปกติไม่ควรเกิด เพราะคำนวณพรีวิวตาม need ไปแล้ว
-                previewIsValid = false;
-                break;
-            }
+            if (slot.HasLetterTile()) continue; // ข้ามช่องที่มีตัวอยู่แล้ว (ตัวเก่า)
+            if (tileIdx >= tiles.Count) { previewIsValid = false; break; }
 
             var tile = tiles[tileIdx++];
             if (tile == null) { previewIsValid = false; break; }
 
-            MoveTileToSlot(tile, slot);
-            lastPlacedTiles.Add((tile, slot));
+            pairs.Add((tile, slot));
         }
 
-        // หากยังเหลือไทล์ไม่ได้วาง แสดงว่าวางไม่ครบ
-        if (tileIdx != tiles.Count)
+        if (!previewIsValid || tileIdx != tiles.Count)
         {
             if (debug) Debug.Log("❌ some tiles could not be placed");
             return;
         }
 
-        ClearPreview();
-        startSlot = null;
-        turnMgr.EnableConfirm();
+        // วางแบบ "ทีละตัว" ด้วยคอร์รูทีน
+        StartCoroutine(PlacePairsSequentially(pairs));
     }
 
     /// <summary>
@@ -296,13 +293,44 @@ public class PlacementManager : MonoBehaviour
     /// </summary>
     void MoveTileToSlot(LetterTile tile, BoardSlot slot)
     {
-        tile.FlyTo(slot.transform);                       // อนิเมชันบินเข้า
+        tile.FlyTo(slot.transform);                       // อนิเมชันบินเข้า + ไล่สเกลให้พอดีช่อง (ทำใน LetterTile)
         SfxPlayer.Play(SfxId.TileSnap);                   // เสียงล็อก
 
         // ให้ไอคอนพื้น (เช่น Center icon) ลงไปอยู่ใต้สุด ไม่บังไทล์
         if (slot.icon != null) slot.icon.transform.SetAsFirstSibling();
 
         tile.IsInSpace = false;
+    }
+
+    /// <summary>
+    /// วางแบบ "ทีละตัว" ด้วยการหน่วงจังหวะ หรือรอเป็นตัวๆ (ตามตัวเลือกใน Inspector)
+    /// </summary>
+    private IEnumerator PlacePairsSequentially(List<(LetterTile tile, BoardSlot slot)> pairs)
+    {
+        var turnMgr = TurnManager.Instance;
+        lastPlacedTiles.Clear();
+
+        for (int i = 0; i < pairs.Count; i++)
+        {
+            var (tile, slot) = pairs[i];
+            if (tile == null || slot == null) continue;
+
+            MoveTileToSlot(tile, slot);
+            lastPlacedTiles.Add((tile, slot));
+
+            if (i < pairs.Count - 1)
+            {
+                if (waitEachTile)
+                    yield return new WaitForSecondsRealtime(Mathf.Max(0.02f, flyDurationHint));
+                else
+                    yield return new WaitForSecondsRealtime(Mathf.Max(0f, placeStagger));
+            }
+        }
+
+        // จบแล้วค่อยเคลียร์พรีวิว และเปิด Confirm
+        ClearPreview();
+        startSlot = null;
+        turnMgr?.EnableConfirm();
     }
 
     #endregion

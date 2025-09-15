@@ -1,3 +1,4 @@
+// ========== LevelManager.cs (wired with UIManager) ==========
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -30,7 +31,6 @@ public class LevelManager : MonoBehaviour
 
     private int   currentLevel;
     private bool  isGameOver;
-    private bool  isTransitioning;
 
     private float levelTimeLimit;
     private float levelTimeElapsed;
@@ -242,7 +242,6 @@ public class LevelManager : MonoBehaviour
 
         StopAllLoops();
         isGameOver       = false;
-        isTransitioning  = false;
         phase            = GamePhase.Setup;
 
         currentLevel       = idx;
@@ -284,6 +283,9 @@ public class LevelManager : MonoBehaviour
         {
             Level2_ApplyThemeAndUpgrades();
             if (level2_enableLockedBoard) Level2_SeedLockedSlots();
+
+            // เริ่มโซน x2 ทันที (กันลืม OnFirstConfirm) และอัปเดต triangle hint ครั้งแรก
+
             if (level2_enablePeriodicX2Zones && level2_x2Routine == null)
                 level2_x2Routine = StartCoroutine(Level2_PeriodicX2Zones(spawnImmediately: true));
 
@@ -390,9 +392,6 @@ public class LevelManager : MonoBehaviour
 
         if (levelTimerText) levelTimerText.color = win ? Color.green : Color.red;
 
-        // ปิด UI เฉพาะเลเวล
-        UIManager.Instance?.ShowGarbledUI(false);
-        UIManager.Instance?.SetTriangleHintVisible(false);
 
         if (win && currentLevelConfig?.levelIndex == 2 && level2_grantWinRewards)
             TryGrantLevel2Rewards(level2_winCogCoin, level2_nextFloorClue);
@@ -402,6 +401,7 @@ public class LevelManager : MonoBehaviour
 
     private void StopAllLoops()
     {
+
         if (level2_x2Routine != null)          { StopCoroutine(level2_x2Routine);          level2_x2Routine = null; }
         if (level2_benchIssueRoutine != null)  { StopCoroutine(level2_benchIssueRoutine);  level2_benchIssueRoutine = null; }
         Level2_RevertAllZones();
@@ -667,6 +667,8 @@ public class LevelManager : MonoBehaviour
         }
         level2_activeZoneChanges.Clear();
     }
+
+    // ===== Rewards (safe reflection, ไม่พังถ้าไม่มีฟิลด์/พร็อพ) =====
 
     private void TryGrantLevel2Rewards(int addCogCoin, string clue)
     {

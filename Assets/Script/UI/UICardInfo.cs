@@ -1,59 +1,84 @@
 using UnityEngine;
-using TMPro;
 using UnityEngine.UI;
+using TMPro;
+using System.Collections;
 
-/// <summary>
-/// หน้าต่างข้อมูลการ์ดที่โชว์ทางขวา (ภาพ/ชื่อ/คำอธิบาย/ค่าสถานะการใช้ต่อเทิร์น)
-/// </summary>
-[DisallowMultipleComponent]
 public class UICardInfo : MonoBehaviour
 {
-    [Header("UI")]
-    [SerializeField] private GameObject root;     // Panel หลัก
-    [SerializeField] private Image      iconImg;
-    [SerializeField] private TMP_Text   nameText;
-    [SerializeField] private TMP_Text   descText;
-    [SerializeField] private TMP_Text   ManaText;
-    [SerializeField] private TMP_Text   UseText;
-
     public static UICardInfo Instance { get; private set; }
+
+    [Header("Refs")]
+    public RectTransform panel;     // กล่อง info
+    public CanvasGroup group;
+    public Image icon;
+    public TMP_Text title;
+    public TMP_Text desc;
+
+    [Header("Anim")]
+    public float slideDur = 0.18f;
+    public float offsetX = 1000f;    // ระยะซ่อนด้านขวา
+
+    Coroutine co;
 
     void Awake()
     {
-        if (Instance == null) Instance = this; else { Destroy(gameObject); return; }
-        if (root != null) root.SetActive(false);
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        Instance = this;
+        if (!panel) panel = transform as RectTransform;
+        if (!group) group = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
+        HideImmediate();
     }
 
-    /// <summary>เปิดหน้าต่างข้อมูลของการ์ด</summary>
     public void Show(CardData data)
     {
-        if (data == null || root == null) return;
+        if (!panel || !group || data == null) return;
 
-        if (iconImg)  iconImg.sprite  = data.icon;
-        if (nameText) nameText.text   = data.displayName;
-        if (descText) descText.text   = data.description;
-        if (ManaText) ManaText.text   = $"Cost : {data.Mana} Mana";
+        if (icon)  icon.sprite = data.icon;
+        if (title) title.text  = data.displayName;
+        if (desc)  desc.text   = data.description;
 
-        int used = 0;
-        int max  = data.maxUsagePerTurn;
-
-        // กัน NRE ถ้า TurnManager ยังไม่พร้อม
-        if (TurnManager.Instance != null)
-            used = TurnManager.Instance.GetUsageCount(data);
-
-        if (UseText)
-        {
-            UseText.text = (max <= 0)
-                ? $"Use : {used}/∞"
-                : $"Use : {used}/{max}";
-        }
-
-        root.SetActive(true);
+        if (co != null) StopCoroutine(co);
+        co = StartCoroutine(Slide(true));
     }
 
-    /// <summary>ซ่อนหน้าต่างข้อมูล</summary>
     public void Hide()
     {
-        if (root != null) root.SetActive(false);
+        if (!panel || !group) return;
+        if (co != null) StopCoroutine(co);
+        co = StartCoroutine(Slide(false));
+    }
+
+    void HideImmediate()
+    {
+        if (!panel || !group) return;
+        group.alpha = 0f;
+        var p = panel.anchoredPosition;
+        p.x = offsetX;
+        panel.anchoredPosition = p;
+        group.blocksRaycasts = false;
+        group.interactable = false;
+    }
+
+    IEnumerator Slide(bool show)
+    {
+        float t = 0f, dur = Mathf.Max(0.01f, slideDur);
+        Vector2 from = panel.anchoredPosition;
+        Vector2 to   = from; to.x = show ? 0f : offsetX;
+
+        float aFrom = group.alpha, aTo = show ? 1f : 0f;
+
+        if (show) { group.blocksRaycasts = true; group.interactable = true; }
+
+        while (t < 1f)
+        {
+            t += Time.unscaledDeltaTime / dur;
+            float e = 1f - Mathf.Pow(1f - Mathf.Clamp01(t), 3f); // easeOutCubic
+            panel.anchoredPosition = Vector2.LerpUnclamped(from, to, e);
+            group.alpha = Mathf.LerpUnclamped(aFrom, aTo, e);
+            yield return null;
+        }
+
+        if (!show) { group.blocksRaycasts = false; group.interactable = false; }
+        co = null;
     }
 }

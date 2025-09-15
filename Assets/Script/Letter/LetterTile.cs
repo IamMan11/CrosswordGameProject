@@ -59,7 +59,6 @@ public class LetterTile : MonoBehaviour,
     static readonly int HASH_INSPACE  = Animator.StringToHash("InSpace");
     const string STATE_SPACEWAVE = "SpaceWave";
 
-    [SerializeField] private float settleDuration = 0.22f; // ความยาวคลิป Settle
     [SerializeField] private float settleDebounce = 0.10f; // กันสั่งซ้อนถี่เกินไป
     private float lastSettleTime = -999f;
 
@@ -77,7 +76,11 @@ public class LetterTile : MonoBehaviour,
 
         canvas = GetComponentInParent<Canvas>();
         if (canvas == null)
-            canvas = FindObjectOfType<Canvas>(); // กันกรณี hierarchy เปลี่ยน
+            #if UNITY_2023_1_OR_NEWER
+            canvas = UnityEngine.Object.FindFirstObjectByType<Canvas>();
+            #else
+            canvas = FindObjectOfType<Canvas>();
+            #endif
 
         if (canvas != null && canvas.rootCanvas != null)
             rootCanvasRect = canvas.rootCanvas.transform as RectTransform;
@@ -385,52 +388,73 @@ public class LetterTile : MonoBehaviour,
     /// <summary>ตัวอักษร "ที่ใช้จริง" ของไทล์ (ถ้า Blank และเลือกแล้วจะคืน override)</summary>
     public string CurrentLetter => string.IsNullOrEmpty(overrideLetter) ? (data != null ? data.letter : "") : overrideLetter;
 
-    // ===================== Fly (animate to slot) =====================
+    // =========== Fly (animate to slot) =====================
+
     public void FlyTo(Transform targetSlot)
     {
         StartCoroutine(FlyToSlot(targetSlot));
     }
 
+
     private IEnumerator FlyToSlot(Transform targetSlot)
     {
         if (targetSlot == null || rectTf == null) yield break;
+
 
         isBusy = true;
         UiGuard.Push();
         canvasGroup.blocksRaycasts = false;
 
+
+        // ปิด Animator ชั่วคราว กันมัน override สเกลระหว่างบิน
+        var anim = visualAnimator; bool animWasEnabled = false;
+        if (anim) { animWasEnabled = anim.enabled; anim.enabled = false; }
+
+
+        // ย้ายขึ้น Canvas เพื่อไม่ให้โดน Layout/Mask คุมอยู่
         if (canvas != null)
         {
             transform.SetParent(canvas.transform, true);
             transform.SetAsLastSibling();
         }
 
+
         // จุดเริ่ม/ปลาย (world)
         Vector3 startPos = rectTf.position;
-        var targetRt = targetSlot as RectTransform;
-        Vector3 endPos = targetRt ? targetRt.TransformPoint(Vector3.zero) : targetSlot.position;
+        var targetRt = targetSlot.GetComponent<RectTransform>();
+        Vector3 endPos = targetRt ? targetRt.TransformPoint(targetRt.rect.center) : targetSlot.position;
 
-        // คำนวณสเกลปลายทางให้พอดีช่อง
+
+        // --- คำนวณสเกลปลายทางให้พอดีช่อง ---
         Vector2 GetWorldSize(RectTransform rt)
         {
             var c = new Vector3[4]; rt.GetWorldCorners(c);
             return new Vector2(Vector3.Distance(c[0], c[3]), Vector3.Distance(c[0], c[1]));
         }
 
-        Vector2 startWS = Vector2.one, targetWS = Vector2.one;
-        if (rectTf != null && targetRt != null) { startWS = GetWorldSize(rectTf); targetWS = GetWorldSize(targetRt); }
 
-        Transform scaleTarget = transform;
+        RectTransform srcForSize = visualPivot ? visualPivot : rectTf;
+        Vector2 startWS = Vector2.one, targetWS = Vector2.one;
+        if (srcForSize) startWS = GetWorldSize(srcForSize);
+        if (targetRt) targetWS = GetWorldSize(targetRt);
+
+
+        // สเกลลงกับตัวที่เห็นจริง ถ้าไม่มี visualPivot ให้สเกลทั้ง tile
+        Transform scaleTarget = visualPivot ? (Transform)visualPivot : (Transform)rectTf;
         Vector3 startScale = scaleTarget.localScale;
-        Vector3 endScale   = startScale;
+        Vector3 endScale = startScale;
+
 
         if (startWS.x > 1e-3f && startWS.y > 1e-3f)
         {
-            float sx = targetWS.x / startWS.x, sy = targetWS.y / startWS.y;
+            float sx = targetWS.x / startWS.x;
+            float sy = targetWS.y / startWS.y;
             endScale = new Vector3(startScale.x * sx, startScale.y * sy, startScale.z);
         }
 
+
         float t = 0f, dur = Mathf.Max(0.0001f, flyDuration);
+
 
         try
         {
@@ -438,32 +462,30 @@ public class LetterTile : MonoBehaviour,
             {
                 t += Time.unscaledDeltaTime / dur;
                 float a = flyEase.Evaluate(Mathf.Clamp01(t));
-                rectTf.position        = Vector3.LerpUnclamped(startPos, endPos, a);
+                rectTf.position = Vector3.LerpUnclamped(startPos, endPos, a);
                 scaleTarget.localScale = Vector3.LerpUnclamped(startScale, endScale, a);
                 yield return null;
             }
 
-            // ถ้าช่องปลายทางยังมีของอยู่ ให้จัดทางออกไปยังช่องว่างที่ใกล้ที่สุด
-            if (targetSlot.childCount > 0)
-            {
-                if (BenchManager.Instance && BenchManager.Instance.IndexOfSlot(targetSlot) >= 0)
-                    BenchManager.Instance.KickOutExistingToNearestEmpty(targetSlot);
-                else if (SpaceManager.Instance && SpaceManager.Instance.IndexOfSlot(targetSlot) >= 0)
-                    SpaceManager.Instance.KickOutExistingToNearestEmpty(targetSlot);
-            }
 
             // ลงจอดจริง + snap ให้พอดีช่อง
             transform.SetParent(targetSlot, false);
             transform.SetAsLastSibling();
             transform.localPosition = Vector3.zero;
-            scaleTarget.localScale  = Vector3.one;
 
+
+            // รีเซ็ตสเกลบน visualPivot/Rect แล้วฟิตพอดีช่อง
+            scaleTarget.localScale = Vector3.one;
             AdjustSizeToParent();
             PlaySettle();
             SpaceManager.Instance?.UpdateDiscardButton();
         }
         finally
         {
+            // เปิด Animator คืน
+            if (anim) anim.enabled = animWasEnabled;
+
+
             canvasGroup.blocksRaycasts = true;
             isBusy = false;
             UiGuard.Pop();

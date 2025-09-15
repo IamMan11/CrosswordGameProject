@@ -109,10 +109,12 @@ public class TurnManager : MonoBehaviour
 
     void Update()
     {
-        if (inConfirmProcess || confirmBtn == null) return;
-
-        // เปิด/ปิดปุ่มตามว่าบอร์ดมีตัวอักษรไหม
-        confirmBtn.interactable = BoardHasAnyTile();
+        if (!inConfirmProcess && confirmBtn != null)
+        {
+            bool can = BoardHasAnyTile();
+            confirmBtn.interactable = can;   // ของเดิม
+            SetButtonVisual(confirmBtn, can); // เพิ่มบรรทัดนี้ให้จาง/สว่างตามสถานะ
+        }
     }
 
     void ClearAllSlotFx()
@@ -165,6 +167,17 @@ public class TurnManager : MonoBehaviour
 
     public int ConfirmsThisLevel { get; private set; } = 0;
     public int UniqueWordsThisLevel => boardWords.Count;
+    void SetButtonVisual(Button b, bool on)
+    {
+        if (!b) return;
+        var cg = b.GetComponent<CanvasGroup>();
+        if (!cg) cg = b.gameObject.AddComponent<CanvasGroup>();
+
+        b.interactable      = on;
+        cg.interactable     = on;
+        cg.blocksRaycasts   = on;
+        cg.alpha            = on ? 1f : 0.45f;   // ปรับความจางตามชอบ
+    }
 
     bool BoardHasAnyTile()
     {
@@ -176,7 +189,8 @@ public class TurnManager : MonoBehaviour
             for (int c = 0; c < C; c++)
             {
                 var s = bm.grid[r, c];
-                if (s != null && s.HasLetterTile()) return true;
+                // นับเฉพาะตัวอักษรจริง (ไม่นับจาก Garbled)
+                if (s != null && BoardAnalyzer.IsRealLetter(s)) return true;
             }
         return false;
     }
@@ -391,8 +405,11 @@ public class TurnManager : MonoBehaviour
     {
         inConfirmProcess = false;
         if (confirmBtn == null) return;
-        confirmBtn.interactable = BoardHasAnyTile();
+        bool can = BoardHasAnyTile();
+        confirmBtn.interactable = can;
+        SetButtonVisual(confirmBtn, can);
     }
+
 
     public void OnClickDictionaryButton()
     {
