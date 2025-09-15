@@ -222,9 +222,7 @@ public class BoardSlot : MonoBehaviour,
     /// <summary>โฮเวอร์: แจ้ง PlacementManager เพื่อพรีวิว/ตำแหน่งวาง</summary>
     public void OnPointerDown(UnityEngine.EventSystems.PointerEventData e)
     {
-        var lt = GetLetterTile();
-        if (lt != null)
-            Level1GarbledIT.Instance?.BeginDrag(this, lt);
+        Level1GarbledIT.Instance?.BeginDrag(this);
     }
     public void OnPointerUp(UnityEngine.EventSystems.PointerEventData e)
     {
