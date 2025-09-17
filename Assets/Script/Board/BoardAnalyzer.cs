@@ -33,7 +33,6 @@ public static class BoardAnalyzer
         word = string.Empty;
         r0 = c0 = r1 = c1 = 0;
 
-        // ---------- ตรวจความพร้อมของบอร์ดและจุดเริ่ม ----------
         var bm = BoardManager.Instance;
         if (start == null || bm == null || bm.grid == null)
             return false;
@@ -44,68 +43,58 @@ public static class BoardAnalyzer
         if (!InBounds(start.row, start.col, rows, cols))
             return false;
 
-        // ตั้งค่าเริ่มต้นเป็นจุดเริ่ม
-        r0 = r1 = start.row;
-        c0 = c1 = start.col;
-
-        // ระบุทิศทางเริ่ม "ไล่ย้อนกลับ" เพื่อหา head
-        // Vertical : ไล่ขึ้น (dr = -1, dc = 0)
-        // Horizontal: ไล่ซ้าย (dr = 0,  dc = -1)
+        // กำหนดทิศถอยหลังเพื่อหา "หัว"
         int dr = orient == Orient.Vertical   ? -1 : 0;
         int dc = orient == Orient.Horizontal ? -1 : 0;
 
-        // ---------- หา head (ถอยไปจนกว่าช่องก่อนหน้าจะไม่ใช่ตัวอักษร) ----------
+        // หา head
         int r = start.row, c = start.col;
-        while (InBounds(r + dr, c + dc, rows, cols) && g[r + dr, c + dc] != null && IsRealLetter(g[r+dr,c+dc]))
+        while (InBounds(r + dr, c + dc, rows, cols) && g[r + dr, c + dc] != null && IsRealLetter(g[r + dr, c + dc]))
         {
             r += dr;
             c += dc;
         }
         r0 = r; c0 = c;
 
-        // ---------- สะสมตัวอักษรจาก head → tail ----------
-        // พลิกทิศจากย้อนกลับ → เดินหน้า
-        dr = -dr;
-        dc = -dc;
+        // พลิกเป็นทิศเดินหน้าเพื่ออ่านคำไปจนถึง tail
+        dr = -dr; dc = -dc;
 
         while (true)
         {
-            // ถ้าตำแหน่งปัจจุบันไม่มีตัวอักษร ถือว่าล้มเหลว
             var cur = g[r, c];
             if (!IsRealLetter(cur)) { word = string.Empty; return false; }
 
-            // อ่านอักษรจาก LetterTile (ป้องกัน null)
-            LetterTile tile = cur.GetLetterTile();
-            if (tile == null)
-            {
-                word = string.Empty;
-                return false;
-            }
-            word += (tile != null ? tile.CurrentLetter : string.Empty);
+            var tile = cur.GetLetterTile();
+            if (tile == null) { word = string.Empty; return false; }
 
-            // ถ้าตำแหน่งถัดไป (ตามแกน) ออกนอกขอบ หรือไม่มีตัวอักษร → เจอ tail แล้ว
+            word += tile.CurrentLetter;
+
             int nr = r + dr, nc = c + dc;
-            if (!InBounds(nr, nc, rows, cols) || g[nr, nc] == null || !g[nr, nc].HasLetterTile())
-            {
-                r1 = r; c1 = c;
+            if (!InBounds(nr, nc, rows, cols) || g[nr, nc] == null || !IsRealLetter(g[nr, nc]))
                 break;
-            }
 
             r = nr; c = nc;
         }
 
-        // ---------- ตรวจว่าหัว/ท้าย "ปิด" หรือไม่ ----------
-        // "ปิด" = ช่องก่อนหน้าหัว/ช่องถัดไปท้าย ต้องอยู่นอกขอบ หรือไม่มี LetterTile
-        bool headClosed =
-            !InBounds(r0 - dr, c0 - dc, rows, cols) ||
-            g[r0 - dr, c0 - dc] == null || !g[r0 - dr, c0 - dc].HasLetterTile();
+        // r,c ตอนนี้คือตำแหน่ง tail จริง
+        r1 = r; c1 = c;
 
-        bool tailClosed =
-            !InBounds(r1 + dr, c1 + dc, rows, cols) ||
-            g[r1 + dr, c1 + dc] == null || !g[r1 + dr, c1 + dc].HasLetterTile();
+        // ช่อง "ก่อนหัว" = ถอยกลับจากหัวหนึ่งก้าว (ตามทิศเดินหน้า dr/dc)
+        int headPrevR = r0 - dr, headPrevC = c0 - dc;
+        // ช่อง "ถัดท้าย" = เดินต่อจากหางหนึ่งก้าว
+        int tailNextR = r1 + dr, tailNextC = c1 + dc;
+
+        bool headClosed = !InBounds(headPrevR, headPrevC, rows, cols)
+                        || g[headPrevR, headPrevC] == null
+                        || !IsRealLetter(g[headPrevR, headPrevC]);
+
+        bool tailClosed = !InBounds(tailNextR, tailNextC, rows, cols)
+                        || g[tailNextR, tailNextC] == null
+                        || !IsRealLetter(g[tailNextR, tailNextC]);
 
         return headClosed && tailClosed;
     }
+
 
     /// <summary>เช็กว่า (r,c) อยู่ในกรอบบอร์ดหรือไม่</summary>
     private static bool InBounds(int r, int c, int rows, int cols)

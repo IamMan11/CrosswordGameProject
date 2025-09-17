@@ -204,28 +204,41 @@ public class Level1GarbledIT : MonoBehaviour
                     var slot = set.slots[k]; if (slot == null) continue;
                     slot.ClearSpecialBg();
                     var tile = slot.GetLetterTile();
-                    if (tile != null) tile.isLocked = false;
+                    if (tile != null) tile.isLocked = true; // ← กลายเป็นตัวบนบอร์ดปกติ ต้องห้ามลาก
                 }
                 SetOutlineColor(set, new Color(0, 0, 0, 0));
                 if (set.outline != null) Destroy(set.outline.gameObject);
                 UIToast($"แก้คำ {set.target} ถูกต้อง!", Color.cyan);
+
+                // ✅ เพิ่มรางวัลคะแนนตาม "ผลรวมคะแนนตัวอักษร" ของชุดนี้
+                int reward = 0;
+                foreach (var s in set.slots)
+                {
+                    var t = s.GetLetterTile(); if (!t) continue;
+                    reward += Mathf.Max(0, t.GetData()?.score ?? 0);
+                }
+
+                if (reward > 0)
+                {
+                    TurnManager.Instance?.AddScore(reward); // ใช้เมธอด AddScore ที่มีอยู่แล้ว
+                    UIToast($"+{reward} (Garbled solved)", Color.green);
+                }
             }
             else
             {
-                // ✖ ผิด: หักแต้มรวมคะแนนตัวอักษรทั้งชุด แล้วสุ่มสลับใหม่
                 int penalty = 0;
-                for (int k = 0; k < set.slots.Count; k++)
+                foreach (var s in set.slots)
                 {
-                    var tile = set.slots[k]?.GetLetterTile();
-                    var data = (tile != null) ? tile.GetData() : null;
-                    if (data != null) penalty += Mathf.Max(0, data.score);
+                    var t = s.GetLetterTile(); if (!t) continue;
+                    penalty += Mathf.Max(0, t.GetData()?.score ?? 0);
                 }
-                if (penalty > 0) TurnManager.Instance?.AddScore(-penalty);
 
-                ShuffleTilesInSet(set);
-                set.touched = false; // รีเซ็ต: รอบถัดไปจะไม่ถูกหักจนกว่าจะสลับใหม่
-                SetOutlineColor(set, _colOutlineDefault);
-                UIToast($"คำ {set.target} ยังไม่ถูก -{penalty}", Color.red);
+                // ❗เดิม: ใช้ penalty เต็ม 100%
+                // ✅ ใหม่: หัก 50% (ปัดขึ้น)
+                penalty = Mathf.CeilToInt(penalty * 0.5f);
+
+                TurnManager.Instance?.AddScore(-penalty);
+                UIToast($"ผิด! -{penalty}", Color.red);
             }
 
             yield return new WaitForSecondsRealtime(0.12f);

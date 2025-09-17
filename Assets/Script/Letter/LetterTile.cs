@@ -28,6 +28,7 @@ public class LetterTile : MonoBehaviour,
     private bool isSpecialTile;                        // สถานะ special (ซิงก์กับ data)
     public  bool isLocked = false;                     // ล็อกการอินพุตสำหรับไทล์นี้
     private bool _garbledBoardDrag = false;
+    private bool _inFlight = false;
 
     [HideInInspector] public bool IsInSpace = false;   // สถานะขณะอยู่ใน Space (เผื่อ UI ใช้)
     private bool wasInSpaceAtDragStart = false;        // จำค่าสถานะตอนเริ่มลาก
@@ -401,22 +402,30 @@ public class LetterTile : MonoBehaviour,
         if (targetSlot == null || rectTf == null) yield break;
 
 
-        isBusy = true;
-        UiGuard.Push();
-        canvasGroup.blocksRaycasts = false;
+        // --- เพิ่มบนหัวเมธอด FlyToSlot หลังเช็ค null ---
+        isBusy = true; UiGuard.Push(); canvasGroup.blocksRaycasts = false;
 
-
-        // ปิด Animator ชั่วคราว กันมัน override สเกลระหว่างบิน
+        // ปิด Animator ชั่วคราวตามเดิม...
         var anim = visualAnimator; bool animWasEnabled = false;
         if (anim) { animWasEnabled = anim.enabled; anim.enabled = false; }
 
+        // 1) จำ 'ขนาด local ปัจจุบัน' และ 'ตำแหน่งโลก' ก่อนย้าย
+        Vector2 prevLocalSize = rectTf.rect.size;
+        Vector3 startPosWorld = rectTf.position;
 
-        // ย้ายขึ้น Canvas เพื่อไม่ให้โดน Layout/Mask คุมอยู่
-        if (canvas != null)
-        {
+        // 2) ย้ายขึ้น Canvas
+        if (canvas != null) {
             transform.SetParent(canvas.transform, true);
             transform.SetAsLastSibling();
         }
+
+        // 3) ล็อก Rect ไม่ให้ stretch แล้วคง “ขนาดเท่าเดิม”
+        rectTf.anchorMin = rectTf.anchorMax = new Vector2(0.5f, 0.5f);
+        rectTf.pivot     = new Vector2(0.5f, 0.5f);
+        rectTf.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, prevLocalSize.x);
+        rectTf.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,   prevLocalSize.y);
+        rectTf.position   = startPosWorld;
+        rectTf.localScale = Vector3.one;
 
 
         // จุดเริ่ม/ปลาย (world)
@@ -433,23 +442,36 @@ public class LetterTile : MonoBehaviour,
         }
 
 
-        RectTransform srcForSize = visualPivot ? visualPivot : rectTf;
+        // 2) วัดขนาดจาก Rect ของตัวไทล์เสมอ (อย่าใช้ visualPivot ถ้ามันเล็ก/0)
+        RectTransform srcForSize = rectTf;
         Vector2 startWS = Vector2.one, targetWS = Vector2.one;
         if (srcForSize) startWS = GetWorldSize(srcForSize);
-        if (targetRt) targetWS = GetWorldSize(targetRt);
+        if (targetRt)   targetWS = GetWorldSize(targetRt);
 
-
-        // สเกลลงกับตัวที่เห็นจริง ถ้าไม่มี visualPivot ให้สเกลทั้ง tile
+        // 3) คำนวณสเกลแบบกันค่าสุดโต่ง + มี fallback ปลอดภัย
         Transform scaleTarget = visualPivot ? (Transform)visualPivot : (Transform)rectTf;
         Vector3 startScale = scaleTarget.localScale;
-        Vector3 endScale = startScale;
-
+        Vector3 endScale   = startScale;
 
         if (startWS.x > 1e-3f && startWS.y > 1e-3f)
         {
             float sx = targetWS.x / startWS.x;
             float sy = targetWS.y / startWS.y;
+
+            // กันพุ่ง: จำกัดช่วงสเกลที่ยอมให้เปลี่ยนระหว่างบิน
+            const float MIN_MUL = 0.5f;   // หดสุด 50%
+            const float MAX_MUL = 2.0f;   // ขยายสุด 200% (ปรับได้)
+            sx = Mathf.Clamp(sx, MIN_MUL, MAX_MUL);
+            sy = Mathf.Clamp(sy, MIN_MUL, MAX_MUL);
+
+            if (!float.IsFinite(sx) || !float.IsFinite(sy)) { sx = 1f; sy = 1f; }
+
             endScale = new Vector3(startScale.x * sx, startScale.y * sy, startScale.z);
+        }
+        else
+        {
+            // ถ้าวัดไม่ได้ ให้คงสเกลเดิม
+            endScale = startScale;
         }
 
 
@@ -612,6 +634,16 @@ public class LetterTile : MonoBehaviour,
         var parentRt = transform.parent as RectTransform;
         if (parentRt == null || rtTile == null) return;
 
+        // ถ้ากำลังบิน หรือ พาเรนต์เป็น Canvas → ห้าม stretch เด็ดขาด
+        if (_inFlight || (canvas != null && transform.parent == canvas.transform))
+        {
+            rtTile.anchorMin = rtTile.anchorMax = new Vector2(0.5f, 0.5f);
+            rtTile.pivot     = new Vector2(0.5f, 0.5f);
+            rtTile.localScale = Vector3.one;
+            return;
+        }
+
+        // ปกติ: ฟิตเต็มช่องพาเรนต์ (Bench/Space/Board)
         rtTile.anchorMin = Vector2.zero;
         rtTile.anchorMax = Vector2.one;
         rtTile.anchoredPosition = Vector2.zero;

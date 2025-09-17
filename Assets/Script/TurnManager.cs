@@ -189,8 +189,11 @@ public class TurnManager : MonoBehaviour
             for (int c = 0; c < C; c++)
             {
                 var s = bm.grid[r, c];
-                // นับเฉพาะตัวอักษรจริง (ไม่นับจาก Garbled)
-                if (s != null && BoardAnalyzer.IsRealLetter(s)) return true;
+                if (s == null) continue;
+                if (!BoardAnalyzer.IsRealLetter(s)) continue; // ไม่นับ Garbled
+                var t = s.GetLetterTile();
+                if (t != null && !t.isLocked)                  // นับเฉพาะตัวที่ยังไม่ล็อก (วางใหม่เทิร์นนี้)
+                    return true;
             }
         return false;
     }

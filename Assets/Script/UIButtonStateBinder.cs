@@ -58,8 +58,13 @@ public class UIButtonStateBinder : MonoBehaviour
         int R = bm.grid.GetLength(0), C = bm.grid.GetLength(1);
         for (int r = 0; r < R; r++)
             for (int c = 0; c < C; c++)
-                if (bm.grid[r, c] != null && bm.grid[r, c].HasLetterTile())
-                    return true;
+            {
+                var s = bm.grid[r, c];
+                if (s == null) continue;
+                if (!BoardAnalyzer.IsRealLetter(s)) continue; // ไม่นับ Garbled
+                var t = s.GetLetterTile();
+                if (t != null && !t.isLocked) return true;    // มีตัววางใหม่
+            }
         return false;
     }
 }
