@@ -52,6 +52,10 @@ public class BenchManager : MonoBehaviour
     private int emptyIndex = -1;
 
     private int _uiGuardDepth = 0;
+    // >>> ADD: effect lock + busy flags
+    private int _effectLockDepth = 0;
+    public bool IsLocked => _effectLockDepth > 0;
+    public bool IsBusy => _moving.Count > 0 || _refillCo != null;
 
     // >>> NEW: กันเรียกเติมซ้ำช่วงคิดคะแนน / กันซ้อนคอร์รุตีน
     Coroutine _refillCo;
@@ -197,6 +201,54 @@ public class BenchManager : MonoBehaviour
         PlayShiftTick();
 
         _moving[tile] = StartCoroutine(AnimateToSlot(tile, to));
+    }
+    // >>> ADD: lock helpers
+    private void PushEffectLock()
+    {
+        _effectLockDepth++;
+        PauseAutoRefill();
+        CancelRefillAnimation();
+    }
+    private void PopEffectLock()
+    {
+        _effectLockDepth = Mathf.Max(0, _effectLockDepth - 1);
+        if (_effectLockDepth == 0) ResumeAutoRefill();
+    }
+
+    // >>> ADD: cancel any running refill animation immediately
+    public void CancelRefillAnimation()
+    {
+        if (_refillCo != null) { StopCoroutine(_refillCo); _refillCo = null; }
+        _refillQueued = false;
+        if (tileSpawnAnchor)
+        {
+            for (int i = tileSpawnAnchor.childCount - 1; i >= 0; --i)
+                Destroy(tileSpawnAnchor.GetChild(i).gameObject);
+        }
+    }
+
+    // >>> ADD: atomic runner (public API)
+    public void RunAtomic(System.Action action, bool refillAfter = true)
+    {
+        StartCoroutine(RunAtomicCo(action, refillAfter));
+    }
+
+    private IEnumerator RunAtomicCo(System.Action action, bool refillAfter)
+    {
+        PushEffectLock();
+
+        // รอให้การเคลื่อน/เติมใด ๆ ที่ค้างอยู่จบก่อน
+        while (IsBusy) yield return null;
+
+        try
+        {
+            action?.Invoke();
+        }
+        finally
+        {
+            PopEffectLock();
+            if (refillAfter) RefillEmptySlots();
+        }
     }
 
     private IEnumerator AnimateToSlot(LetterTile tile, Transform targetSlot)

@@ -737,7 +737,11 @@ public class TurnManager : MonoBehaviour
             foreach (var (t, _) in placed)
                 if (!bounced.Contains(t)) t.Lock();
 
-            BenchManager.Instance.RefillEmptySlots();
+            if (BenchManager.Instance != null)
+                BenchManager.Instance.RunAtomic(() =>
+                {
+                    BenchManager.Instance.RefillEmptySlots();
+                }, refillAfter: false);
             UpdateBagUI();
             EnableConfirm();
             if (Level1GarbledIT.Instance != null)
@@ -772,20 +776,34 @@ public class TurnManager : MonoBehaviour
         HashSet<LetterTile> bouncedSet)
     {
         var slots = SlotsInWord(w);
+
+        // เก็บไทล์ที่จะ "คืน Bench" ไว้ก่อน แล้วค่อยคืนทีเดียวแบบอะตอมมิก
+        var toReturn = new List<LetterTile>();
+
         foreach (var (t, s) in placed)
         {
             if (!slots.Contains(s)) continue;
 
             if (flashCol.HasValue) s.Flash(flashCol.Value, 3, 0.17f);
-            else s.Flash(Color.white, 1, 0.08f);
+            else                   s.Flash(Color.white,    1, 0.08f);
 
             var tile = s.RemoveLetter();
             if (tile == null) continue;
 
-            BenchManager.Instance.ReturnTileToBench(tile);
+            toReturn.Add(tile);
             bouncedSet.Add(tile);
         }
+
+        if (toReturn.Count > 0 && BenchManager.Instance != null)
+        {
+            BenchManager.Instance.RunAtomic(() =>
+            {
+                foreach (var tile in toReturn)
+                    BenchManager.Instance.ReturnTileToBench(tile);
+            });
+        }
     }
+
 
     IEnumerator SkipTurnAfterBounce()
     {
@@ -866,11 +884,11 @@ public class TurnManager : MonoBehaviour
             bool IsShort(MoveValidator.WordInfo wi)
                 => string.IsNullOrWhiteSpace(wi.word) || wi.word.Trim().Length < minLen;
 
-            var shortOnes   = words.Where(IsShort).ToList();
+            var shortOnes = words.Where(IsShort).ToList();
             var invalidDict = words.Except(shortOnes).Where(w => !WordChecker.Instance.IsWordValid(w.word)).ToList();
-            var duplicate   = words.Where(w => boardWords.Contains(w.word)).ToList();
-            var correct     = words.Except(shortOnes).Except(invalidDict).Except(duplicate).ToList();
-            var bounced     = new HashSet<LetterTile>();
+            var duplicate = words.Where(w => boardWords.Contains(w.word)).ToList();
+            var correct = words.Except(shortOnes).Except(invalidDict).Except(duplicate).ToList();
+            var bounced = new HashSet<LetterTile>();
 
             var placedSet = placed.Select(p => (p.s.row, p.s.col)).ToHashSet();
             MoveValidator.WordInfo mainWord;
@@ -879,23 +897,23 @@ public class TurnManager : MonoBehaviour
             if (placed.Count == 1)
             {
                 mainWord = words.OrderByDescending(w => (w.word ?? string.Empty).Length).FirstOrDefault();
-                hasMain  = !string.IsNullOrEmpty(mainWord.word);
+                hasMain = !string.IsNullOrEmpty(mainWord.word);
             }
             else
             {
                 mainWord = words.FirstOrDefault(w => CountNewInWord(w, placedSet) >= 2);
-                hasMain  = !string.IsNullOrEmpty(mainWord.word);
+                hasMain = !string.IsNullOrEmpty(mainWord.word);
             }
 
             LastConfirmedWord = hasMain ? mainWord.word : string.Empty;
 
             int penalty = 0;
-            var toBounceRed    = new List<MoveValidator.WordInfo>();
+            var toBounceRed = new List<MoveValidator.WordInfo>();
             var toBounceYellow = new List<MoveValidator.WordInfo>();
-            var toBounceDup    = new List<MoveValidator.WordInfo>();
+            var toBounceDup = new List<MoveValidator.WordInfo>();
 
-            bool mainShort     = hasMain && IsShort(mainWord);
-            bool mainInvalid   = hasMain && !mainShort   && invalidDict.Any(w => w.word == mainWord.word);
+            bool mainShort = hasMain && IsShort(mainWord);
+            bool mainInvalid = hasMain && !mainShort && invalidDict.Any(w => w.word == mainWord.word);
             bool mainDuplicate = hasMain && duplicate.Any(w => w.word == mainWord.word);
 
             if (mainShort)
@@ -927,12 +945,12 @@ public class TurnManager : MonoBehaviour
                 toBounceDup.Add(mainWord);
                 toBounceDup.AddRange(duplicate.Where(w => w.word != mainWord.word));
                 ShowMessage("คำซ้ำ – เด้งกลับ", Color.yellow);
-                ResetBgmStreak(playSfx:true);
+                ResetBgmStreak(playSfx: true);
             }
 
-            foreach (var w in toBounceRed)    BounceWord(w, placed, Color.red,    bounced);
+            foreach (var w in toBounceRed) BounceWord(w, placed, Color.red, bounced);
             foreach (var w in toBounceYellow) BounceWord(w, placed, Color.yellow, bounced);
-            foreach (var w in toBounceDup)    BounceWord(w, placed, Color.yellow, bounced);
+            foreach (var w in toBounceDup) BounceWord(w, placed, Color.yellow, bounced);
 
             bool skipTurn = mainShort || mainInvalid || mainDuplicate;
 
@@ -1037,6 +1055,7 @@ public class TurnManager : MonoBehaviour
                 bounced,
                 dictPenaltyApplied ? dictionaryPenaltyPercent : 0
             ));
+            ScoreManager.ClearTurnScopedOverrides();
         }
         finally
         {

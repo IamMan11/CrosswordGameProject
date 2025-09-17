@@ -3,60 +3,131 @@ using System.Linq;
 using UnityEngine;
 
 /// <summary>
-/// ScoreManager
-/// - คำนวณคะแนนคำ (DL/TL/DW/TW + overrides + GlobalLetterMultiplier)
-/// - มี override ครั้งเดียว (ใช้แล้วเคลียร์) สำหรับ DL/TL และ DW/TW
-/// - เพิ่ม ZeroScore helpers: ClearZeroScoreTiles / MarkZeroScoreTiles / IsZeroScoreTile
-/// - แก้โค้ดซ้ำซ้อน/unreachable ใน CalcWord()
+/// ScoreManager (STATIC)
+/// - ดูแลการคำนวณคะแนนคำ และตัวคูณแบบต่าง ๆ
+/// - รองรับเอฟเฟกต์การ์ดที่ตั้งค่าตัวคูณอักษร/คำ "ในตานี้" (turn-scoped)
+/// - รองรับโหมด "ครั้งเดียว" สำหรับเอฟเฟกต์เฉพาะกิจ
+/// - มี Global Letter Multiplier แบบชั่วคราว (ตามเวลา)
+/// - เพิ่มระบบ ZeroScoreTiles สำหรับไทล์ที่ต้องได้ 0 คะแนน
+/// 
+/// หมายเหตุการเชื่อมต่อ:
+/// - BoardManager.Instance.grid : BoardSlot[,]
+/// - BoardSlot : มี property `type` (SlotType) และ method `GetLetterTile()`
+/// - LetterTile : มี `GetData()?.score`
+/// 
+/// API สำคัญที่ระบบอื่นเรียก:
+///  - SetDoubleLetterOverride(int), SetDoubleWordOverride(int)          → ตั้งตัวคูณ DL/TL, DW/TW "ทั้งเทิร์น"
+///  - SetDoubleLetterOverrideOnce(int), SetDoubleWordOverrideOnce(int)  → ตั้งตัวคูณแบบใช้ครั้งเดียว
+///  - ClearTurnScopedOverrides()                                        → ให้ TurnManager เรียกเมื่อจบเทิร์น
+///  - CalcWord(r0,c0,r1,c1)                                            → คำนวณคะแนนจริง (กิน override แบบครั้งเดียว)
+///  - CalcWordPreview(r0,c0,r1,c1)                                     → คำนวณพรีวิว (ไม่กิน override)
+///  - ActivateGlobalLetterMultiplier(int, float)                        → คูณคะแนนตัวอักษรทั้งหมดแบบชั่วคราว
 /// </summary>
 public static class ScoreManager
 {
-    /* ===================== Overrides (ครั้งเดียว) ===================== */
+    // =====================================================================
+    #region Turn-Scoped Overrides (DL/TL & DW/TW)
 
-    private static int doubleLetterOverride = 0; // ใช้แทน DL/TL ถ้าตั้ง >0
-    private static int doubleWordOverride   = 0; // ใช้แทน DW/TW ถ้าตั้ง >0
+    private static int  s_doubleLetterOverride = 0;
+    private static int  s_doubleWordOverride   = 0;
 
+    // บอกว่า override ปัจจุบันเป็นแบบอยู่ถึงจบเทิร์นหรือไม่
+    private static bool s_letterOverrideTurnScoped = true;
+    private static bool s_wordOverrideTurnScoped   = true;
+
+    /// <summary>ตั้ง DL/TL override (ค่าอยู่ถึงจบเทิร์นเป็นค่าเริ่มต้น)</summary>
     public static void SetDoubleLetterOverride(int multiplier)
-        => doubleLetterOverride = Mathf.Max(multiplier, 0);
-
-    public static void SetDoubleWordOverride(int multiplier)
-        => doubleWordOverride = Mathf.Max(multiplier, 0);
-
-    public static int GetLetterOverride() => doubleLetterOverride;
-    public static int GetWordOverride()   => doubleWordOverride;
-
-    /* ===================== Global Letter Multiplier (ชั่วคราว) ===================== */
-
-    private static int   globalLetterMultiplier        = 1;
-    private static float globalLetterMultiplierEndTime = 0f;
-
-    public static void ActivateGlobalLetterMultiplier(int multiplier, float duration)
     {
-        globalLetterMultiplier        = Mathf.Max(multiplier, 1);
-        globalLetterMultiplierEndTime = Time.time + Mathf.Max(0f, duration);
+        s_doubleLetterOverride        = Mathf.Max(multiplier, 0);
+        s_letterOverrideTurnScoped    = true;
     }
 
-    static bool IsGlobalLetterMulActive() => Time.time < globalLetterMultiplierEndTime;
+    /// <summary>ตั้ง DW/TW override (ค่าอยู่ถึงจบเทิร์นเป็นค่าเริ่มต้น)</summary>
+    public static void SetDoubleWordOverride(int multiplier)
+    {
+        s_doubleWordOverride        = Mathf.Max(multiplier, 0);
+        s_wordOverrideTurnScoped    = true;
+    }
 
-    /* ===================== Zero-score (ใช้กับ Bench Issue) ===================== */
+    /// <summary>ตั้ง DL/TL override แบบใช้ครั้งเดียวจริง ๆ (หายหลัง CalcWord ครั้งแรก)</summary>
+    public static void SetDoubleLetterOverrideOnce(int multiplier)
+    {
+        s_doubleLetterOverride        = Mathf.Max(multiplier, 0);
+        s_letterOverrideTurnScoped    = false;
+    }
 
-    private static readonly HashSet<int> zeroScoreTileIds = new HashSet<int>();
+    /// <summary>ตั้ง DW/TW override แบบใช้ครั้งเดียวจริง ๆ (หายหลัง CalcWord ครั้งแรก)</summary>
+    public static void SetDoubleWordOverrideOnce(int multiplier)
+    {
+        s_doubleWordOverride        = Mathf.Max(multiplier, 0);
+        s_wordOverrideTurnScoped    = false;
+    }
 
-    public static void ClearZeroScoreTiles() => zeroScoreTileIds.Clear();
+    public static int GetLetterOverride() => s_doubleLetterOverride;
+    public static int GetWordOverride()   => s_doubleWordOverride;
 
+    /// <summary>ล้าง override ที่เป็นแบบ "ทั้งเทิร์น" — ให้ TurnManager เรียกเมื่อจบเทิร์น</summary>
+    public static void ClearTurnScopedOverrides()
+    {
+        if (s_letterOverrideTurnScoped) s_doubleLetterOverride = 0;
+        if (s_wordOverrideTurnScoped)   s_doubleWordOverride   = 0;
+        s_letterOverrideTurnScoped = false;
+        s_wordOverrideTurnScoped   = false;
+    }
+
+    #endregion
+    // =====================================================================
+
+    // =====================================================================
+    #region Global Letter Multiplier (ตามเวลา)
+
+    private static int   s_globalLetterMul        = 1;
+    private static float s_globalLetterMulEndTime = 0f;
+
+    /// <summary>คูณคะแนนตัวอักษรทั้งหมดด้วย multiplier ชั่วคราวตาม duration (วินาที)</summary>
+    public static void ActivateGlobalLetterMultiplier(int multiplier, float duration)
+    {
+        s_globalLetterMul        = Mathf.Max(multiplier, 1);
+        s_globalLetterMulEndTime = Time.time + Mathf.Max(0f, duration);
+    }
+
+    private static bool IsGlobalLetterMulActive() => Time.time < s_globalLetterMulEndTime;
+
+    #endregion
+    // =====================================================================
+
+    // =====================================================================
+    #region Zero-score Tiles
+
+    private static readonly HashSet<int> s_zeroScoreTileIds = new HashSet<int>();
+
+    /// <summary>ล้างรายการไทล์ที่ต้องให้ 0 คะแนน</summary>
+    public static void ClearZeroScoreTiles() => s_zeroScoreTileIds.Clear();
+
+    /// <summary>เพิ่มไทล์ที่ต้องให้ 0 คะแนน (ใช้ instanceID ของ LetterTile)</summary>
     public static void MarkZeroScoreTiles(IEnumerable<LetterTile> tiles)
     {
         if (tiles == null) return;
-        foreach (var t in tiles)
-            if (t) zeroScoreTileIds.Add(t.GetInstanceID());
+        foreach (var t in tiles) if (t) s_zeroScoreTileIds.Add(t.GetInstanceID());
     }
 
-    public static bool IsZeroScoreTile(LetterTile t)
-        => t && zeroScoreTileIds.Contains(t.GetInstanceID());
+    public static bool IsZeroScoreTile(LetterTile t) => t && s_zeroScoreTileIds.Contains(t.GetInstanceID());
 
-    /* ===================== คำนวณคะแนนคำ ===================== */
+    #endregion
+    // =====================================================================
 
+    // =====================================================================
+    #region คำนวณคะแนนคำ
+
+    /// <summary>คำนวณคะแนน "พรีวิว" — ไม่กิน override แบบครั้งเดียว (ใช้กับ UI hover)</summary>
+    public static int CalcWordPreview(int r0, int c0, int r1, int c1)
+        => CalcWordInternal(r0, c0, r1, c1, consumeOverrides: false);
+
+    /// <summary>คำนวณคะแนนจริง — กิน override แบบครั้งเดียว (แต่แบบทั้งเทิร์นจะยังอยู่)</summary>
     public static int CalcWord(int r0, int c0, int r1, int c1)
+        => CalcWordInternal(r0, c0, r1, c1, consumeOverrides: true);
+
+    private static int CalcWordInternal(int r0, int c0, int r1, int c1, bool consumeOverrides)
     {
         var bm = BoardManager.Instance;
         if (bm == null || bm.grid == null)
@@ -65,12 +136,18 @@ public static class ScoreManager
             return 0;
         }
 
-        var g = bm.grid;
-        int total  = 0;
-        int wordMul = 1;
+        var g = bm.grid; // BoardSlot[,]
 
+        // ตรวจทิศทาง (รองรับคำแนวเดียว — แนวนอนหรือแนวตั้ง)
         int dr = (r1 == r0) ? 0 : (r1 > r0 ? 1 : -1);
         int dc = (c1 == c0) ? 0 : (c1 > c0 ? 1 : -1);
+        if (dr != 0 && dc != 0)
+        {
+            Debug.LogWarning("[Score] CalcWordInternal ถูกเรียกด้วยช่วงที่ไม่เป็นเส้นตรง");
+        }
+
+        int total  = 0;
+        int wordMul = 1;
 
         int r = r0, c = c0;
         while (true)
@@ -91,22 +168,26 @@ public static class ScoreManager
 
             int letter = Mathf.Max(0, tile.GetData()?.score ?? 0);
 
-            if (IsGlobalLetterMulActive())
-                letter *= globalLetterMultiplier;
+            // ไทล์ 0 แต้ม (ถ้าถูกมาร์กไว้)
+            if (IsZeroScoreTile(tile)) letter = 0;
 
+            // Global letter multiplier
+            if (IsGlobalLetterMulActive()) letter *= s_globalLetterMul;
+
+            // ตัวคูณจากประเภทช่อง
             switch (slot.type)
             {
                 case SlotType.DoubleLetter:
-                    letter *= (doubleLetterOverride > 0 ? doubleLetterOverride : 2);
+                    letter *= (s_doubleLetterOverride > 0 ? s_doubleLetterOverride : 2);
                     break;
                 case SlotType.TripleLetter:
-                    letter *= (doubleLetterOverride > 0 ? doubleLetterOverride : 3);
+                    letter *= (s_doubleLetterOverride > 0 ? s_doubleLetterOverride : 3);
                     break;
                 case SlotType.DoubleWord:
-                    wordMul *= (doubleWordOverride > 0 ? doubleWordOverride : 2);
+                    wordMul *= (s_doubleWordOverride > 0 ? s_doubleWordOverride : 2);
                     break;
                 case SlotType.TripleWord:
-                    wordMul *= (doubleWordOverride > 0 ? doubleWordOverride : 3);
+                    wordMul *= (s_doubleWordOverride > 0 ? s_doubleWordOverride : 3);
                     break;
             }
 
@@ -116,37 +197,50 @@ public static class ScoreManager
             r += dr; c += dc;
         }
 
-        // ใช้แล้วเคลียร์ override
-        doubleLetterOverride = 0;
-        doubleWordOverride   = 0;
+        // ล้างเฉพาะ override แบบ "ครั้งเดียว" หลังใช้งาน
+        if (consumeOverrides)
+        {
+            if (!s_letterOverrideTurnScoped) s_doubleLetterOverride = 0;
+            if (!s_wordOverrideTurnScoped)   s_doubleWordOverride   = 0;
+        }
 
         return total * Mathf.Max(1, wordMul);
     }
 
-    /* ===================== Helper สำหรับ UI FX ===================== */
+    #endregion
+    // =====================================================================
+
+    // =====================================================================
+    #region Helper สำหรับ UI/เอฟเฟกต์
 
     public static int EffectiveLetterMulFor(SlotType slotType)
     {
         if (slotType == SlotType.DoubleLetter)
-            return (doubleLetterOverride > 0 ? doubleLetterOverride : 2);
+            return (s_doubleLetterOverride > 0 ? s_doubleLetterOverride : 2);
         if (slotType == SlotType.TripleLetter)
-            return (doubleLetterOverride > 0 ? doubleLetterOverride : 3);
+            return (s_doubleLetterOverride > 0 ? s_doubleLetterOverride : 3);
         return 1;
     }
 
     public static int EffectiveWordMulFor(SlotType slotType)
     {
         if (slotType == SlotType.DoubleWord)
-            return (doubleWordOverride > 0 ? doubleWordOverride : 2);
+            return (s_doubleWordOverride > 0 ? s_doubleWordOverride : 2);
         if (slotType == SlotType.TripleWord)
-            return (doubleWordOverride > 0 ? doubleWordOverride : 3);
+            return (s_doubleWordOverride > 0 ? s_doubleWordOverride : 3);
         return 1;
     }
 
-    /* ===================== โบนัสพิเศษ ===================== */
+    #endregion
+    // =====================================================================
 
-    public static int sevenLetterBonus = 50;
+    // =====================================================================
+    #region โบนัสพิเศษ
 
+    public static int sevenLetterBonus = 50; // เผื่อใช้กรณีพิเศษ (เช่น ลงครบ 7 ตัว)
     public static void SetSevenLetterBonus(int v) => sevenLetterBonus = Mathf.Max(0, v);
     public static int  GetSevenLetterBonus()      => sevenLetterBonus;
+
+    #endregion
+    // =====================================================================
 }

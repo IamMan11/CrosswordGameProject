@@ -13,6 +13,7 @@ public sealed class BenchSlot : MonoBehaviour, IDropHandler, IPointerEnterHandle
     {
         var bm = BenchManager.Instance;
         if (bm == null) return;
+        if (bm.IsLocked) return; 
         if (bm.draggingTile == null) return;   // ไม่ได้ลากอะไรอยู่ → ไม่ต้องเลื่อนแถว
 
         bm.OnHoverSlot(transform);
@@ -38,6 +39,7 @@ public sealed class BenchSlot : MonoBehaviour, IDropHandler, IPointerEnterHandle
         if (tile == null) return;
 
         var bm = BenchManager.Instance;
+        if (bm != null && bm.IsLocked) return;
 
         // A) ทำให้ "สลอตนี้" กลายเป็นช่องว่างก่อน (รองรับกรณีสอดแทรกไทล์กลางแถว)
         if (bm != null && bm.draggingTile != null)
