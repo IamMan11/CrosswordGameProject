@@ -67,7 +67,6 @@ public class CardManager : MonoBehaviour
 
     // ตัวนับเพื่อดีบัก (ไม่บังคับใช้)
     private int totalQueuedCount = 0;
-    private int processedCount = 0;
 
     [Header("UI")]
     public UICardSelect uiSelect; // หน้าต่างเลือกการ์ด 3 ใบ
@@ -119,7 +118,11 @@ public class CardManager : MonoBehaviour
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         // หา UICardSelect ในซีนใหม่ (รวม inactive)
+        #if UNITY_2023_1_OR_NEWER
+        uiSelect = FindFirstObjectByType<UICardSelect>(FindObjectsInactive.Include);
+        #else
         uiSelect = FindObjectOfType<UICardSelect>(true);
+        #endif
     }
 
     #endregion
@@ -417,24 +420,17 @@ public class CardManager : MonoBehaviour
             $"ใช้การ์ด '{card.displayName}' ({card.Mana} Mana)?",
             () =>
             {
-                // ▶ กด Confirm
+                // ✅ ตรวจเงื่อนไขให้ผ่านก่อน แล้วค่อยเล่นอนิเมชัน
                 if (TurnManager.Instance == null)
                 {
                     UIManager.Instance?.ShowMessage("TurnManager ไม่พร้อม", 1.2f);
                     return;
                 }
-
-                // 1) จำกัดจำนวนใช้ต่อเทิร์น
                 if (!TurnManager.Instance.CanUseCard(card))
                 {
                     UIManager.Instance?.ShowMessage("เกินจำนวนที่ใช้ได้", 2f);
-                    // ตามโค้ดเดิม: ลบการ์ดทันที
-                    heldCards.RemoveAt(index);
-                    UIManager.Instance?.UpdateCardSlots(heldCards);
                     return;
                 }
-
-                // 2) เช็กมานา
                 int cost = card.Mana;
                 if (!TurnManager.Instance.UseMana(cost))
                 {
@@ -442,21 +438,36 @@ public class CardManager : MonoBehaviour
                     return;
                 }
 
-                // 3) ใช้เอฟเฟกต์
-                ApplyEffect(card);
-
-                // 4) จดว่าใช้ไปแล้วในเทิร์นนี้
-                TurnManager.Instance.OnCardUsed(card);
-
-                // 5) ลบการ์ดจากมือ + อัปเดต UI
-                heldCards.RemoveAt(index);
-                UIManager.Instance?.UpdateCardSlots(heldCards);
+                // ✅ ผ่านหมดแล้ว ค่อยเล่นคลิปหดจนหาย แล้วค่อย Apply จริง
+                StartCoroutine(UseCardAfterAnim(index, card));
             },
-            () =>
-            {
-                // ▶ Cancel: ยังไม่มีการหัก mana ก่อนหน้านี้ จึงไม่ต้องคืน
-            }
+            () => { /* NO: ไม่ทำอะไร การ์ดยังอยู่ */ }
         );
+
+    }
+    private IEnumerator UseCardAfterAnim(int index, CardData card)
+    {
+        // หา CardSlotUI ของช่องนี้เพื่อเล่นคลิป Use/Hide
+        CardSlotUI slotUI = null;
+        #if UNITY_2023_1_OR_NEWER
+        foreach (var s in Object.FindObjectsByType<CardSlotUI>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            if (s.slotIndex == index) { slotUI = s; break; }
+        #else
+        foreach (var s in GameObject.FindObjectsOfType<CardSlotUI>(true))
+            if (s.slotIndex == index) { slotUI = s; break; }
+        #endif
+
+        if (slotUI != null)
+            yield return slotUI.PlayUseThen(null); // รอคลิปจบ
+        // ใช้เอฟเฟกต์ + จดว่าใช้ในเทิร์นนี้
+        ApplyEffect(card);
+        TurnManager.Instance?.OnCardUsed(card);
+
+        // ลบการ์ดออกจากมือ (กัน index เปลี่ยนระหว่างรออนิเมชัน)
+        int cur = heldCards.IndexOf(card);
+        if (cur >= 0) heldCards.RemoveAt(cur);
+
+        UIManager.Instance?.UpdateCardSlots(heldCards);
     }
 
     /// <summary>ลองฟิวชันการ์ดจากช่อง A → B; ถ้าสำเร็จจะเขียนผลทับช่อง B และลบ A</summary>
@@ -464,7 +475,7 @@ public class CardManager : MonoBehaviour
     {
         if (fromIndex == toIndex) return false;
         if (fromIndex < 0 || fromIndex >= heldCards.Count ||
-            toIndex   < 0 || toIndex   >= heldCards.Count)
+            toIndex < 0 || toIndex >= heldCards.Count)
         {
             UIManager.Instance?.ShowMessage("ไม่สามารถ fusion ได้", 1.2f);
             return false;

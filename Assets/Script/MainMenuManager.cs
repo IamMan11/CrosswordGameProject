@@ -11,7 +11,11 @@ public class MainMenuManager : MonoBehaviour
     {
         // ทำลาย GameObject ของ Managers ที่ไม่ถูกทำลายข้าม Scene
         DestroyIfExists(CardManager.Instance?.gameObject);
+        #if UNITY_2023_1_OR_NEWER
+        DestroyIfExists(UnityEngine.Object.FindFirstObjectByType<ShopManager>()?.gameObject);
+        #else
         DestroyIfExists(FindObjectOfType<ShopManager>()?.gameObject);
+        #endif
         DestroyIfExists(CurrencyManager.Instance?.gameObject);
         DestroyIfExists(TurnManager.Instance?.gameObject);
         DestroyIfExists(TileBag.Instance?.gameObject);

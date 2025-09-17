@@ -522,7 +522,6 @@ MonoBehaviour:
     m_RotationOrder: 4
   STATE_DRAG: Draggloop
   STATE_SETTLE: Settle
-  settleDuration: 1
   settleDebounce: 0.1
 --- !u!95 &5192042116673106632
 Animator:

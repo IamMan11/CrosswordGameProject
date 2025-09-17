@@ -28,6 +28,7 @@ public class LetterTile : MonoBehaviour,
     private bool isSpecialTile;                        // สถานะ special (ซิงก์กับ data)
     public  bool isLocked = false;                     // ล็อกการอินพุตสำหรับไทล์นี้
     private bool _garbledBoardDrag = false;
+    private bool _inFlight = false;
 
     [HideInInspector] public bool IsInSpace = false;   // สถานะขณะอยู่ใน Space (เผื่อ UI ใช้)
     private bool wasInSpaceAtDragStart = false;        // จำค่าสถานะตอนเริ่มลาก
@@ -59,7 +60,6 @@ public class LetterTile : MonoBehaviour,
     static readonly int HASH_INSPACE  = Animator.StringToHash("InSpace");
     const string STATE_SPACEWAVE = "SpaceWave";
 
-    [SerializeField] private float settleDuration = 0.22f; // ความยาวคลิป Settle
     [SerializeField] private float settleDebounce = 0.10f; // กันสั่งซ้อนถี่เกินไป
     private float lastSettleTime = -999f;
 
@@ -77,7 +77,11 @@ public class LetterTile : MonoBehaviour,
 
         canvas = GetComponentInParent<Canvas>();
         if (canvas == null)
-            canvas = FindObjectOfType<Canvas>(); // กันกรณี hierarchy เปลี่ยน
+            #if UNITY_2023_1_OR_NEWER
+            canvas = UnityEngine.Object.FindFirstObjectByType<Canvas>();
+            #else
+            canvas = FindObjectOfType<Canvas>();
+            #endif
 
         if (canvas != null && canvas.rootCanvas != null)
             rootCanvasRect = canvas.rootCanvas.transform as RectTransform;
@@ -385,52 +389,94 @@ public class LetterTile : MonoBehaviour,
     /// <summary>ตัวอักษร "ที่ใช้จริง" ของไทล์ (ถ้า Blank และเลือกแล้วจะคืน override)</summary>
     public string CurrentLetter => string.IsNullOrEmpty(overrideLetter) ? (data != null ? data.letter : "") : overrideLetter;
 
-    // ===================== Fly (animate to slot) =====================
+    // =========== Fly (animate to slot) =====================
+
     public void FlyTo(Transform targetSlot)
     {
         StartCoroutine(FlyToSlot(targetSlot));
     }
 
+
     private IEnumerator FlyToSlot(Transform targetSlot)
     {
         if (targetSlot == null || rectTf == null) yield break;
 
-        isBusy = true;
-        UiGuard.Push();
-        canvasGroup.blocksRaycasts = false;
 
-        if (canvas != null)
-        {
+        // --- เพิ่มบนหัวเมธอด FlyToSlot หลังเช็ค null ---
+        isBusy = true; UiGuard.Push(); canvasGroup.blocksRaycasts = false;
+
+        // ปิด Animator ชั่วคราวตามเดิม...
+        var anim = visualAnimator; bool animWasEnabled = false;
+        if (anim) { animWasEnabled = anim.enabled; anim.enabled = false; }
+
+        // 1) จำ 'ขนาด local ปัจจุบัน' และ 'ตำแหน่งโลก' ก่อนย้าย
+        Vector2 prevLocalSize = rectTf.rect.size;
+        Vector3 startPosWorld = rectTf.position;
+
+        // 2) ย้ายขึ้น Canvas
+        if (canvas != null) {
             transform.SetParent(canvas.transform, true);
             transform.SetAsLastSibling();
         }
 
+        // 3) ล็อก Rect ไม่ให้ stretch แล้วคง “ขนาดเท่าเดิม”
+        rectTf.anchorMin = rectTf.anchorMax = new Vector2(0.5f, 0.5f);
+        rectTf.pivot     = new Vector2(0.5f, 0.5f);
+        rectTf.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, prevLocalSize.x);
+        rectTf.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,   prevLocalSize.y);
+        rectTf.position   = startPosWorld;
+        rectTf.localScale = Vector3.one;
+
+
         // จุดเริ่ม/ปลาย (world)
         Vector3 startPos = rectTf.position;
-        var targetRt = targetSlot as RectTransform;
-        Vector3 endPos = targetRt ? targetRt.TransformPoint(Vector3.zero) : targetSlot.position;
+        var targetRt = targetSlot.GetComponent<RectTransform>();
+        Vector3 endPos = targetRt ? targetRt.TransformPoint(targetRt.rect.center) : targetSlot.position;
 
-        // คำนวณสเกลปลายทางให้พอดีช่อง
+
+        // --- คำนวณสเกลปลายทางให้พอดีช่อง ---
         Vector2 GetWorldSize(RectTransform rt)
         {
             var c = new Vector3[4]; rt.GetWorldCorners(c);
             return new Vector2(Vector3.Distance(c[0], c[3]), Vector3.Distance(c[0], c[1]));
         }
 
-        Vector2 startWS = Vector2.one, targetWS = Vector2.one;
-        if (rectTf != null && targetRt != null) { startWS = GetWorldSize(rectTf); targetWS = GetWorldSize(targetRt); }
 
-        Transform scaleTarget = transform;
+        // 2) วัดขนาดจาก Rect ของตัวไทล์เสมอ (อย่าใช้ visualPivot ถ้ามันเล็ก/0)
+        RectTransform srcForSize = rectTf;
+        Vector2 startWS = Vector2.one, targetWS = Vector2.one;
+        if (srcForSize) startWS = GetWorldSize(srcForSize);
+        if (targetRt)   targetWS = GetWorldSize(targetRt);
+
+        // 3) คำนวณสเกลแบบกันค่าสุดโต่ง + มี fallback ปลอดภัย
+        Transform scaleTarget = visualPivot ? (Transform)visualPivot : (Transform)rectTf;
         Vector3 startScale = scaleTarget.localScale;
         Vector3 endScale   = startScale;
 
         if (startWS.x > 1e-3f && startWS.y > 1e-3f)
         {
-            float sx = targetWS.x / startWS.x, sy = targetWS.y / startWS.y;
+            float sx = targetWS.x / startWS.x;
+            float sy = targetWS.y / startWS.y;
+
+            // กันพุ่ง: จำกัดช่วงสเกลที่ยอมให้เปลี่ยนระหว่างบิน
+            const float MIN_MUL = 0.5f;   // หดสุด 50%
+            const float MAX_MUL = 2.0f;   // ขยายสุด 200% (ปรับได้)
+            sx = Mathf.Clamp(sx, MIN_MUL, MAX_MUL);
+            sy = Mathf.Clamp(sy, MIN_MUL, MAX_MUL);
+
+            if (!float.IsFinite(sx) || !float.IsFinite(sy)) { sx = 1f; sy = 1f; }
+
             endScale = new Vector3(startScale.x * sx, startScale.y * sy, startScale.z);
         }
+        else
+        {
+            // ถ้าวัดไม่ได้ ให้คงสเกลเดิม
+            endScale = startScale;
+        }
+
 
         float t = 0f, dur = Mathf.Max(0.0001f, flyDuration);
+
 
         try
         {
@@ -438,32 +484,30 @@ public class LetterTile : MonoBehaviour,
             {
                 t += Time.unscaledDeltaTime / dur;
                 float a = flyEase.Evaluate(Mathf.Clamp01(t));
-                rectTf.position        = Vector3.LerpUnclamped(startPos, endPos, a);
+                rectTf.position = Vector3.LerpUnclamped(startPos, endPos, a);
                 scaleTarget.localScale = Vector3.LerpUnclamped(startScale, endScale, a);
                 yield return null;
             }
 
-            // ถ้าช่องปลายทางยังมีของอยู่ ให้จัดทางออกไปยังช่องว่างที่ใกล้ที่สุด
-            if (targetSlot.childCount > 0)
-            {
-                if (BenchManager.Instance && BenchManager.Instance.IndexOfSlot(targetSlot) >= 0)
-                    BenchManager.Instance.KickOutExistingToNearestEmpty(targetSlot);
-                else if (SpaceManager.Instance && SpaceManager.Instance.IndexOfSlot(targetSlot) >= 0)
-                    SpaceManager.Instance.KickOutExistingToNearestEmpty(targetSlot);
-            }
 
             // ลงจอดจริง + snap ให้พอดีช่อง
             transform.SetParent(targetSlot, false);
             transform.SetAsLastSibling();
             transform.localPosition = Vector3.zero;
-            scaleTarget.localScale  = Vector3.one;
 
+
+            // รีเซ็ตสเกลบน visualPivot/Rect แล้วฟิตพอดีช่อง
+            scaleTarget.localScale = Vector3.one;
             AdjustSizeToParent();
             PlaySettle();
             SpaceManager.Instance?.UpdateDiscardButton();
         }
         finally
         {
+            // เปิด Animator คืน
+            if (anim) anim.enabled = animWasEnabled;
+
+
             canvasGroup.blocksRaycasts = true;
             isBusy = false;
             UiGuard.Pop();
@@ -590,6 +634,16 @@ public class LetterTile : MonoBehaviour,
         var parentRt = transform.parent as RectTransform;
         if (parentRt == null || rtTile == null) return;
 
+        // ถ้ากำลังบิน หรือ พาเรนต์เป็น Canvas → ห้าม stretch เด็ดขาด
+        if (_inFlight || (canvas != null && transform.parent == canvas.transform))
+        {
+            rtTile.anchorMin = rtTile.anchorMax = new Vector2(0.5f, 0.5f);
+            rtTile.pivot     = new Vector2(0.5f, 0.5f);
+            rtTile.localScale = Vector3.one;
+            return;
+        }
+
+        // ปกติ: ฟิตเต็มช่องพาเรนต์ (Bench/Space/Board)
         rtTile.anchorMin = Vector2.zero;
         rtTile.anchorMax = Vector2.one;
         rtTile.anchoredPosition = Vector2.zero;

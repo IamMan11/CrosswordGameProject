@@ -31,7 +31,6 @@ public class LevelManager : MonoBehaviour
 
     private int   currentLevel;
     private bool  isGameOver;
-    private bool  isTransitioning;
 
     private float levelTimeLimit;
     private float levelTimeElapsed;
@@ -242,7 +241,6 @@ public class LevelManager : MonoBehaviour
 
         StopAllLoops();
         isGameOver       = false;
-        isTransitioning  = false;
         phase            = GamePhase.Setup;
 
         currentLevel       = idx;

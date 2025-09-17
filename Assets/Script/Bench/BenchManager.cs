@@ -321,6 +321,8 @@ public class BenchManager : MonoBehaviour
     {
         if (letterTilePrefab == null || TileBag.Instance == null) yield break;
         if (tileSpawnAnchor == null) { RefillImmediate(); yield break; }
+        // ถ้าถูก pause ระหว่างทาง ให้ยุติทันที
+        if (!CanAutoRefill()) { _refillCo = null; yield break; }
 
         // เด้งถุง
         if (tileBagAnimator) tileBagAnimator.SetTrigger("Refill");
@@ -337,6 +339,8 @@ public class BenchManager : MonoBehaviour
         // เติมทีละช่อง
         foreach (var slot in emptySlots)
         {
+            // ตรวจทุกครั้งก่อนเติมแต่ละชิ้น
+            if (!CanAutoRefill()) { _refillCo = null; yield break; }
             var data = TileBag.Instance.DrawRandomTile();
             if (data == null) break;
 

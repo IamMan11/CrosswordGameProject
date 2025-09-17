@@ -57,7 +57,6 @@ public class BoardSlot : MonoBehaviour,
     Coroutine _hoverCo;       // สำหรับ fallback
     Coroutine _waitAnimCo;    // รอ Animator จบ
     bool _pendingHide;        // ขอซ่อนหลังจบแอนิเมชัน
-    bool _pulsePlaying;       // กำลังเด้งอยู่ไหม
     // Fallback (ถ้าไม่ใช้ Animator)
     [Range(1f, 1.2f)] public float hoverScale = 1.08f;
     [Range(0.05f, 0.4f)] public float hoverDuration = 0.18f;   // เวลา “ขยายเข้า”
@@ -94,7 +93,7 @@ public class BoardSlot : MonoBehaviour,
 
         if (_hoverCo != null) { StopCoroutine(_hoverCo); _hoverCo = null; }
         if (_waitAnimCo != null) { StopCoroutine(_waitAnimCo); _waitAnimCo = null; }
-        _pendingHide = false; _pulsePlaying = false;
+        _pendingHide = false;
 
         if (highlight) highlight.enabled = false;
         if (PulseTarget) PulseTarget.localScale = Vector3.one;
@@ -401,8 +400,7 @@ public class BoardSlot : MonoBehaviour,
 
     // (ถ้าต้องการแบบ event-driven) ใส่ Animation Event ปลายคลิปเรียกเมธอดนี้
     public void Animator_PulseComplete()
-    {
-        _pulsePlaying = false;
+    {   
         if (_pendingHide)
         {
             _pendingHide = false;
