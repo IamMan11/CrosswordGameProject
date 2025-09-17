@@ -62,6 +62,24 @@ public class TurnManager : MonoBehaviour
     public float stepDelay = 0.08f;
     public float sectionDelay = 0.20f;
     public float flyDur = 0.6f;
+    [Header("Scoring SFX Pitch")]
+    public float letterPitchStart = 1.00f;
+    public float letterPitchMax   = 1.60f;
+    public float multPitchStart   = 1.00f;
+    public float multPitchMax     = 1.70f;
+    [Header("Join SFX Scale (by total before penalty)")]
+    public int   joinMidThreshold  = 60;   // คะแนนรวมก่อนหักโทษ ≥ 60 → Mid
+    public int   joinHighThreshold = 120;  // ≥ 120 → High (เพดาน)
+    [Range(0.5f, 2f)] public float joinVolBase = 1.00f;
+    [Range(0.5f, 2f)] public float joinVolMid  = 1.25f;
+    [Range(0.5f, 2f)] public float joinVolHigh = 1.50f;
+    [Range(0.5f, 2.5f)] public float joinPitchBase = 1.00f;
+    [Range(0.5f, 2.5f)] public float joinPitchMid  = 1.15f;
+    [Range(0.5f, 2.5f)] public float joinPitchHigh = 1.30f;
+    [Header("BGM Streak")]
+    public int bgmStreak = 0;
+    public int bgmTier2At = 3;  // 3 ครั้งติด = Mid
+    public int bgmTier3At = 5;  // 5 ครั้งติด = High
 
     [Header("Dictionary Penalty")]
     [Range(0,100)] public int dictionaryPenaltyPercent = 50;
@@ -196,6 +214,38 @@ public class TurnManager : MonoBehaviour
                     return true;
             }
         return false;
+    }
+    void ResetBgmStreak(bool playSfx)
+    {
+        bgmStreak = 0;
+        BgmPlayer.I?.SetTier(BgmTier.Base);
+        if (playSfx) SfxPlayer.Play(SfxId.StreakBreak);   // <-- ใช้เสียงสตรีคแตกใหม่
+    }
+    void ApplyBgmStreakAfterConfirm(bool dictPenaltyApplied)
+    {
+        bgmStreak = Mathf.Max(0, bgmStreak + 1);
+
+        var newTier = (bgmStreak >= bgmTier3At) ? BgmTier.High
+                    : (bgmStreak >= bgmTier2At) ? BgmTier.Mid
+                    : BgmTier.Base;
+
+        var oldTier = (BgmPlayer.I != null) ? BgmPlayer.I.CurrentTier : BgmTier.Base;
+
+        if (newTier != oldTier)
+            BgmPlayer.I?.SetTier(newTier);      // เปลี่ยนเพลงเฉพาะตอนข้าม tier
+    }
+    float PitchAtStep(int index, int total, float start, float max)
+    {
+        if (total <= 1) return start;
+        float t = Mathf.Clamp01(index / Mathf.Max(1f, (float)(total - 1)));
+        return Mathf.Lerp(start, max, t);
+    }
+    enum JoinTier { Base, Mid, High }
+    JoinTier GetJoinTier(int totalBeforePenalty)
+    {
+        if (totalBeforePenalty >= joinHighThreshold) return JoinTier.High;
+        if (totalBeforePenalty >= joinMidThreshold)  return JoinTier.Mid;
+        return JoinTier.Base;
     }
 
     public void ResetForNewLevel()
@@ -537,6 +587,9 @@ public class TurnManager : MonoBehaviour
             var steps = BuildLetterSteps(correct);
             var uiA   = SpawnPop(anchorLetters, 0);
 
+            int totalLetterSteps = steps.Count;
+            int letterIdx = 0;
+
             foreach (var step in steps)
             {
                 step.s.Flash(Color.white, 1, 0.08f);
@@ -546,7 +599,9 @@ public class TurnManager : MonoBehaviour
                 uiA.SetValue(lettersRunning);
                 uiA.SetColor(uiA.colorLetters);
                 uiA.PopByDelta(step.add, tier2Min, tier3Min);
-                SfxPlayer.Play(SfxId.ScoreLetterTick);
+
+                float p = PitchAtStep(letterIdx++, totalLetterSteps, letterPitchStart, letterPitchMax);
+                SfxPlayer.PlayPitch(SfxId.ScoreLetterTick, p);    // ✅ ไล่โทนสูงขึ้น
 
                 yield return new WaitForSecondsRealtime(stepDelay);
             }
@@ -556,17 +611,24 @@ public class TurnManager : MonoBehaviour
             var uiB = SpawnPop(anchorMults, 0);
             uiB.SetColor(uiB.colorMults);
 
+            int totalMultSteps = mulFactors.Count;     // จะบวก comboSteps เพิ่มทีหลัง
+            int multIdx = 0;
+
             foreach (var f in mulFactors)
             {
-                mulRunning += f; // ดีไซน์เดิม x2+x3=x5
+                mulRunning += f; // x2 + x3 = x5 (ดีไซน์เดิม)
                 uiB.SetText("x" + mulRunning);
                 uiB.PopByDelta(f, tier2Min, tier3Min);
-                SfxPlayer.Play(SfxId.ScoreMultTick);
+
+                float p = PitchAtStep(multIdx++, /*temp*/ Mathf.Max(1, totalMultSteps), multPitchStart, multPitchMax);
+                SfxPlayer.PlayPitch(SfxId.ScoreMultTick, p);
+
                 yield return new WaitForSecondsRealtime(stepDelay);
             }
 
             // คอมโบจำนวน “คำใหม่” (สูงสุด +x4)
             int comboSteps = Mathf.Min(correct.Count, 4);
+            totalMultSteps += comboSteps; // รวม step ของคอมโบเข้าไปด้วย
             for (int i = 0; i < comboSteps; i++)
             {
                 var w = correct[i];
@@ -580,7 +642,10 @@ public class TurnManager : MonoBehaviour
                 mulRunning += 1;
                 uiB.SetText("x" + mulRunning);
                 uiB.PopByDelta(1, tier2Min, tier3Min);
-                SfxPlayer.Play(SfxId.ScoreMultTick);
+
+                float p = PitchAtStep(multIdx++, totalMultSteps, multPitchStart, multPitchMax);
+                SfxPlayer.PlayPitch(SfxId.ScoreMultTick, p);   // ✅ ไล่ต่อจากช่วง mulFactors
+
                 yield return new WaitForSecondsRealtime(stepDelay);
             }
 
@@ -591,7 +656,21 @@ public class TurnManager : MonoBehaviour
             float joinDur = 0.35f;
             var flyA = uiA.FlyTo(anchorTotal, joinDur);
             var flyB = uiB.FlyTo(anchorTotal, joinDur);
-            SfxPlayer.Play(SfxId.ScoreJoin);
+
+            // ✅ คำนวณคะแนนรวมก่อนหักโทษ เพื่อใช้ชั่งระดับเสียง/โทน
+            int prePenaltyTotal = Mathf.Max(0, lettersRunning * Mathf.Max(1, mulRunning));
+            var tier = GetJoinTier(prePenaltyTotal);
+
+            // เลือกพารามิเตอร์ตามระดับ
+            float jPitch = (tier == JoinTier.High) ? joinPitchHigh :
+                        (tier == JoinTier.Mid)  ? joinPitchMid  : joinPitchBase;
+
+            float jVol   = (tier == JoinTier.High) ? joinVolHigh :
+                        (tier == JoinTier.Mid)  ? joinVolMid  : joinVolBase;
+
+            // ✅ เล่นเสียง Join แบบปรับดัง/แหลมตามระดับ (เพดาน High)
+            SfxPlayer.PlayVolPitch(SfxId.ScoreJoin, jVol, jPitch);
+
             StartCoroutine(flyA);
             yield return StartCoroutine(flyB);
 
@@ -636,7 +715,7 @@ public class TurnManager : MonoBehaviour
             // ลอยเข้าหา HUD + อัปเดต HUD ชั่วคราว
             int hudStart  = Score;
             int hudTarget = hudStart + displayedTotal;
-            SfxPlayer.Play(SfxId.ScoreCommit);
+            SfxPlayer.PlayForDuration(SfxId.ScoreCommit, flyDur, stretchPitch: true, volumeMul: 1f);
             var fly   = uiC.FlyTo(scoreHud, flyDur);
             var tween = TweenHudScoreTemp(hudStart, hudTarget, flyDur);
             StartCoroutine(tween);
@@ -735,6 +814,7 @@ public class TurnManager : MonoBehaviour
         ShowMessage(msg, Color.red);
         UpdateBagUI();
         EnableConfirm();
+        ResetBgmStreak(playSfx:true);
     }
 
     void OnConfirm()
@@ -792,24 +872,6 @@ public class TurnManager : MonoBehaviour
             var correct     = words.Except(shortOnes).Except(invalidDict).Except(duplicate).ToList();
             var bounced     = new HashSet<LetterTile>();
 
-            if (correct.Count == 0)
-            {
-                foreach (var (t, s) in placed)
-                {
-                    s.Flash(Color.yellow, 3, 0.17f);
-                    var tile = s.RemoveLetter();
-                    if (tile != null)
-                    {
-                        BenchManager.Instance.ReturnTileToBench(tile);
-                        bounced.Add(tile);
-                    }
-                }
-
-                ShowMessage($"ต้องเกิดคำที่ถูกต้องอย่างน้อย 1 คำ", Color.red);
-                StartCoroutine(SkipTurnAfterBounce());
-                return;
-            }
-
             var placedSet = placed.Select(p => (p.s.row, p.s.col)).ToHashSet();
             MoveValidator.WordInfo mainWord;
             bool hasMain;
@@ -842,27 +904,30 @@ public class TurnManager : MonoBehaviour
                 toBounceYellow.AddRange(shortOnes.Where(w => w.word != mainWord.word));
                 toBounceDup.AddRange(duplicate);
                 ShowMessage($"คำสั้นเกินไป (ขั้นต่ำ {minLen}) – เด้งกลับ", Color.yellow);
+                ResetBgmStreak(playSfx: true);
             }
             else if (mainInvalid)
             {
-                int sMain = ScoreManager.CalcWord(mainWord.r0, mainWord.c0, mainWord.r1, mainWord.c1);
-                penalty += Mathf.CeilToInt(sMain * 0.5f);
-                toBounceRed.Add(mainWord);
-                ShowMessage($"คำผิด -{penalty}", Color.red);
+                // รวม "คะแนนฐาน" ของตัวที่วางในเทิร์นนี้ (ไม่เอาตัวคูณกระดาน)
+                int baseSumNewLetters = placed.Sum(p => Mathf.Max(0, p.t.GetData().score));
+                int thisPenalty = Mathf.CeilToInt(baseSumNewLetters * 0.75f);
 
+                penalty += thisPenalty;
+                toBounceRed.Add(mainWord);  // เด้งคำหลักที่ผิด
+                // เด้งคำผิดอื่น ๆ ด้วย แต่ไม่คิดโทษเพิ่มอีก
                 foreach (var w in invalidDict.Where(w => w.word != mainWord.word))
-                {
-                    int sc = ScoreManager.CalcWord(w.r0, w.c0, w.r1, w.c1);
-                    penalty += Mathf.CeilToInt(sc * 0.5f);
                     toBounceRed.Add(w);
-                }
+
                 toBounceDup.AddRange(duplicate);
+                ShowMessage($"คำผิด -{thisPenalty}", Color.red);
+                ResetBgmStreak(playSfx: true);
             }
             else if (mainDuplicate)
             {
                 toBounceDup.Add(mainWord);
                 toBounceDup.AddRange(duplicate.Where(w => w.word != mainWord.word));
                 ShowMessage("คำซ้ำ – เด้งกลับ", Color.yellow);
+                ResetBgmStreak(playSfx:true);
             }
 
             foreach (var w in toBounceRed)    BounceWord(w, placed, Color.red,    bounced);
@@ -962,6 +1027,7 @@ public class TurnManager : MonoBehaviour
             }
 
             LevelManager.Instance?.RegisterConfirmedWords(correct.Select(w => w.word));
+            ApplyBgmStreakAfterConfirm(dictPenaltyApplied);
 
             StartCoroutine(AnimateAndFinalizeScoring(
                 placed,

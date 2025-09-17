@@ -125,24 +125,23 @@ public class SpaceManager : MonoBehaviour
         int hover = IndexOfSlot(targetSlot);
         if (hover < 0 || hover == emptyIndex) return;
 
+        bool movedAny = false;
+
         if (hover > emptyIndex)
         {
             for (int k = emptyIndex + 1; k <= hover; k++)
-                MoveChildToSlot(slotTransforms[k], slotTransforms[k - 1]);
+                movedAny |= MoveChildToSlot(slotTransforms[k], slotTransforms[k - 1]);
         }
         else
         {
             for (int k = emptyIndex - 1; k >= hover; k--)
-                MoveChildToSlot(slotTransforms[k], slotTransforms[k + 1]);
+                movedAny |= MoveChildToSlot(slotTransforms[k], slotTransforms[k + 1]);
         }
 
-        // เล่นเสียง 1 ครั้งต่อ "ตำแหน่ง hover ใหม่"
-        if (hover != _lastHoverIndex)
-        {
-            PlayShiftTick();
-            _lastHoverIndex = hover;
-        }
+        if (hover != _lastHoverIndex && movedAny)
+            PlayShiftTick(); // ✅ มีการขยับจริงเท่านั้นถึงจะติ๊ก
 
+        _lastHoverIndex = hover;
         emptyIndex = hover;
     }
 
@@ -154,15 +153,19 @@ public class SpaceManager : MonoBehaviour
         int target = IndexOfSlot(targetSlot);
         if (target < 0 || target == emptyIndex) return;
 
+        bool movedAny = false;
+
         if (target > emptyIndex)
             for (int k = emptyIndex + 1; k <= target; k++)
-                MoveChildToSlot(slotTransforms[k], slotTransforms[k - 1]);
+                movedAny |= MoveChildToSlot(slotTransforms[k], slotTransforms[k - 1]);
         else
             for (int k = emptyIndex - 1; k >= target; k--)
-                MoveChildToSlot(slotTransforms[k], slotTransforms[k + 1]);
+                movedAny |= MoveChildToSlot(slotTransforms[k], slotTransforms[k + 1]);
 
         emptyIndex = target;
-        PlayShiftTick(); // มีการแทรกจริง → เล่น 1 ครั้ง
+
+        if (movedAny)
+            PlayShiftTick(); // ✅ เล่นเสียงเฉพาะเมื่อเกิดการย้าย
     }
 
     /// <summary>ถ้าช่องเป้าหมายมีของอยู่ ให้เตะตัวนั้นไป "ช่องว่างที่ใกล้ที่สุด"</summary>
@@ -198,14 +201,15 @@ public class SpaceManager : MonoBehaviour
 
     /* ===================== Move/Animate ===================== */
 
-    private void MoveChildToSlot(Transform from, Transform to)
+    private bool MoveChildToSlot(Transform from, Transform to)
     {
-        if (from == null || to == null || from.childCount == 0) return;
+        if (from == null || to == null) return false;
+        if (from.childCount == 0) return false;
 
         var tile = from.GetChild(0).GetComponent<LetterTile>();
-        if (!tile) return;
+        if (!tile) return false;
 
-        // ถ้ามีคอร์รุตีนเก่าย้ายไทล์ตัวเดิม → หยุด และ Pop UiGuard ค้าง
+        // ถ้ามีคอร์รุตีนเก่า → หยุด
         if (_moving.TryGetValue(tile, out var running))
         {
             StopCoroutine(running);
@@ -213,8 +217,9 @@ public class SpaceManager : MonoBehaviour
             UiGuard.Pop();
         }
 
-        UiGuard.Push(); // เริ่มการเลื่อนครั้งใหม่
+        UiGuard.Push();
         _moving[tile] = StartCoroutine(AnimateToSlot(tile, to));
+        return true; // ✅ มีการย้ายจริง
     }
 
     private IEnumerator AnimateToSlot(LetterTile tile, Transform targetSlot)
@@ -341,7 +346,12 @@ public class SpaceManager : MonoBehaviour
     void ClearAllImmediate()
     {
         var tiles = GetPreparedTiles();
-        foreach (var t in tiles) BenchManager.Instance?.ReturnTileToBench(t);
+        if (tiles.Count > 0)
+            SfxPlayer.Play(SfxId.TileTransfer); // ✅ อย่างน้อย 1 ครั้ง
+
+        foreach (var t in tiles)
+            BenchManager.Instance?.ReturnTileToBench(t);
+
         UpdateDiscardButton();
     }
 
@@ -350,13 +360,11 @@ public class SpaceManager : MonoBehaviour
         var tiles = GetPreparedTiles();
         if (tiles.Count == 0) yield break;
 
-        // 1) หยุด Auto Refill ชั่วคราว (กัน Bench เติมจากถุง)
         BenchManager.Instance?.PauseAutoRefill();
         UiGuard.Push();
         try
         {
-            // 2) snapshot ช่อง Bench ที่ "ว่าง" ตอนเริ่ม (ซ้าย→ขวา)
-            var empties = new System.Collections.Generic.List<Transform>();
+            var empties = new List<Transform>();
             if (BenchManager.Instance && BenchManager.Instance.slotTransforms != null)
                 foreach (var s in BenchManager.Instance.slotTransforms)
                     if (s && s.childCount == 0) empties.Add(s);
@@ -366,23 +374,19 @@ public class SpaceManager : MonoBehaviour
             {
                 if (!tile) continue;
 
-                // หยุดคลื่น / ออกสถานะ Space
-                var anim = GetTileAnimator(tile);               // หา Animator ของไทล์
-                TriggerAnim(anim, triggerKick);  // เด้งนิดก่อนบิน (ไม่บังคับ)
+                // ✅ เล่นเสียงตอนเริ่มย้ายแต่ละตัว
+                SfxPlayer.Play(SfxId.TileTransfer);
+
+                var anim = GetTileAnimator(tile);
+                TriggerAnim(anim, triggerKick);
                 tile.IsInSpace = false;
 
-                // กำหนดจุดหมายเป็นช่องว่างที่ snapshot ไว้
-                Transform dst = null;
-                if (target < empties.Count) dst = empties[target++];
-                else
-                {
-                    // เผื่อกรณีผิดปกติ ไม่มี snapshot พอ
-                    dst = BenchManager.Instance?.GetFirstEmptySlot()?.transform;
-                }
+                Transform dst = (target < empties.Count)
+                    ? empties[target++]
+                    : BenchManager.Instance?.GetFirstEmptySlot()?.transform;
 
                 if (dst)
                 {
-                    // บินเร็วหน่อย
                     float bak = tile.flyDuration;
                     tile.flyDuration = Mathf.Min(bak, 0.18f);
                     tile.FlyTo(dst);
@@ -390,20 +394,18 @@ public class SpaceManager : MonoBehaviour
                 }
                 else
                 {
-                    // fallback ปลอดภัย
                     BenchManager.Instance?.ReturnTileToBench(tile);
                 }
 
-                yield return new WaitForSecondsRealtime(0.04f); // หรือ clearStagger
+                // เดินจังหวะให้เสียงไม่ทับกัน (ใช้ค่าใน Inspector)
+                yield return new WaitForSecondsRealtime(clearStagger);
             }
         }
         finally
         {
-            // 3) ปลดล็อกและอัปเดต UI (แต่ "ไม่ refill")
             UiGuard.Pop();
-            BenchManager.Instance?.ResumeAutoRefill();
+            BenchManager.Instance?.RefillEmptySlots();
             UpdateDiscardButton();
-            // ❌ อย่าเรียก BenchManager.Instance.RefillEmptySlots() ที่นี่
         }
     }
 

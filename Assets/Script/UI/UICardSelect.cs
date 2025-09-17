@@ -13,6 +13,8 @@ public class UICardSelect : MonoBehaviour
     [Header("Root Panel (Cardpanel)")]
     [SerializeField] GameObject panel;          // สามารถ inactive ไว้ตั้งแต่เริ่มได้
     [SerializeField] CanvasGroup panelGroup;    // ถ้าไม่มีจะสร้างให้เองตอนเปิด
+    [Header("Buttons")]
+    [SerializeField] Button discardButton;
 
     [Header("Behaviour")]
     [SerializeField] bool autoHideOnStart = true;
@@ -79,9 +81,13 @@ public class UICardSelect : MonoBehaviour
     }
     void Start()
     {
-        // ถ้าเปิดเกมมาแล้ว panel ยัง Active อยู่ ให้ซ่อนทันที
-        if (autoHideOnStart)
-            HidePanelImmediate();
+        if (autoHideOnStart) HidePanelImmediate();
+
+        if (discardButton)
+        {
+            discardButton.onClick.RemoveAllListeners();
+            discardButton.onClick.AddListener(OnDiscardClicked);
+        }
     }
 
     // ---------- API ----------
@@ -131,6 +137,13 @@ public class UICardSelect : MonoBehaviour
             btn.onClick.AddListener(() => OnCardClicked(idx));
             EnsureEventTrigger(btn.gameObject, idx);
         }
+    }
+    public void OnDiscardClicked()
+    {
+        if (isAnimating) return;
+        UICardInfo.Instance?.Hide();   // กัน CardInfo ค้าง
+        // ปิด panel และบอกผู้จัดการว่าครั้งนี้ "ไม่เลือกการ์ด"
+        FinishPick(null);              // ใช้เมธอดเดิมในคลาส
     }
 
     public void OnCardClicked(int index)
@@ -354,6 +367,8 @@ public class UICardSelect : MonoBehaviour
 
         for (int k = 0; k < cardButtons.Count; k++)
             if (k != i) SmoothScaleTo(cardButtons[k].transform as RectTransform, 1f, k);
+        if (currentOptions != null && i >= 0 && i < currentOptions.Count)
+        UICardInfo.Instance?.Show(currentOptions[i]);
     }
 
     void OnHoverExit(int i)
@@ -362,6 +377,7 @@ public class UICardSelect : MonoBehaviour
         if (cardAnimators != null && i < cardAnimators.Count && cardAnimators[i])
             cardAnimators[i].SetBool("Hover", false);
         SmoothScaleTo(cardButtons[i].transform as RectTransform, 1f, i);
+        UICardInfo.Instance?.Hide();
     }
 
     void SmoothScaleTo(RectTransform rt, float to, int idx)
@@ -620,7 +636,8 @@ public class UICardSelect : MonoBehaviour
         panelGroup.alpha = 0f;
         panelGroup.blocksRaycasts = false;
         panelGroup.interactable = false;
-        panel.SetActive(false); // ปิดจริงๆ ได้ เพราะคอร์รูลีนไม่ได้ผูกกับเรา
+        panel.SetActive(false);
+        UICardInfo.Instance?.Hide(); // <<< เพิ่มบรรทัดนี้
     }
     void HidePanelImmediate()
     {
