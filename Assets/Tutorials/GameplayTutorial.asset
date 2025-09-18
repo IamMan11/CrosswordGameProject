@@ -1,0 +1,156 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2cce08514629dae48b85f37f6a0fa4a7, type: 3}
+  m_Name: GameplayTutorial
+  m_EditorClassIdentifier: 
+  steps:
+  - id: GT_DRAG_FIRST_TILE
+    message: "\u0E25\u0E32\u0E01\u0E15\u0E31\u0E27\u0E2D\u0E31\u0E01\u0E29\u0E23\u0E15\u0E31\u0E27\u0E41\u0E23\u0E01\u0E21\u0E32\u0E27\u0E32\u0E07\u0E17\u0E35\u0E48\u0E1A\u0E2D\u0E23\u0E4C\u0E14"
+    useCharacter: 1
+    speakerName: "\u0E42\u0E04\u0E49\u0E0A"
+    portrait: {fileID: 0}
+    useTypewriter: 1
+    typeSpeed: 45
+    voiceBeep: {fileID: 0}
+    beepInterval: 0.03
+    waitFor: 2
+    waitTime: 0
+    highlightTargetName: TileSlot1
+    blockInput: 1
+    tapAnywhereToContinue: 0
+    pressNextToContinue: 0
+    handOffset: {x: 0, y: -80}
+    allowClickExtraNames: []
+    allowClickOnHighlight: 1
+    allowClickPadding: 16
+    showSpotlightOnAllowed: 1
+  - id: GT_PRESS_CONFIRM
+    message: "\u0E01\u0E14\u0E1B\u0E38\u0E48\u0E21\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E1E\u0E23\u0E49\u0E2D\u0E21"
+    useCharacter: 1
+    speakerName: "\u0E42\u0E04\u0E49\u0E0A\u0E04\u0E23\u0E2D\u0E2A"
+    portrait: {fileID: 0}
+    useTypewriter: 1
+    typeSpeed: 45
+    voiceBeep: {fileID: 0}
+    beepInterval: 0.03
+    waitFor: 3
+    waitTime: 0
+    highlightTargetName: ConfirmButton
+    blockInput: 1
+    tapAnywhereToContinue: 0
+    pressNextToContinue: 0
+    handOffset: {x: 0, y: -80}
+    allowClickExtraNames: []
+    allowClickOnHighlight: 1
+    allowClickPadding: 16
+    showSpotlightOnAllowed: 1
+  - id: GT_SCORE_INCREASE
+    message: "\u0E04\u0E30\u0E41\u0E19\u0E19\u0E02\u0E2D\u0E07\u0E04\u0E38\u0E13\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E02\u0E36\u0E49\u0E19\u0E41\u0E25\u0E49\u0E27"
+    useCharacter: 1
+    speakerName: "\u0E42\u0E04\u0E49\u0E0A\u0E04\u0E23\u0E2D\u0E2A"
+    portrait: {fileID: 0}
+    useTypewriter: 1
+    typeSpeed: 45
+    voiceBeep: {fileID: 0}
+    beepInterval: 0.03
+    waitFor: 4
+    waitTime: 0
+    highlightTargetName: 
+    blockInput: 1
+    tapAnywhereToContinue: 1
+    pressNextToContinue: 0
+    handOffset: {x: 0, y: -80}
+    allowClickExtraNames: []
+    allowClickOnHighlight: 0
+    allowClickPadding: 16
+    showSpotlightOnAllowed: 1
+  - id: GT_OPEN_DICT
+    message: "\u0E40\u0E1B\u0E34\u0E14\u0E1E\u0E08\u0E19\u0E32\u0E19\u0E38\u0E01\u0E23\u0E21\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E15\u0E23\u0E27\u0E08\u0E04\u0E33"
+    useCharacter: 1
+    speakerName: "\u0E42\u0E04\u0E49\u0E0A\u0E04\u0E23\u0E2D\u0E2A"
+    portrait: {fileID: 0}
+    useTypewriter: 1
+    typeSpeed: 45
+    voiceBeep: {fileID: 0}
+    beepInterval: 0.03
+    waitFor: 5
+    waitTime: 0
+    highlightTargetName: DictionaryButton
+    blockInput: 1
+    tapAnywhereToContinue: 0
+    pressNextToContinue: 0
+    handOffset: {x: 0, y: -80}
+    allowClickExtraNames: []
+    allowClickOnHighlight: 1
+    allowClickPadding: 16
+    showSpotlightOnAllowed: 1
+  - id: GT_USE_CARD
+    message: "\u0E25\u0E2D\u0E07\u0E43\u0E0A\u0E49\u0E01\u0E32\u0E23\u0E4C\u0E14\u0E1E\u0E34\u0E40\u0E28\u0E29\u0E19\u0E35\u0E49"
+    useCharacter: 1
+    speakerName: "\u0E42\u0E04\u0E49\u0E0A\u0E04\u0E23\u0E2D\u0E2A"
+    portrait: {fileID: 0}
+    useTypewriter: 1
+    typeSpeed: 45
+    voiceBeep: {fileID: 0}
+    beepInterval: 0.03
+    waitFor: 7
+    waitTime: 0
+    highlightTargetName: CardSlot1
+    blockInput: 1
+    tapAnywhereToContinue: 0
+    pressNextToContinue: 0
+    handOffset: {x: 0, y: -80}
+    allowClickExtraNames: []
+    allowClickOnHighlight: 1
+    allowClickPadding: 16
+    showSpotlightOnAllowed: 1
+  - id: GT_REROLL
+    message: "\u0E01\u0E14 REROLL \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2A\u0E38\u0E48\u0E21\u0E01\u0E32\u0E23\u0E4C\u0E14\u0E43\u0E2B\u0E21\u0E48"
+    useCharacter: 1
+    speakerName: "\u0E42\u0E04\u0E49\u0E0A\u0E04\u0E23\u0E2D\u0E2A"
+    portrait: {fileID: 0}
+    useTypewriter: 1
+    typeSpeed: 45
+    voiceBeep: {fileID: 0}
+    beepInterval: 0.03
+    waitFor: 13
+    waitTime: 0
+    highlightTargetName: RerollButton
+    blockInput: 1
+    tapAnywhereToContinue: 0
+    pressNextToContinue: 0
+    handOffset: {x: 0, y: -80}
+    allowClickExtraNames: []
+    allowClickOnHighlight: 1
+    allowClickPadding: 16
+    showSpotlightOnAllowed: 1
+  - id: GT_LEVEL_GOAL
+    message: "\u0E40\u0E1B\u0E49\u0E32\u0E2B\u0E21\u0E32\u0E22\u0E02\u0E2D\u0E07\u0E14\u0E48\u0E32\u0E19\u0E19\u0E35\u0E49\u0E04\u0E37\u0E2D:
+      \u0E17\u0E33\u0E04\u0E30\u0E41\u0E19\u0E19\u0E43\u0E2B\u0E49\u0E04\u0E23\u0E1A"
+    useCharacter: 1
+    speakerName: "\u0E42\u0E04\u0E49\u0E0A\u0E04\u0E23\u0E2D\u0E2A"
+    portrait: {fileID: 0}
+    useTypewriter: 1
+    typeSpeed: 45
+    voiceBeep: {fileID: 0}
+    beepInterval: 0.03
+    waitFor: 0
+    waitTime: 0
+    highlightTargetName: 
+    blockInput: 1
+    tapAnywhereToContinue: 1
+    pressNextToContinue: 0
+    handOffset: {x: 0, y: -80}
+    allowClickExtraNames: []
+    allowClickOnHighlight: 0
+    allowClickPadding: 16
+    showSpotlightOnAllowed: 1

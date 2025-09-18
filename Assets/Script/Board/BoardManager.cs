@@ -392,4 +392,21 @@ public class BoardManager : MonoBehaviour
         var randomSlot = unlockable[Random.Range(0, unlockable.Count)];
         randomSlot.Lock();
     }
+
+    // =========================================================
+    // ✅ เมธอดใหม่: เรียกเมื่อ "วางตัวอักษรสำเร็จ" เพื่อให้ Tutorial ไปต่อ
+    // ใช้จากที่ใดก็ได้หลังอัปเดตสถานะช่องเรียบร้อย
+    // เช่นใน BoardSlot/DragDrop:  BoardManager.Instance.NotifyPlacedFromSlot(row, col);
+    // =========================================================
+    public void NotifyPlacedFromSlot(int row, int col)
+    {
+        // (หากอยากตรวจสอบซ้ำว่าช่องนี้มีตัวอักษรแล้วจริง ก็ทำได้)
+        // var slot = GetSlot(row, col);
+        // if (slot != null && slot.HasLetterTile())
+        // {
+        //     TutorialManager.NotifyTilePlacedOnBoard();
+        // }
+
+        TutorialManager.NotifyTilePlacedOnBoard();
+    }
 }

@@ -141,7 +141,7 @@ public class CardManager : MonoBehaviour
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         // พยายามหา UICardSelect ตัวใหม่ใน Scene ที่เพิ่งโหลด
-        uiSelect = FindObjectOfType<UICardSelect>(true);
+        uiSelect = FindUtil.First<UICardSelect>(true);
     }
 
     private CardData GetWeightedRandomCard()
