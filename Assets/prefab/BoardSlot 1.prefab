@@ -219,7 +219,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 7915817703201023726, guid: bfbfac3954726c740a794734ca455200, type: 3}
+  m_Sprite: {fileID: 1261082389059357776, guid: c519301b494ad1c4cac663a0fc1c5743, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -244,6 +244,7 @@ MonoBehaviour:
   bg: {fileID: 7649932864458847749}
   highlight: {fileID: 7054613361395114249}
   icon: {fileID: 4693991998688993310}
+  specialBg: {fileID: 0}
   manaGain: 0
   row: 0
   col: 0

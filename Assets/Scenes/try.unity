@@ -11102,6 +11102,10 @@ MonoBehaviour:
   boardOffset: {x: 0, y: 150}
   boardSlotPrefab: {fileID: 6223383681551687179, guid: dda11a0225d9ba44f9078c68c564ce64, type: 3}
   boardParent: {fileID: 2146283255}
+  doubleLetterSprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
+  tripleLetterSprite: {fileID: 4426214514080435957, guid: d1d7db8e5dc304a45991d2e8d091f6fe, type: 3}
+  doubleWordSprite: {fileID: 2063970205673326240, guid: c6246ff80a2799c429e001e08b2f6ef3, type: 3}
+  tripleWordSprite: {fileID: -800832439792541508, guid: 2e99160d0e3d00241a06ac592e92aa41, type: 3}
   autoGenerateOnStart: 0
   specials:
   - row: 14
@@ -14848,6 +14852,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   letterTilePrefab: {fileID: 7611389272195252624, guid: a76ea4c09e9f8b14ea9b65a5c054e155, type: 3}
+  doubleLetterSprite: {fileID: 0}
+  tripleLetterSprite: {fileID: 0}
+  doubleWordSprite: {fileID: 0}
+  tripleWordSprite: {fileID: 0}
   slotTransforms:
   - {fileID: 522313047}
   - {fileID: 769700903}
@@ -17079,6 +17087,8 @@ MonoBehaviour:
   icon: {fileID: 1635937827}
   title: {fileID: 1325860328}
   desc: {fileID: 409765907}
+  manaText: {fileID: 1154059355}
+  usingText: {fileID: 1225370002}
   slideDur: 0.18
   offsetX: 280
 --- !u!225 &1591817103
@@ -21727,163 +21737,163 @@ MonoBehaviour:
   initialLetters:
   - data:
       letter: Blank
-      sprite: {fileID: 7915817703201023726, guid: bfbfac3954726c740a794734ca455200, type: 3}
+      sprite: {fileID: 1261082389059357776, guid: c519301b494ad1c4cac663a0fc1c5743, type: 3}
       score: 0
       isSpecial: 0
     count: 4
   - data:
       letter: a
-      sprite: {fileID: 1358357853561543053, guid: 6850069e2a73ac54e8242e5f3e563618, type: 3}
+      sprite: {fileID: 7676919906002355615, guid: 64c74173aef07fc429962aec00b9c964, type: 3}
       score: 1
       isSpecial: 0
     count: 9
   - data:
       letter: b
-      sprite: {fileID: -2961763213827532213, guid: dd3ec2a29f56f6c43b6109a1e66fef19, type: 3}
+      sprite: {fileID: 5078174503495046199, guid: 79ca4a4201857dd468e19dd4918af2ea, type: 3}
       score: 3
       isSpecial: 0
     count: 2
   - data:
       letter: c
-      sprite: {fileID: 3007127532412027595, guid: 8216df7d730306647aecfe84ae0c71aa, type: 3}
+      sprite: {fileID: 8704375089314542986, guid: 1fa4775f6c5b55b4f8d6735cd2aa6970, type: 3}
       score: 3
       isSpecial: 0
     count: 2
   - data:
       letter: d
-      sprite: {fileID: 1586152671225140107, guid: 044f9915fea363840890a9cd23e90d55, type: 3}
+      sprite: {fileID: 4860690687615307505, guid: bbadef83252b1fd4cbd7b69aaced157f, type: 3}
       score: 2
       isSpecial: 0
     count: 4
   - data:
       letter: e
-      sprite: {fileID: 1165434511493401265, guid: bde813a74d76d0545800c25de691bb8e, type: 3}
+      sprite: {fileID: 3769690489678125785, guid: 7338958014a293b4f8c02ab9486e99c1, type: 3}
       score: 1
       isSpecial: 0
     count: 12
   - data:
       letter: f
-      sprite: {fileID: 5778732025249911718, guid: 72cb31b5bcff48e41a81b81ea588b2b8, type: 3}
+      sprite: {fileID: -7309233915099731634, guid: 078bec8d8f7da5c4d9d9f14cd2d1556b, type: 3}
       score: 4
       isSpecial: 0
     count: 2
   - data:
       letter: g
-      sprite: {fileID: -8843992492561651144, guid: a72f612c36550a74eab159e2ddb687ac, type: 3}
+      sprite: {fileID: -7371441477018560069, guid: 491381a2b1940b44a90c81711a3ec851, type: 3}
       score: 2
       isSpecial: 0
     count: 3
   - data:
       letter: h
-      sprite: {fileID: 422118114552158030, guid: fe4503b8205e9c445adba3a9b8e306ad, type: 3}
+      sprite: {fileID: 1932117822174636955, guid: 646f6f19dc6e4f742b9b1e20b99cc7ed, type: 3}
       score: 4
       isSpecial: 0
     count: 2
   - data:
       letter: i
-      sprite: {fileID: -3341970543723414278, guid: 4c9916ee16f17674b9bf5475489ab97d, type: 3}
+      sprite: {fileID: 7335993299796123204, guid: a9987023bebf4274081734044444b3d0, type: 3}
       score: 1
       isSpecial: 0
     count: 9
   - data:
       letter: j
-      sprite: {fileID: 6454845361781408065, guid: a97cc81046d96a1498d915a96a466282, type: 3}
+      sprite: {fileID: -2613663752830724001, guid: d06b9174107f6624987625cabff9cbc5, type: 3}
       score: 8
       isSpecial: 0
     count: 1
   - data:
       letter: k
-      sprite: {fileID: 5410067593556249624, guid: 789cd4c252c2daa4aab89641340d34f1, type: 3}
+      sprite: {fileID: 2733434664558875790, guid: 6ba0683795f9e8449a491ddb0d4adb00, type: 3}
       score: 5
       isSpecial: 0
     count: 0
   - data:
       letter: l
-      sprite: {fileID: 8254249825819597435, guid: e4d669be46221cf4c9b0fae236f4b035, type: 3}
+      sprite: {fileID: -8581489458258183186, guid: bec90410e32ea7d45a09159fc0992174, type: 3}
       score: 1
       isSpecial: 0
     count: 4
   - data:
       letter: m
-      sprite: {fileID: 5528600353518366432, guid: 9c97566030baf9949b2e3e944d84fca4, type: 3}
+      sprite: {fileID: 2160437820937803521, guid: 30d207d1ddbedb947b8843508c72168d, type: 3}
       score: 3
       isSpecial: 0
     count: 2
   - data:
       letter: n
-      sprite: {fileID: 6379408353579469087, guid: dc0a371ea374af3478a23bd652525e8c, type: 3}
+      sprite: {fileID: 1379158243380150436, guid: 3465319e0bb3b1c4c9e6957e4bdcba2a, type: 3}
       score: 1
       isSpecial: 0
     count: 6
   - data:
       letter: o
-      sprite: {fileID: -5439102558412663424, guid: 62555ff646377cf43bf0d037a26d8281, type: 3}
+      sprite: {fileID: -1848424395865722687, guid: 3cf0d894912736f4691ab6ca9114dbe3, type: 3}
       score: 1
       isSpecial: 0
     count: 8
   - data:
       letter: p
-      sprite: {fileID: -7228799633854060032, guid: 08e3bcab611dbdc48936daff14225342, type: 3}
+      sprite: {fileID: -7228799633854060032, guid: 8e3256a5191948c4098028997c2b3597, type: 3}
       score: 3
       isSpecial: 0
     count: 2
   - data:
       letter: q
-      sprite: {fileID: 3645696383177760342, guid: 393808420691a9240964779d8b09f3e0, type: 3}
+      sprite: {fileID: 3688130692489398821, guid: 34b39be6a4b550c42aff9a50a5915030, type: 3}
       score: 10
       isSpecial: 0
     count: 0
   - data:
       letter: r
-      sprite: {fileID: -3455401760394880800, guid: 8f2d12c5f34ae47448d04ad0373ea9ba, type: 3}
+      sprite: {fileID: -2824574480298489518, guid: 5533377846f35b44aa0ff497841c6f27, type: 3}
       score: 1
       isSpecial: 0
     count: 6
   - data:
       letter: s
-      sprite: {fileID: -4181344808933856686, guid: 2afb379916bb9e646bc08876a407196b, type: 3}
+      sprite: {fileID: 6261330517942016251, guid: 400eaf119f798ba42ac74e2217e50f1b, type: 3}
       score: 1
       isSpecial: 0
     count: 4
   - data:
       letter: t
-      sprite: {fileID: -7330365393605803766, guid: a42a4e0f9828c024191c3e421012302a, type: 3}
+      sprite: {fileID: -5965378353376474629, guid: 74a67f23033f85a44b99663cdcbb2c97, type: 3}
       score: 1
       isSpecial: 0
     count: 6
   - data:
       letter: u
-      sprite: {fileID: -4243055059341854886, guid: ee536e6fd9c2ee14388dcda5249f3c9d, type: 3}
+      sprite: {fileID: -6222133164230766013, guid: d5c0c4bf9266d3d4eaa16f5ab74227b7, type: 3}
       score: 1
       isSpecial: 0
     count: 4
   - data:
       letter: v
-      sprite: {fileID: 6904771505314204941, guid: b77f03e85e987d24a95fb3280babd106, type: 3}
+      sprite: {fileID: 8944486250025166441, guid: a50536bf70e1caa4a9eed6f2d3edc735, type: 3}
       score: 4
       isSpecial: 0
     count: 2
   - data:
       letter: w
-      sprite: {fileID: 1739828330665416729, guid: 3373d49188804cd4a99879a78830a7a1, type: 3}
+      sprite: {fileID: 1739828330665416729, guid: ccdb7664aafda1e4a8d6427ed1a4dc02, type: 3}
       score: 4
       isSpecial: 0
     count: 2
   - data:
       letter: x
-      sprite: {fileID: -139325387729506679, guid: 4794e38b0c1d29644962fba5f21af86f, type: 3}
+      sprite: {fileID: -139325387729506679, guid: 8f41733a239534b468ec1e62f4d26f7d, type: 3}
       score: 8
       isSpecial: 0
     count: 1
   - data:
       letter: y
-      sprite: {fileID: -5407353661558754051, guid: 276ad129e52d6824a930c298091b4fe6, type: 3}
+      sprite: {fileID: 9067480207204780674, guid: feb30bd19a8a2304788a1ba0778fe1a5, type: 3}
       score: 4
       isSpecial: 0
     count: 2
   - data:
       letter: z
-      sprite: {fileID: 7326383311207075694, guid: f284b1dc63c68304392815e4b32e379e, type: 3}
+      sprite: {fileID: 7326383311207075694, guid: 24f6c6c498dcca347bbb7093601c76e6, type: 3}
       score: 10
       isSpecial: 0
     count: 1
@@ -22928,6 +22938,14 @@ PrefabInstance:
     - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
       propertyPath: maxHeldCards
       value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: cardsFolder_Test
+      value: Card_Test
+      objectReference: {fileID: 0}
+    - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: useTestInThisScene
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
       propertyPath: allCards.Array.size

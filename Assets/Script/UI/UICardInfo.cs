@@ -13,6 +13,8 @@ public class UICardInfo : MonoBehaviour
     public Image icon;
     public TMP_Text title;
     public TMP_Text desc;
+    public TMP_Text manaText;    // "Mana: X"
+    public TMP_Text usingText;   // "Using: used/max"
 
     [Header("Anim")]
     public float slideDur = 0.18f;
@@ -33,9 +35,21 @@ public class UICardInfo : MonoBehaviour
     {
         if (!panel || !group || data == null) return;
 
-        if (icon)  icon.sprite = data.icon;
-        if (title) title.text  = data.displayName;
-        if (desc)  desc.text   = data.description;
+        if (icon) icon.sprite = data.icon;
+        if (title) title.text = data.displayName;
+        if (desc) desc.text = data.description;
+
+        // ✅ เติมค่า Mana + Using
+        if (manaText) manaText.text = $"Mana: {data.Mana}";
+        if (usingText)
+        {
+            int used = 0;
+            if (TurnManager.Instance != null)
+                used = TurnManager.Instance.GetUsageCount(data);
+
+            string limit = (data.maxUsagePerTurn <= 0) ? "∞" : data.maxUsagePerTurn.ToString();
+            usingText.text = $"Using: {used}/{limit}";
+        }
 
         if (co != null) StopCoroutine(co);
         co = StartCoroutine(Slide(true));
@@ -63,7 +77,7 @@ public class UICardInfo : MonoBehaviour
     {
         float t = 0f, dur = Mathf.Max(0.01f, slideDur);
         Vector2 from = panel.anchoredPosition;
-        Vector2 to   = from; to.x = show ? 0f : offsetX;
+        Vector2 to = from; to.x = show ? 0f : offsetX;
 
         float aFrom = group.alpha, aTo = show ? 1f : 0f;
 
@@ -80,5 +94,13 @@ public class UICardInfo : MonoBehaviour
 
         if (!show) { group.blocksRaycasts = false; group.interactable = false; }
         co = null;
+    }
+    // (ออปชัน) เรียกรีเฟรชตัวเลข Using ภายหลัง เช่น หลังใช้การ์ดไปแล้ว
+    public void RefreshUsage(CardData data)
+    {
+        if (!usingText || data == null) return;
+        int used = (TurnManager.Instance != null) ? TurnManager.Instance.GetUsageCount(data) : 0;
+        string limit = (data.maxUsagePerTurn <= 0) ? "∞" : data.maxUsagePerTurn.ToString();
+        usingText.text = $"Using: {used}/{limit}";
     }
 }

@@ -10,16 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b93f30633ee9c0a478ba730363e01632, type: 3}
-  m_Name: Test 4
+  m_Name: PandemoniumField
   m_EditorClassIdentifier: 
-  id: 103
-  displayName: echo brust
-  description: 
+  id: 21
+  displayName: Pandemonium
+  description: Turn All Slot in Borad to special Slot in 1 Minute
   icon: {fileID: 0}
-  effectType: 4
-  Mana: 0
+  effectType: 22
+  Mana: 1
   maxUsagePerTurn: 1
-  category: 0
-  weight: 1
-  requirePurchase: 0
-  price: 0
+  category: 3
+  weight: 7
+  requirePurchase: 1
+  price: 1000

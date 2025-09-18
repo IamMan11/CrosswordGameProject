@@ -89,6 +89,7 @@ public class TurnManager : MonoBehaviour
 
     static readonly WaitForSeconds WFS_06 = new WaitForSeconds(0.6f);
     static readonly WaitForSeconds WFS_2s = new WaitForSeconds(2f);
+    private readonly HashSet<CardEffectType> oncePerTurnUsed = new();  // ADD
 
     void Awake()
     {
@@ -281,6 +282,22 @@ public class TurnManager : MonoBehaviour
     {
         if (scoreText != null) scoreText.text = $"Score : {Score}";
     }
+    public bool CanTriggerOncePerTurn(CardEffectType eff)               // ADD
+    {                                                                   // ADD
+        return eff switch                                               // ADD
+        {                                                               // ADD
+            CardEffectType.WildBloom  => !oncePerTurnUsed.Contains(eff),// ADD
+            CardEffectType.ChaosBloom => !oncePerTurnUsed.Contains(eff),// ADD
+            _ => true                                                   // ADD
+        };                                                              // ADD
+    }                                                                   // ADD
+    public void MarkEffectOncePerTurn(CardEffectType eff)               // ADD
+    {                                                                   // ADD
+        if (eff == CardEffectType.WildBloom ||                          // ADD
+            eff == CardEffectType.ChaosBloom)                           // ADD
+            oncePerTurnUsed.Add(eff);                                   // ADD
+    }                                                                   // ADD
+    public void ResetOncePerTurnEffects() => oncePerTurnUsed.Clear();   // ADD
 
     /* ===================== Mana ===================== */
 
@@ -581,11 +598,11 @@ public class TurnManager : MonoBehaviour
             var mulFactors = BuildMultiplierFactors(correct);
 
             int lettersRunning = 0;
-            int mulRunning     = 0;
+            int mulRunning = 0;
 
             // A) รวมตัวอักษร
             var steps = BuildLetterSteps(correct);
-            var uiA   = SpawnPop(anchorLetters, 0);
+            var uiA = SpawnPop(anchorLetters, 0);
 
             int totalLetterSteps = steps.Count;
             int letterIdx = 0;
@@ -663,10 +680,10 @@ public class TurnManager : MonoBehaviour
 
             // เลือกพารามิเตอร์ตามระดับ
             float jPitch = (tier == JoinTier.High) ? joinPitchHigh :
-                        (tier == JoinTier.Mid)  ? joinPitchMid  : joinPitchBase;
+                        (tier == JoinTier.Mid) ? joinPitchMid : joinPitchBase;
 
-            float jVol   = (tier == JoinTier.High) ? joinVolHigh :
-                        (tier == JoinTier.Mid)  ? joinVolMid  : joinVolBase;
+            float jVol = (tier == JoinTier.High) ? joinVolHigh :
+                        (tier == JoinTier.Mid) ? joinVolMid : joinVolBase;
 
             // ✅ เล่นเสียง Join แบบปรับดัง/แหลมตามระดับ (เพดาน High)
             SfxPlayer.PlayVolPitch(SfxId.ScoreJoin, jVol, jPitch);
@@ -713,10 +730,10 @@ public class TurnManager : MonoBehaviour
             }
 
             // ลอยเข้าหา HUD + อัปเดต HUD ชั่วคราว
-            int hudStart  = Score;
+            int hudStart = Score;
             int hudTarget = hudStart + displayedTotal;
             SfxPlayer.PlayForDuration(SfxId.ScoreCommit, flyDur, stretchPitch: true, volumeMul: 1f);
-            var fly   = uiC.FlyTo(scoreHud, flyDur);
+            var fly = uiC.FlyTo(scoreHud, flyDur);
             var tween = TweenHudScoreTemp(hudStart, hudTarget, flyDur);
             StartCoroutine(tween);
             yield return StartCoroutine(fly);
@@ -737,17 +754,15 @@ public class TurnManager : MonoBehaviour
             foreach (var (t, _) in placed)
                 if (!bounced.Contains(t)) t.Lock();
 
-            if (BenchManager.Instance != null)
-                BenchManager.Instance.RunAtomic(() =>
-                {
-                    BenchManager.Instance.RefillEmptySlots();
-                }, refillAfter: false);
+            BenchManager.Instance.RefillEmptySlots();
             UpdateBagUI();
             EnableConfirm();
             if (Level1GarbledIT.Instance != null)
                 yield return Level1GarbledIT.Instance.ProcessAfterMainScoring();
 
             EndScoreSequence();
+            BoardManager.Instance?.RevertTempSpecialsThisTurn();
+            ResetOncePerTurnEffects();
         }
         finally
         {
@@ -776,31 +791,18 @@ public class TurnManager : MonoBehaviour
         HashSet<LetterTile> bouncedSet)
     {
         var slots = SlotsInWord(w);
-
-        // เก็บไทล์ที่จะ "คืน Bench" ไว้ก่อน แล้วค่อยคืนทีเดียวแบบอะตอมมิก
-        var toReturn = new List<LetterTile>();
-
         foreach (var (t, s) in placed)
         {
             if (!slots.Contains(s)) continue;
 
             if (flashCol.HasValue) s.Flash(flashCol.Value, 3, 0.17f);
-            else                   s.Flash(Color.white,    1, 0.08f);
+            else s.Flash(Color.white, 1, 0.08f);
 
             var tile = s.RemoveLetter();
             if (tile == null) continue;
 
-            toReturn.Add(tile);
+            BenchManager.Instance.ReturnTileToBench(tile);
             bouncedSet.Add(tile);
-        }
-
-        if (toReturn.Count > 0 && BenchManager.Instance != null)
-        {
-            BenchManager.Instance.RunAtomic(() =>
-            {
-                foreach (var tile in toReturn)
-                    BenchManager.Instance.ReturnTileToBench(tile);
-            });
         }
     }
 
@@ -832,7 +834,9 @@ public class TurnManager : MonoBehaviour
         ShowMessage(msg, Color.red);
         UpdateBagUI();
         EnableConfirm();
-        ResetBgmStreak(playSfx:true);
+        ResetBgmStreak(playSfx: true);
+        BoardManager.Instance?.RevertTempSpecialsThisTurn();
+        ResetOncePerTurnEffects();
     }
 
     void OnConfirm()
@@ -1055,7 +1059,7 @@ public class TurnManager : MonoBehaviour
                 bounced,
                 dictPenaltyApplied ? dictionaryPenaltyPercent : 0
             ));
-            ScoreManager.ClearTurnScopedOverrides();
+            ResetOncePerTurnEffects();
         }
         finally
         {

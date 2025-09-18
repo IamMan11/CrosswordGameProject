@@ -426,11 +426,20 @@ public class CardManager : MonoBehaviour
                     UIManager.Instance?.ShowMessage("TurnManager ไม่พร้อม", 1.2f);
                     return;
                 }
+                
+                if (TurnManager.Instance != null &&
+                    !TurnManager.Instance.CanTriggerOncePerTurn(card.effectType))
+                {
+                    UIManager.Instance?.ShowMessage("เอฟเฟกต์นี้ใช้ได้ครั้งเดียวต่อเทิร์น", 2f);
+                    return;
+                }
+
                 if (!TurnManager.Instance.CanUseCard(card))
                 {
                     UIManager.Instance?.ShowMessage("เกินจำนวนที่ใช้ได้", 2f);
                     return;
                 }
+
                 int cost = card.Mana;
                 if (!TurnManager.Instance.UseMana(cost))
                 {
@@ -560,26 +569,19 @@ public class CardManager : MonoBehaviour
 
             // 5) เติม Bench 2
             case CardEffectType.TwinDraw:
-                BenchManager.Instance?.RunAtomic(() =>
-                {
-                    for (int i = 0; i < 2; i++) BenchManager.Instance.RefillOneSlot();
-                });
+                for (int i = 0; i < 2; i++) BenchManager.Instance?.RefillOneSlot();
                 UIManager.Instance?.ShowMessage("Twin Draw – เติม 2 ตัวอักษร!", 2);
                 break;
+
             // 6) เติม Bench 4
             case CardEffectType.QuadSupply:
-                BenchManager.Instance?.RunAtomic(() =>
-                {
-                    for (int i = 0; i < 4; i++) BenchManager.Instance.RefillOneSlot();
-                });
+                for (int i = 0; i < 4; i++) BenchManager.Instance?.RefillOneSlot();
                 UIManager.Instance?.ShowMessage("Quad Supply – เติม 4 ตัวอักษร!", 2);
                 break;
-            // 7) เติม Bench All
+
+            // 7) เติม Bench ทุกช่องว่าง Done
             case CardEffectType.BenchBlitz:
-                BenchManager.Instance?.RunAtomic(() =>
-                {
-                    BenchManager.Instance.RefillEmptySlots();
-                });
+                BenchManager.Instance?.RefillEmptySlots();
                 UIManager.Instance?.ShowMessage("Bench Blitz – เติมครบทุกช่องว่าง!", 2);
                 break;
 
@@ -594,28 +596,22 @@ public class CardManager : MonoBehaviour
                 TurnManager.Instance?.SetScoreMultiplier(2);
                 UIManager.Instance?.ShowMessage("Echo Burst! คำนี้คูณ ×2 ทันที", 2);
                 break;
-            // 10 random Bench
+
+            // 10) Full Rerack
             case CardEffectType.FullRerack:
-                BenchManager.Instance?.RunAtomic(() =>
-                {
-                    BenchManager.Instance.FullRerack();
-                });
+                BenchManager.Instance?.FullRerack();
                 UIManager.Instance?.ShowMessage("Full Rerack — สุ่ม Bench ใหม่ทั้งหมด!", 2);
                 break;
-            // 11) 1 ตัวอักษรพิเศษ
+
+            // 11) Glyph Spark – แทนที่ 1 ตัวบน Bench ด้วย special
             case CardEffectType.GlyphSpark:
-                BenchManager.Instance?.RunAtomic(() =>
-                {
-                    BenchManager.Instance.ReplaceRandomWithSpecial(1);
-                });
+                BenchManager.Instance?.ReplaceRandomWithSpecial(1);
                 UIManager.Instance?.ShowMessage("Glyph Spark — หนึ่งตัวใน Bench เป็นตัวพิเศษ!", 2);
                 break;
-            // 12) 2 ตัวอักษรพิเศษ
+
+            // 12) Twin Sparks – แทนที่ 2 ตัวบน Bench ด้วย special
             case CardEffectType.TwinSparks:
-                BenchManager.Instance?.RunAtomic(() =>
-                {
-                    BenchManager.Instance.ReplaceRandomWithSpecial(2);
-                });
+                BenchManager.Instance?.ReplaceRandomWithSpecial(2);
                 UIManager.Instance?.ShowMessage("Twin Sparks — สองตัวใน Bench เป็นตัวพิเศษ!", 2);
                 break;
 
@@ -640,16 +636,18 @@ public class CardManager : MonoBehaviour
                     TurnManager.Instance.AddMana(TurnManager.Instance.maxMana);
                 break;
 
-            // 17) Wild Bloom – เพิ่มช่องพิเศษสุ่ม 10 ช่อง
+            // 17) Wild Bloom – เพิ่มช่องพิเศษสุ่ม 10 ช่อง (ชั่วคราว 1 เทิร์น)
             case CardEffectType.WildBloom:
-                BoardManager.Instance?.AddRandomSpecialSlots(10);
-                UIManager.Instance?.ShowMessage("Wild Bloom — เพิ่มช่องพิเศษแบบสุ่ม 10 ช่อง!", 2f);
+                BoardManager.Instance?.AddRandomSpecialSlotsTemporary(10);   // ★ เปลี่ยนเมธอด
+                UIManager.Instance?.ShowMessage("Wild Bloom — เพิ่มช่องพิเศษสุ่ม 10 ช่อง (ชั่วคราวเทิร์นนี้)!", 2f);
+                TurnManager.Instance?.MarkEffectOncePerTurn(CardEffectType.WildBloom);
                 break;
 
-            // 18) Chaos Bloom – เพิ่มช่องพิเศษสุ่ม 25 ช่อง
+            // 18) Chaos Bloom – เพิ่มช่องพิเศษสุ่ม 25 ช่อง (ชั่วคราว 1 เทิร์น)
             case CardEffectType.ChaosBloom:
-                BoardManager.Instance?.AddRandomSpecialSlots(25);
-                UIManager.Instance?.ShowMessage("Chaos Bloom — เพิ่มช่องพิเศษแบบสุ่ม 25 ช่อง!", 2f);
+                BoardManager.Instance?.AddRandomSpecialSlotsTemporary(25);   // ★ เปลี่ยนเมธอด
+                UIManager.Instance?.ShowMessage("Chaos Bloom — เพิ่มช่องพิเศษสุ่ม 25 ช่อง (ชั่วคราวเทิร์นนี้)!", 2f);
+                TurnManager.Instance?.MarkEffectOncePerTurn(CardEffectType.ChaosBloom);
                 break;
 
             // 19) Targeted Flux – เลือก 5 ช่องให้เป็น special
@@ -676,7 +674,7 @@ public class CardManager : MonoBehaviour
                 // ข้อความแสดงในเมธอดข้างในแล้ว
                 break;
 
-            // 23) Card Refresh – รีเซ็ตจำนวนใช้การ์ดในเทิร์นนี้
+            // 23) Card Refresh – รีเซ็ตจำนวนใช้การ์ดในเทิร์นนี้ Done
             case CardEffectType.CardRefresh:
                 TurnManager.Instance?.ResetCardUsage();
                 break;
@@ -700,11 +698,7 @@ public class CardManager : MonoBehaviour
 
             // 27) OmniSpark – เปลี่ยน Bench ทั้งหมดเป็น special (ตาม LetterTile/skin รองรับ)
             case CardEffectType.OmniSpark:
-                // เปลี่ยนเฉพาะที่มีอยู่ ไม่จำเป็นต้องเติมต่อท้าย -> refillAfter:false
-                BenchManager.Instance?.RunAtomic(() =>
-                {
-                    BenchManager.Instance.OmniSpark();
-                }, refillAfter: false);
+                BenchManager.Instance?.OmniSpark();
                 UIManager.Instance?.ShowMessage("Omni Spark – ทุกตัวใน Bench เป็น special ชั่วคราว!", 2f);
                 break;
 

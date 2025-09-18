@@ -10,16 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b93f30633ee9c0a478ba730363e01632, type: 3}
-  m_Name: Test 1
+  m_Name: WildBloom
   m_EditorClassIdentifier: 
-  id: 100
-  displayName: letter quad surge
-  description: 
+  id: 26
+  displayName: wild Bloom
+  description: Turn 10 Slot in Borad to special Slot
   icon: {fileID: 0}
-  effectType: 0
-  Mana: 0
-  maxUsagePerTurn: 1
+  effectType: 16
+  Mana: 6
+  maxUsagePerTurn: 3
   category: 0
-  weight: 1
+  weight: 3
   requirePurchase: 0
   price: 0
