@@ -10,6 +10,9 @@ using UnityEngine.SceneManagement;
 public class LevelManager : MonoBehaviour
 {
     public static LevelManager Instance { get; private set; }
+    [Header("Level 1 – Word Request")]
+    public int wordRequestTargetLevel1 = 0;   // ตั้ง > 0 ถ้ามีเป้าหมาย
+    private int wordRequestsDone = 0;
 
     [Header("Configs")]
     public LevelConfig[] levels;
@@ -113,6 +116,52 @@ public class LevelManager : MonoBehaviour
         }
         SetupLevel(startIndex);
     }
+    public void IncrementWordRequest(int delta = 1)
+    {
+        wordRequestsDone = Mathf.Max(0, wordRequestsDone + delta);
+        LevelTaskUI.I?.Refresh();
+        OnScoreOrWordProgressChanged();
+    }
+    
+    private bool IsWordMatchingTheme(string w)
+    {
+        var cfg = currentLevelConfig;
+        if (cfg == null || string.IsNullOrEmpty(w)) return false;
+
+        string n = Normalize(w);
+
+        // 1) ถ้าใช้แท็ก "IT" ให้รีไซเคิลเช็กเดิม
+        if (!string.IsNullOrEmpty(cfg.requiredThemeTag) &&
+            cfg.requiredThemeTag.Trim().ToLowerInvariant() == "it")
+            return IsITWord(n);
+
+        // 2) manual whitelist
+        if (cfg.manualThemeWords != null && cfg.manualThemeWords.Length > 0)
+        {
+            for (int i = 0; i < cfg.manualThemeWords.Length; i++)
+            {
+                var mw = cfg.manualThemeWords[i];
+                if (string.IsNullOrWhiteSpace(mw)) continue;
+                if (n == Normalize(mw)) return true;
+            }
+        }
+        return false;
+    }
+    public (int done, int target) GetWordRequestProgress()
+    {
+        var cfg = currentLevelConfig;
+        int target = (cfg != null && cfg.requireThemedWords) ? Mathf.Max(0, cfg.requiredThemeCount) : 0;
+        return (Mathf.Max(0, wordRequestsDone), target);
+    }
+
+    public bool IsWordRequestObjectiveActive()
+    {
+        var cfg = currentLevelConfig;
+        return cfg != null && cfg.levelIndex == 1 && cfg.requireThemedWords && cfg.requiredThemeCount > 0;
+    }
+    // ใช้โดย UI Task
+    public int  GetITWordsFoundCount()     => itWordsFound.Count;
+    public int  GetITWordsTargetLevel1()   => itWordsTargetLevel1;
 
     private void OnDisable() => StopAllLoops();
 
@@ -187,6 +236,10 @@ public class LevelManager : MonoBehaviour
     {
         if (phase != GamePhase.Running) return;
 
+        // รีเฟรช Task panel ทุกครั้งที่คะแนน/เป้าหมายคำคืบหน้า
+        LevelTaskUI.I?.Refresh();
+
+        // ของเดิม (ด่าน 2 ฯลฯ)
         if (currentLevelConfig?.levelIndex == 2)
         {
             Level2_TryUnlockByWordLength();
@@ -210,6 +263,20 @@ public class LevelManager : MonoBehaviour
         }
         if (itProgressText) itProgressText.text = $"IT words: {itWordsFound.Count}/{itWordsTargetLevel1}";
         if (itWordsFound.Count != before) OnScoreOrWordProgressChanged();
+        // --- WordRequest / Themed words ---
+        var cfg2 = currentLevelConfig;
+        if (cfg2 != null && cfg2.requireThemedWords && cfg2.requiredThemeCount > 0)
+        {
+            // words ที่ส่งมาคือรายการ "คำถูกต้อง" สำหรับเทิร์นนี้แล้ว
+            int add = words.Count();  // ✅ นับทั้งหมด ไม่กรอง IT อีกต่อไป
+
+            if (add > 0)
+            {
+                wordRequestsDone = Mathf.Min(wordRequestsDone + add, cfg2.requiredThemeCount); // กันเกินเป้า
+                LevelTaskUI.I?.Refresh();
+                OnScoreOrWordProgressChanged();
+            }
+        }
     }
 
     public void OnFirstConfirm()
@@ -266,7 +333,7 @@ public class LevelManager : MonoBehaviour
             }
             else itProgressText.gameObject.SetActive(false);
         }
-
+        wordRequestsDone = 0;
         // เตรียมบอร์ด/เบนช์
         BoardManager.Instance?.GenerateBoard();
         TurnManager.Instance?.ResetForNewLevel();
@@ -293,6 +360,7 @@ public class LevelManager : MonoBehaviour
         }
 
         Debug.Log($"▶ เริ่มด่าน {currentLevelConfig.levelIndex} | Time: {currentLevelConfig.timeLimit}s | Score target: {currentLevelConfig.requiredScore}");
+        LevelTaskUI.I?.Refresh();    // <-- เพิ่ม
         phase = GamePhase.Ready;
     }
 

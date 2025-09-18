@@ -169,6 +169,22 @@ public class CardManager : MonoBehaviour
 
         UIManager.Instance?.UpdateCardSlots(heldCards);
     }
+    void EnsureHeldSize()
+    {
+        if (heldCards == null) heldCards = new List<CardData>();
+        while (heldCards.Count < maxHeldCards) heldCards.Add(null);
+        if (heldCards.Count > maxHeldCards)
+            heldCards.RemoveRange(maxHeldCards, heldCards.Count - maxHeldCards);
+    }
+
+    int FirstEmptySlot()
+    {
+        for (int i = 0; i < heldCards.Count; i++)
+            if (heldCards[i] == null) return i;
+        return -1;
+    }
+
+    bool HasFreeSlot() => FirstEmptySlot() >= 0;
 
     #endregion
     // =======================================================================
@@ -269,10 +285,10 @@ public class CardManager : MonoBehaviour
     {
         if (selected == null) return;
 
-        if (heldCards.Count < maxHeldCards)
-            heldCards.Add(selected);
-        else
-            heldCards[0] = selected; // ตัวอย่าง: แทน index 0
+        EnsureHeldSize();
+        int i = FirstEmptySlot();
+        if (i >= 0) heldCards[i] = selected;
+        else        heldCards[0] = selected; // เต็มจริง ๆ ค่อยทับ 0
 
         UIManager.Instance?.UpdateCardSlots(heldCards);
     }
@@ -297,6 +313,7 @@ public class CardManager : MonoBehaviour
     public void UpgradeMaxHeldCards(int newMax)
     {
         maxHeldCards = Mathf.Clamp(newMax, 2, 6);
+        EnsureHeldSize(); // ★ เพิ่มบรรทัดนี้
         UIManager.Instance?.UpdateCardSlots(heldCards);
     }
 
@@ -326,17 +343,14 @@ public class CardManager : MonoBehaviour
         // ให้ UICardSelect ปิด/ซ่อนโคลนในเฟรมปัจจุบันก่อน
         yield return new WaitForEndOfFrame();
 
-        // ===== เคส "ช่องเต็ม" → เข้าสู่โหมด Replace ทันที (อย่ารอโคลนหาย) =====
-        if (heldCards.Count >= maxHeldCards)
+        EnsureHeldSize();
+        if (!HasFreeSlot())
         {
             pendingReplacementCard = picked;
             isReplaceMode = true;
-
-            // โชว์ UI โหมดแทนที่ทันที เพื่อให้กดสลอตได้
             UIManager.Instance?.UpdateCardSlots(heldCards, true);
-            yield break; // จบที่นี่ รอผู้เล่นคลิกสลอต → ReplaceSlot/ReplaceWithAnim
+            yield break;
         }
-
         // ===== เคส "มีที่ว่าง" → ค่อยรอให้ UI ปิด/โคลนหายก่อนอัปเดต =====
         if (uiSelect != null)
             yield return new WaitUntil(() =>
@@ -345,7 +359,10 @@ public class CardManager : MonoBehaviour
 
         yield return null; // เผื่อ layout รีเฟรช
 
-        heldCards.Add(picked);
+        EnsureHeldSize();
+        int slot = FirstEmptySlot();
+        if (slot < 0) slot = 0; // กันพลาด
+        heldCards[slot] = picked;
         UIManager.Instance?.UpdateCardSlots(heldCards);
 
         isReplaceMode = false;
@@ -468,13 +485,19 @@ public class CardManager : MonoBehaviour
 
         if (slotUI != null)
             yield return slotUI.PlayUseThen(null); // รอคลิปจบ
-        // ใช้เอฟเฟกต์ + จดว่าใช้ในเทิร์นนี้
+        // ใช้เอฟเฟกต์ + จดการใช้งาน
         ApplyEffect(card);
         TurnManager.Instance?.OnCardUsed(card);
 
-        // ลบการ์ดออกจากมือ (กัน index เปลี่ยนระหว่างรออนิเมชัน)
-        int cur = heldCards.IndexOf(card);
-        if (cur >= 0) heldCards.RemoveAt(cur);
+        // ★ แก้จุดนี้: ห้าม RemoveAt เพราะจะทำให้ช่องขยับ
+        EnsureHeldSize();
+        if (index >= 0 && index < heldCards.Count && heldCards[index] == card)
+            heldCards[index] = null;
+        else
+        {
+            int cur = heldCards.IndexOf(card);
+            if (cur >= 0) heldCards[cur] = null;
+        }
 
         UIManager.Instance?.UpdateCardSlots(heldCards);
     }
@@ -507,9 +530,8 @@ public class CardManager : MonoBehaviour
         }
 
         heldCards[toIndex] = result;
-        // ลบใบ A ออก; การ set ช่อง B แล้วทำให้ index ขยับไม่เป็นปัญหา
-        heldCards.RemoveAt(fromIndex);
-
+        // ★ เดิม RemoveAt(fromIndex) → เปลี่ยนเป็น:
+        if (fromIndex != toIndex) heldCards[fromIndex] = null;
         UIManager.Instance?.UpdateCardSlots(heldCards);
         UIManager.Instance?.ShowMessage($"Fusion: {a.displayName} + {b.displayName} → {result.displayName}", 2f);
         return true;
@@ -520,16 +542,29 @@ public class CardManager : MonoBehaviour
     {
         if (fromIndex == toIndex) return;
         if (fromIndex < 0 || fromIndex >= heldCards.Count) return;
-        if (toIndex < 0) return;
+        if (toIndex   < 0 || toIndex   >= maxHeldCards)    return;
+
+        EnsureHeldSize();
 
         var card = heldCards[fromIndex];
-        heldCards.RemoveAt(fromIndex);
+        if (card == null) return;
 
-        if (toIndex > heldCards.Count) toIndex = heldCards.Count;
-        heldCards.Insert(toIndex, card);
-
+        if (heldCards[toIndex] == null)
+        {
+            // ย้ายไปช่องว่าง
+            heldCards[toIndex] = card;
+            heldCards[fromIndex] = null;
+        }
+        else
+        {
+            // (กันพลาด) ถ้าปลายทางไม่ว่างให้สลับ
+            var tmp = heldCards[toIndex];
+            heldCards[toIndex] = card;
+            heldCards[fromIndex] = tmp;
+        }
         UIManager.Instance?.UpdateCardSlots(heldCards);
     }
+
 
     #endregion
     // =======================================================================

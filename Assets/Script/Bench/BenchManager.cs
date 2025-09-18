@@ -11,11 +11,11 @@ public class BenchManager : MonoBehaviour
     [Header("Prefabs & Pool")]
     [Tooltip("Prefab ของ LetterTile ที่จะถูกสร้างลงในช่อง Bench")]
     public GameObject letterTilePrefab;
-    [Header("Special Type Sprites (for runtime changes)")]        // ADD
-    public Sprite doubleLetterSprite;                              // ADD
-    public Sprite tripleLetterSprite;                              // ADD
-    public Sprite doubleWordSprite;                                // ADD
-    public Sprite tripleWordSprite;                                // ADD
+
+    // ==== Hand capacity (Bench + Space) ====
+    [Header("Hand Limit")]
+    [Tooltip("จำนวนไทล์สูงสุดที่ผู้เล่นถือได้ (Bench + Space)")]
+    public int handCapacity = 10;
 
     [Header("Slot Positions (ซ้าย→ขวา)")]
     [Tooltip("ลิสต์ Transform ของแต่ละช่อง Bench (เรียงซ้ายไปขวา)")]
@@ -178,18 +178,6 @@ public class BenchManager : MonoBehaviour
 
         if (best >= 0) MoveChildToSlot(slot, slotTransforms[best]);
     }
-    // ===== helpers =====                                         // ADD
-    private Sprite SpriteFor(SlotType t)                           // ADD
-    {                                                              // ADD
-        switch (t)                                                 // ADD
-        {                                                          // ADD
-            case SlotType.DoubleLetter: return doubleLetterSprite; // ADD
-            case SlotType.TripleLetter: return tripleLetterSprite; // ADD
-            case SlotType.DoubleWord:   return doubleWordSprite;   // ADD
-            case SlotType.TripleWord:   return tripleWordSprite;   // ADD
-            default: return null;                                  // ADD
-        }                                                          // ADD
-    }    
     #endregion
     // ======================================================
 
@@ -276,9 +264,31 @@ public class BenchManager : MonoBehaviour
     /// - ถ้าอยู่ในช่วงคิดคะแนน จะ "คิวไว้" แล้วรอให้คิดคะแนนเสร็จก่อนจึงเริ่มอนิเมชัน
     /// - กันเรียกซ้ำซ้อนด้วย _refillQueued/_refillCo
     /// </summary>
+    private int CountBenchTiles()
+    {
+        int c = 0;
+        if (slotTransforms != null)
+            foreach (var s in slotTransforms)
+                if (s != null && s.childCount > 0) c++;
+        return c;
+    }
+
+    private int CountSpaceTiles()
+    {
+        // ใช้ SpaceManager ถ้ามี
+        if (SpaceManager.Instance == null) return 0;
+        var list = SpaceManager.Instance.GetPreparedTiles();
+        return (list != null) ? list.Count : 0;
+    }
+
+    private int CurrentHandCount() => CountBenchTiles() + CountSpaceTiles();
+    private int MissingToCapacity() => Mathf.Max(0, handCapacity - CurrentHandCount());
     public void RefillEmptySlots()
     {
         if (!CanAutoRefill()) return;
+
+        int missing = MissingToCapacity();
+        if (missing <= 0) return; // มือเต็มแล้ว ไม่ต้องเติม
 
         bool wantAnim = animateRefill && tileSpawnAnchor != null && letterTilePrefab != null;
 
@@ -307,8 +317,12 @@ public class BenchManager : MonoBehaviour
         if (letterTilePrefab == null) { Debug.LogError("[BenchManager] letterTilePrefab is null."); return; }
         if (TileBag.Instance == null) { Debug.LogWarning("[BenchManager] TileBag.Instance is null."); return; }
 
+        int missing = MissingToCapacity();
+        if (missing <= 0) return;
+
         foreach (Transform slot in slotTransforms)
         {
+            if (missing <= 0) break;           // เติมพอแค่ขาด
             if (slot == null) continue;
             if (slot.childCount > 0) continue;
 
@@ -316,6 +330,7 @@ public class BenchManager : MonoBehaviour
             if (data == null) break;
 
             CreateTileInSlot(slot, data);
+            missing--;                          // นับลดลงเมื่อเติม 1 ตัว
         }
     }
 
@@ -338,37 +353,40 @@ public class BenchManager : MonoBehaviour
     {
         if (letterTilePrefab == null || TileBag.Instance == null) yield break;
         if (tileSpawnAnchor == null) { RefillImmediate(); yield break; }
-        // ถ้าถูก pause ระหว่างทาง ให้ยุติทันที
         if (!CanAutoRefill()) { _refillCo = null; yield break; }
 
-        // เด้งถุง
         if (tileBagAnimator) tileBagAnimator.SetTrigger("Refill");
 
-        // กันของค้างใน Anchor จากรอบที่แล้ว (เผื่อมี)
+        // ลบเศษจากรอบก่อน
         for (int i = tileSpawnAnchor.childCount - 1; i >= 0; --i)
             Destroy(tileSpawnAnchor.GetChild(i).gameObject);
 
-        // รวมช่องว่างทั้งหมด (ซ้าย→ขวา)
+        // รวมช่องว่างทั้งหมด
         var emptySlots = new List<Transform>();
         foreach (var slot in slotTransforms)
             if (slot != null && slot.childCount == 0) emptySlots.Add(slot);
 
-        // เติมทีละช่อง
+        int missing = MissingToCapacity();
+        if (missing <= 0) { _refillCo = null; yield break; }
+
+        int filled = 0;
         foreach (var slot in emptySlots)
         {
-            // ตรวจทุกครั้งก่อนเติมแต่ละชิ้น
             if (!CanAutoRefill()) { _refillCo = null; yield break; }
+            if (filled >= missing) break;
+
             var data = TileBag.Instance.DrawRandomTile();
             if (data == null) break;
 
-            // สร้างไทล์ "ตัวเดียว" ใต้ anchor
+            // (โค้ดสร้าง go/tile + hover + FlyTo เดิมตามที่มีอยู่)
             var go = Instantiate(letterTilePrefab, tileSpawnAnchor, false);
             var tile = go.GetComponent<LetterTile>();
             if (tile == null)
             {
                 Destroy(go);
-                CreateTileInSlot(slot, data);              // fallback
+                CreateTileInSlot(slot, data);
                 yield return new WaitForSecondsRealtime(refillStagger);
+                filled++;
                 continue;
             }
 
@@ -396,6 +414,8 @@ public class BenchManager : MonoBehaviour
             SfxPlayer.Play(SfxId.TileTransfer);
             tile.FlyTo(slot);
             yield return new WaitForSecondsRealtime(refillStagger);
+
+            filled++;
         }
 
         _refillCo = null;
@@ -405,6 +425,13 @@ public class BenchManager : MonoBehaviour
     public void RefillOneSlot(BenchSlot prefer = null, bool forceImmediate = false)
     {
         if (!CanAutoRefill()) return;
+
+        // มือเต็มแล้ว → นับเครดิตคืนถุงแทน (ใช้สำหรับเคสจากการ์ด)
+        if (MissingToCapacity() <= 0)
+        {
+            TileBag.Instance?.AddExtraLetters(1);
+            return;
+        }
 
         // เลือกช่องเป้าหมาย
         Transform slotT = null;

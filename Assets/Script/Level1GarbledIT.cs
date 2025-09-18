@@ -42,6 +42,8 @@ public class Level1GarbledIT : MonoBehaviour
     [Min(1)] public int outlineWidthPx = 8;
     // ใหม่
     [Min(0)] public int outlinePaddingPx = 4;
+    public int TotalSets  => _sets?.Count ?? 0;
+    public int SolvedSets => (_sets == null) ? 0 : _sets.Count(s => s != null && s.solved);
 
     [Header("Auto Fill From TileBag")]
     [Tooltip("ถ้าตั้งค่า จะดึง LetterData อัตโนมัติจาก TileBag ถ้า list ว่าง")]
@@ -149,6 +151,7 @@ public class Level1GarbledIT : MonoBehaviour
         }
 
         if (fail > 0) Debug.Log($"[GarbledIT] วางไม่ได้ {fail} คำ (พื้นที่ไม่พอ/ชนเงื่อนไขเว้นระยะ)");
+        LevelTaskUI.I?.Refresh();    // <-- เพิ่ม
     }
     // === Public helpers ===
     public bool IsGarbledSlot(BoardSlot slot)
@@ -240,6 +243,7 @@ public class Level1GarbledIT : MonoBehaviour
                 TurnManager.Instance?.AddScore(-penalty);
                 UIToast($"ผิด! -{penalty}", Color.red);
             }
+            LevelTaskUI.I?.Refresh();    // <-- เพิ่ม
 
             yield return new WaitForSecondsRealtime(0.12f);
         }
@@ -323,6 +327,7 @@ public class Level1GarbledIT : MonoBehaviour
         _slot2set.Clear();
         _pendingSwap = null;
         IsActive = false;
+        LevelTaskUI.I?.Refresh();    // <-- เพิ่ม
     }
 
     // =========================================================

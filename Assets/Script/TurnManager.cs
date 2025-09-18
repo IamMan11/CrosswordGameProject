@@ -280,7 +280,9 @@ public class TurnManager : MonoBehaviour
 
     void UpdateScoreUI()
     {
-        if (scoreText != null) scoreText.text = $"Score : {Score}";
+        int target = Mathf.Max(0, LevelManager.Instance?.currentLevelConfig?.requiredScore ?? 0);
+        if (scoreText != null)
+            scoreText.text = (target > 0) ? $"Score : {Score}/{target}" : $"Score : {Score}";
     }
     public bool CanTriggerOncePerTurn(CardEffectType eff)               // ADD
     {                                                                   // ADD
@@ -755,6 +757,7 @@ public class TurnManager : MonoBehaviour
                 if (!bounced.Contains(t)) t.Lock();
 
             BenchManager.Instance.RefillEmptySlots();
+            LevelTaskUI.I?.Refresh();
             UpdateBagUI();
             EnableConfirm();
             if (Level1GarbledIT.Instance != null)
@@ -773,15 +776,22 @@ public class TurnManager : MonoBehaviour
 
     IEnumerator TweenHudScoreTemp(int start, int target, float dur)
     {
+        int goal = Mathf.Max(0, LevelManager.Instance?.currentLevelConfig?.requiredScore ?? 0);
         float t = 0f; int last = -1;
         while (t < 1f)
         {
             t += Time.unscaledDeltaTime / Mathf.Max(0.001f, dur);
             int v = Mathf.RoundToInt(Mathf.Lerp(start, target, 1 - Mathf.Pow(1 - t, 3)));
-            if (v != last) { if (scoreText) scoreText.text = $"Score : {v}"; last = v; }
+            if (v != last)
+            {
+                if (scoreText)
+                    scoreText.text = (goal > 0) ? $"Score : {v}/{goal}" : $"Score : {v}";
+                last = v;
+            }
             yield return null;
         }
-        if (scoreText) scoreText.text = $"Score : {target}";
+        if (scoreText)
+            scoreText.text = (goal > 0) ? $"Score : {target}/{goal}" : $"Score : {target}";
     }
 
     void BounceWord(
