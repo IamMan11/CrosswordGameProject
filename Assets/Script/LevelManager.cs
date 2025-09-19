@@ -851,6 +851,30 @@ public class LevelManager : MonoBehaviour
         int segLen = Mathf.Max(1, level2_lockedSegmentLength);
         int segCount = Mathf.Max(0, level2_lockedSegmentCount);
 
+        int centerR = rows / 2;
+        int centerC = cols / 2;
+        bool InCenter3x3(int r, int c) => Mathf.Abs(r - centerR) <= 1 && Mathf.Abs(c - centerC) <= 1;
+
+        // 8 ทิศ (กันแตะทั้งข้างและชนมุม)
+        Vector2Int[] ADJ8 = new Vector2Int[] {
+            new Vector2Int(-1, 0), new Vector2Int(1, 0),
+            new Vector2Int(0, -1), new Vector2Int(0, 1),
+            new Vector2Int(-1,-1), new Vector2Int(-1, 1),
+            new Vector2Int( 1,-1), new Vector2Int( 1, 1),
+        };
+
+        bool HasLockedNeighbor8(int r, int c)
+        {
+            for (int i = 0; i < ADJ8.Length; i++)
+            {
+                int nr = r + ADJ8[i].x, nc = c + ADJ8[i].y;
+                if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+                var ns = bm.grid[nr, nc];
+                if (ns != null && ns.IsLocked) return true;
+            }
+            return false;
+        }
+
         int attemptsPerSeg = 200;
 
         for (int seg = 0; seg < segCount; seg++)
@@ -868,7 +892,6 @@ public class LevelManager : MonoBehaviour
                     ? UnityEngine.Random.Range(0, cols)
                     : UnityEngine.Random.Range(0, cols - segLen + 1);
 
-                // ตรวจว่าชุดช่องนี้ว่าง & ยังไม่ล็อก
                 var candidates = new List<BoardSlot>();
                 for (int k = 0; k < segLen; k++)
                 {
@@ -876,8 +899,10 @@ public class LevelManager : MonoBehaviour
                     int c = startC + (vertical ? 0 : k);
 
                     var s = bm.grid[r, c];
-                    if (!s || s.IsLocked || s.HasLetterTile())
+                    // เงื่อนไข: ต้องอยู่นอกกลาง 3×3, ยังไม่ล็อก, ไม่มีตัวอักษร, และ "ไม่มีเพื่อนล็อก" 8 ทิศ
+                    if (!s || InCenter3x3(r, c) || s.IsLocked || s.HasLetterTile() || HasLockedNeighbor8(r, c))
                     { candidates.Clear(); break; }
+
                     candidates.Add(s);
                 }
 
@@ -893,4 +918,5 @@ public class LevelManager : MonoBehaviour
             }
         }
     }
+
 }

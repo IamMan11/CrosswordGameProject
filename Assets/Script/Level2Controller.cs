@@ -131,20 +131,62 @@ public class Level2Controller : MonoBehaviour
 
         triNodes.Clear(); triAllCells.Clear();
         var chosen = new List<Vector2Int>();
-        int safety = 500;
+        int safety = 800;
+
+        int centerR = rows / 2;
+        int centerC = cols / 2;
+        bool InCenter3x3(int r, int c) => Mathf.Abs(r - centerR) <= 1 && Mathf.Abs(c - centerC) <= 1;
+
+        // 8 ทิศ (กันแตะท่อนล็อกทั้งข้าง/ชนมุม)
+        Vector2Int[] ADJ8 = new Vector2Int[] {
+            new Vector2Int(-1, 0), new Vector2Int(1, 0),
+            new Vector2Int(0, -1), new Vector2Int(0, 1),
+            new Vector2Int(-1,-1), new Vector2Int(-1, 1),
+            new Vector2Int( 1,-1), new Vector2Int( 1, 1),
+        };
+
+        bool BlockOk(int topR, int leftC)
+        {
+            for (int dr = 0; dr < size; dr++)
+            for (int dc = 0; dc < size; dc++)
+            {
+                int rr = topR + dr, cc = leftC + dc;
+                if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) return false;
+
+                if (InCenter3x3(rr, cc)) return false;                   // ❌ ห้ามทับกลาง 3×3
+
+                var s = bm.grid[rr, cc];
+                if (s == null) return false;
+
+                // ❌ ห้ามทับและห้าม "ติด" ท่อนล็อก (8 ทิศ)
+                if (s.IsLocked) return false;
+                for (int i = 0; i < ADJ8.Length; i++)
+                {
+                    int nr = rr + ADJ8[i].x, nc = cc + ADJ8[i].y;
+                    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+                    var ns = bm.grid[nr, nc];
+                    if (ns != null && ns.IsLocked) return false;
+                }
+            }
+            return true;
+        }
 
         while (chosen.Count < 3 && safety-- > 0)
         {
-            int r = Random.Range(0, rows - size + 1);
-            int c = Random.Range(0, cols - size + 1);
-            var tl = new Vector2Int(r, c);
+            int r = UnityEngine.Random.Range(0, rows - size + 1);
+            int c = UnityEngine.Random.Range(0, cols - size + 1);
+
+            // ต้องห่างกันตาม gap เดิม + ผ่านเงื่อนไข BlockOk
             bool farEnough = chosen.All(p => Mathf.Abs(p.x - r) + Mathf.Abs(p.y - c) >= gap);
             if (!farEnough) continue;
-            chosen.Add(tl);
+            if (!BlockOk(r, c)) continue;
+
+            chosen.Add(new Vector2Int(r, c));
         }
 
         if (chosen.Count < 3)
         {
+            // fallback เดิม (ไม่ลงกลาง 3×3 อยู่แล้วเพราะตำแหน่งนี้หลบกลาง)
             chosen.Clear();
             chosen.Add(new Vector2Int(0, 0));
             chosen.Add(new Vector2Int(0, Mathf.Max(0, cols - size)));
@@ -164,6 +206,7 @@ public class Level2Controller : MonoBehaviour
             triNodes.Add(set);
         }
     }
+
 
     void PaintTriangleNodesIdle(Color idleColor)
     {
