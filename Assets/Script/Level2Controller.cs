@@ -120,6 +120,15 @@ public class Level2Controller : MonoBehaviour
         }
         return false;
     }
+    public int NodeCount => triNodes.Count;
+
+    public int GetTouchedNodeCount()
+    {
+        int cnt = 0;
+        for (int i = 0; i < triNodes.Count; i++)
+            if (NodeTouched(triNodes[i])) cnt++;
+        return Mathf.Clamp(cnt, 0, 3);
+    }
 
     // ---------- Triangle (size×size nodes) ----------
     void GenerateTriangleNodes(int size, int minManhattanGap)
@@ -249,13 +258,9 @@ public class Level2Controller : MonoBehaviour
         if (lm?.currentLevelConfig?.levelIndex != 2) return;
         if (!lm.level2_useTriangleObjective) return;
 
-        // อัปเดตสี + เช็กเงื่อนไขผ่านด่าน หลังล็อกเสร็จ
         UpdateTriangleColors(lm.level2_triangleIdleColor, lm.level2_triangleLinkedColor);
         var ok = CheckTriangleComplete();
-        if (ok != IsTriangleComplete())
-        {
-            // sync สถานะภายในถ้าคุณเก็บไว้ที่ตัวแปร
-        }
+        triangleComplete = ok;                     // <<< เพิ่มบรรทัดนี้
         UIManager.Instance?.UpdateTriangleHint(ok);
     }
 

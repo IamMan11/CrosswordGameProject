@@ -59,6 +59,7 @@ public class LevelManager : MonoBehaviour
     };
     private bool level2_triangleComplete;
     private float level2_triangleCheckTimer;
+    private int level2_triangleLinkedCount = 0; // 0..3 ที่ "เชื่อมถึงกัน" ณ ตอนนี้
 
     [Header("Level 2 – Periodic X2 Zones (3x3)")]
     private Coroutine level2_x2Routine;
@@ -229,6 +230,15 @@ public class LevelManager : MonoBehaviour
         if (currentLevelConfig?.levelIndex == 2)
             Level2Controller.Instance?.Tick(Time.unscaledDeltaTime);
 
+        if (currentLevelConfig?.levelIndex == 2 && level2_useTriangleObjective)
+        {
+            int prev = level2_triangleLinkedCount;
+            level2_triangleLinkedCount = Level2Controller.Instance ? Level2Controller.Instance.GetTouchedNodeCount() : 0;
+            level2_triangleComplete    = Level2Controller.Instance && Level2Controller.Instance.IsTriangleComplete();
+            if (prev != level2_triangleLinkedCount)
+                LevelTaskUI.I?.Refresh();
+        }
+
         // ----- Win condition -----
         if (CheckWinConditions(cfg) && !(TurnManager.Instance?.IsScoringAnimation ?? false))
             ShowStageClearAndShop(cfg);
@@ -386,6 +396,7 @@ public class LevelManager : MonoBehaviour
             return !level2_useTriangleObjective || (Level2Controller.Instance?.IsTriangleComplete() ?? false);
         return true;
     }
+    public bool IsTriangleComplete() => level2_triangleComplete;
 
     private void ShowStageClearAndShop(LevelConfig cfg)
     {
@@ -413,13 +424,22 @@ public class LevelManager : MonoBehaviour
         bool baseOK =
             TurnManager.Instance.Score >= cfg.requiredScore &&
             TurnManager.Instance.CheckedWordCount >= cfg.requiredWords;
-
         if (!baseOK) return false;
 
         if (cfg.levelIndex == 1 && itWordsFound.Count < itWordsTargetLevel1) return false;
-        if (cfg.levelIndex == 2 && level2_useTriangleObjective && !level2_triangleComplete) return false;
+
+        // แก้เป็นใช้ Controller แทนของเดิม
+        if (cfg.levelIndex == 2 && level2_useTriangleObjective &&
+            !(Level2Controller.Instance?.IsTriangleComplete() ?? false)) return false;
 
         return true;
+    }
+    public (int linked, int total) GetTriangleLinkProgress()
+    {
+        var c = Level2Controller.Instance;
+        int total  = c != null ? Mathf.Min(3, c.NodeCount) : 3;
+        int linked = c != null ? c.GetTouchedNodeCount() : 0;
+        return (linked, total);
     }
 
     private StageResult BuildStageResult(LevelConfig cfg)
@@ -670,6 +690,55 @@ public class LevelManager : MonoBehaviour
         }
 
         return visited[targets[1].x, targets[1].y] && visited[targets[2].x, targets[2].y];
+    }
+    private int Level2_RecomputeTriangleLinks()
+    {
+        var bm = BoardManager.Instance;
+        if (bm == null || bm.grid == null || level2_triangleTargets == null || level2_triangleTargets.Length < 3)
+            return 0;
+
+        // เอาเฉพาะเป้าหมายที่ "มีตัวอักษรอยู่"
+        var active = new List<Vector2Int>();
+        foreach (var v in level2_triangleTargets)
+        {
+            int r = v.x, c = v.y;
+            if (r < 0 || r >= bm.rows || c < 0 || c >= bm.cols) continue;
+            var s = bm.grid[r, c];
+            if (s != null && s.HasLetterTile()) active.Add(new Vector2Int(r, c));
+        }
+        if (active.Count == 0) return 0;
+
+        // BFS ไปตามช่องที่มีตัวอักษร ติดกัน 4 ทิศ
+        var visited = new bool[bm.rows, bm.cols];
+        var q = new Queue<Vector2Int>();
+        q.Enqueue(active[0]);
+        visited[active[0].x, active[0].y] = true;
+
+        int[] dr = { -1, 1, 0, 0 };
+        int[] dc = { 0, 0, -1, 1 };
+
+        while (q.Count > 0)
+        {
+            var cur = q.Dequeue();
+            for (int k = 0; k < 4; k++)
+            {
+                int nr = cur.x + dr[k], nc = cur.y + dc[k];
+                if (nr < 0 || nr >= bm.rows || nc < 0 || nc >= bm.cols) continue;
+                if (visited[nr, nc]) continue;
+
+                var s = bm.grid[nr, nc];
+                if (s == null || !s.HasLetterTile()) continue;
+
+                visited[nr, nc] = true;
+                q.Enqueue(new Vector2Int(nr, nc));
+            }
+        }
+
+        int count = 0;
+        foreach (var t in active)
+            if (visited[t.x, t.y]) count++;
+
+        return Mathf.Clamp(count, 0, 3);
     }
 
     private IEnumerator Level2_PeriodicX2Zones(bool spawnImmediately = false)

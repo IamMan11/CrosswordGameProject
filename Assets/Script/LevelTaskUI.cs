@@ -9,6 +9,7 @@ public class LevelTaskUI : MonoBehaviour
     public TMP_Text garbledText;   // "Garbled: a/b"
     public TMP_Text itWordText;    // "ITWord: a/b"
     public TMP_Text requestText;   // "WordRequest: a/b"
+    public TMP_Text triangleText;
 
     void Awake()
     {
@@ -20,7 +21,7 @@ public class LevelTaskUI : MonoBehaviour
 
     public void Refresh()
     {
-        var lm  = LevelManager.Instance;
+        var lm = LevelManager.Instance;
         var cfg = lm?.currentLevelConfig;
 
         // --- Garbled ---
@@ -53,6 +54,16 @@ public class LevelTaskUI : MonoBehaviour
             {
                 var (done, target) = lm.GetWordRequestProgress();
                 requestText.text = $"WordRequest: {done}/{target}";
+            }
+        }
+        if (triangleText)
+        {
+            bool active = lm != null && cfg != null && cfg.levelIndex == 2 && lm.level2_useTriangleObjective;
+            triangleText.gameObject.SetActive(active);
+            if (active)
+            {
+                var (linked, total) = lm.GetTriangleLinkProgress();
+                triangleText.text = $"จุดที่เชื่อม: {linked}/{total}";
             }
         }
     }
