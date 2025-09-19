@@ -109,6 +109,12 @@ public class LevelManager : MonoBehaviour
     [Min(0)] public int level2_benchIssueCount = 2; // x ตัวที่จะสุ่ม
     public Color level2_benchIssueOverlayColor = new Color(0f, 0f, 0f, 0.55f);
     private Coroutine level2_benchIssueAfterRefillCo;
+    [Header("Level 2 – Locked Segments")]
+    public bool level2_enableLockedSegments = true;
+    [Min(1)] public int level2_lockedSegmentLength = 4;
+    [Min(1)] public int level2_lockedSegmentCount = 3;
+    public Color level2_lockedOverlayColor = new Color(0f, 0f, 0f, 0.55f);
+    private readonly List<BoardSlot> level2_lockedSegmentSlots = new();
 
     // ----------------------------------------
 
@@ -338,6 +344,11 @@ public class LevelManager : MonoBehaviour
         TileBag.Instance?.RefillTileBag();
         BenchManager.Instance?.RefillEmptySlots();
         TurnManager.Instance?.UpdateBagUI();
+        if (currentLevelConfig?.levelIndex == 2)
+        {
+            Level2_ClearLockedSegments();
+            Level2_SpawnLockedSegments();
+        }
 
         // เรียก Garbled ครั้งเดียวพอ
         Level1GarbledIT.Instance?.ClearAll();
@@ -820,5 +831,66 @@ public class LevelManager : MonoBehaviour
         }
 
         level2_benchIssueAfterRefillCo = null;
+    }
+    private void Level2_ClearLockedSegments()
+    {
+        if (level2_lockedSegmentSlots.Count == 0) return;
+        foreach (var s in level2_lockedSegmentSlots)
+            if (s) s.SetLockedVisual(false);
+        level2_lockedSegmentSlots.Clear();
+    }
+
+    private void Level2_SpawnLockedSegments()
+    {
+        if (!level2_enableLockedSegments) return;
+
+        var bm = BoardManager.Instance;
+        if (bm == null || bm.grid == null) return;
+
+        int rows = bm.rows, cols = bm.cols;
+        int segLen = Mathf.Max(1, level2_lockedSegmentLength);
+        int segCount = Mathf.Max(0, level2_lockedSegmentCount);
+
+        int attemptsPerSeg = 200;
+
+        for (int seg = 0; seg < segCount; seg++)
+        {
+            bool placed = false;
+            for (int attempt = 0; attempt < attemptsPerSeg && !placed; attempt++)
+            {
+                bool vertical = UnityEngine.Random.value < 0.5f;
+
+                int startR = vertical
+                    ? UnityEngine.Random.Range(0, rows - segLen + 1)
+                    : UnityEngine.Random.Range(0, rows);
+
+                int startC = vertical
+                    ? UnityEngine.Random.Range(0, cols)
+                    : UnityEngine.Random.Range(0, cols - segLen + 1);
+
+                // ตรวจว่าชุดช่องนี้ว่าง & ยังไม่ล็อก
+                var candidates = new List<BoardSlot>();
+                for (int k = 0; k < segLen; k++)
+                {
+                    int r = startR + (vertical ? k : 0);
+                    int c = startC + (vertical ? 0 : k);
+
+                    var s = bm.grid[r, c];
+                    if (!s || s.IsLocked || s.HasLetterTile())
+                    { candidates.Clear(); break; }
+                    candidates.Add(s);
+                }
+
+                if (candidates.Count == segLen)
+                {
+                    foreach (var s in candidates)
+                    {
+                        s.SetLockedVisual(true, level2_lockedOverlayColor);
+                        level2_lockedSegmentSlots.Add(s);
+                    }
+                    placed = true;
+                }
+            }
+        }
     }
 }

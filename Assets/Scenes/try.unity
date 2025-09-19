@@ -3354,7 +3354,7 @@ MonoBehaviour:
   level2_enableLockedBoard: 1
   level2_lockedCount: 3
   level2_requiredLenRange: {x: 3, y: 7}
-  level2_enableBenchIssue: 1
+  level2_enableBenchIssue: 0
   level2_benchIssueIntervalSec: 60
   level2_benchIssueDurationSec: 20
   level2_benchZeroPerMove: 0
@@ -3378,6 +3378,10 @@ MonoBehaviour:
   level2_zoneOverlayColor: {r: 0.2, g: 0.9, b: 0.2, a: 0.20392157}
   level2_benchIssueCount: 2
   level2_benchIssueOverlayColor: {r: 0, g: 0, b: 0, a: 0.55}
+  level2_enableLockedSegments: 1
+  level2_lockedSegmentLength: 4
+  level2_lockedSegmentCount: 3
+  level2_lockedOverlayColor: {r: 0, g: 0, b: 0, a: 0.55}
 --- !u!4 &260603165
 Transform:
   m_ObjectHideFlags: 0

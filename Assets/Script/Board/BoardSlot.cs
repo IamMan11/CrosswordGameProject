@@ -48,6 +48,7 @@ public class BoardSlot : MonoBehaviour,
     // วางในคลาส BoardSlot (ส่วนฟิลด์ runtime)
     [HideInInspector] public int tempWordMul = 1;
     [HideInInspector] public int tempLetterMul = 1;
+    [SerializeField] private UnityEngine.UI.Image lockOverlay;
 
     private Coroutine _flashCo;
     [Header("Hover (Animator optional)")]
@@ -121,6 +122,7 @@ public class BoardSlot : MonoBehaviour,
     }
     public void OnDrop(UnityEngine.EventSystems.PointerEventData eventData)
     {
+        if (IsLocked) return;
         if (eventData == null) return;
 
         var tileGO = eventData.pointerDrag;
@@ -289,6 +291,57 @@ public class BoardSlot : MonoBehaviour,
         if (icon) icon.transform.SetAsFirstSibling();
         specialBg.transform.SetAsLastSibling();  // เอา overlay ไว้เหนือ icon แน่ๆ
     }
+    void EnsureLockOverlay()
+    {
+        if (!lockOverlay)
+        {
+            var t = transform.Find("LockOverlay") as RectTransform;
+            if (!t)
+            {
+                var go = new GameObject("LockOverlay", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+                go.transform.SetParent(transform, false);
+                t = go.GetComponent<RectTransform>();
+            }
+
+            var img = t.GetComponent<UnityEngine.UI.Image>();
+            img.raycastTarget = false;
+            if (!img.sprite) img.sprite = GetSolidSprite(); // ใช้สไปรต์ทึบเดียวกับ overlay อื่น
+            img.type = Image.Type.Simple;
+            lockOverlay = img;
+        }
+
+        var rt = lockOverlay.rectTransform;
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+    }
+    public void SetLockedVisual(bool on, Color? overlayColor = null)
+    {
+        IsLocked = on;
+        EnsureLockOverlay();
+
+        if (on)
+        {
+            if (bg) bg.color = new Color32(120, 120, 120, 255);     // พื้นหลังเทาเข้ม
+            lockOverlay.color = overlayColor ?? new Color(0f, 0f, 0f, 0.55f); // ดำเทาโปร่ง
+            lockOverlay.enabled = true;
+            lockOverlay.transform.SetAsLastSibling();               // ครอบบนสุดของช่อง
+            if (highlight) highlight.enabled = false;               // กันไฮไลต์ค้าง
+        }
+        else
+        {
+            if (lockOverlay) lockOverlay.enabled = false;
+            ClearSpecialBg();   // คืนสีพื้นมาตรฐานของช่อง
+            ApplyVisual();
+        }
+    }
+
+    // สะดวกเรียกแบบเดิม
+    public void Lock()
+    {
+        SetLockedVisual(true);
+    }
     public void RefreshOverlayOrder()
     {
         EnsureOverlay();
@@ -304,22 +357,22 @@ public class BoardSlot : MonoBehaviour,
         switch (_overlayMode)
         {
             case OverlayMode.ZoneTop:
-            {
-                // โซน x2 → overlay ต้องอยู่บนไทล์
-                var tile = GetLetterTile();
-                if (tile) tile.transform.SetAsLastSibling();
-                specialBg.transform.SetAsLastSibling();
-                break;
-            }
+                {
+                    // โซน x2 → overlay ต้องอยู่บนไทล์
+                    var tile = GetLetterTile();
+                    if (tile) tile.transform.SetAsLastSibling();
+                    specialBg.transform.SetAsLastSibling();
+                    break;
+                }
             case OverlayMode.Triangle:
             default:
-            {
-                // triangle → overlay ใต้ไทล์ (อ่านตัวอักษรง่าย)
-                specialBg.transform.SetAsLastSibling();
-                var tile = GetLetterTile();
-                if (tile) tile.transform.SetAsLastSibling();
-                break;
-            }
+                {
+                    // triangle → overlay ใต้ไทล์ (อ่านตัวอักษรง่าย)
+                    specialBg.transform.SetAsLastSibling();
+                    var tile = GetLetterTile();
+                    if (tile) tile.transform.SetAsLastSibling();
+                    break;
+                }
         }
 
         if (highlight) highlight.transform.SetAsLastSibling(); // เส้นพรีวิวทับสุด
@@ -626,15 +679,5 @@ public class BoardSlot : MonoBehaviour,
         if (tile == null) return null;   // กัน NRE
         tile.transform.SetParent(null);  // หลุดจากสลอต
         return tile;
-    }
-
-    // ===================== Lock =====================
-    /// <summary>ล็อกช่อง (ปรับสีเป็นเทาเข้ม) — หมายเหตุ: ApplyVisual ภายหลังอาจทับสีนี้ได้</summary>
-    public void Lock()
-    {
-        IsLocked = true;
-        if (bg != null)
-            bg.color = new Color32(120, 120, 120, 255); // สีช่องที่ถูกล็อก
-        // ถ้าต้องการเอฟเฟกต์เพิ่ม: Flash(Color.black);
     }
 }
