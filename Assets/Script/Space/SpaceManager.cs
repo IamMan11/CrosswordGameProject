@@ -437,17 +437,23 @@ public class SpaceManager : MonoBehaviour
             {
                 if (!tile) continue;
                 TileAnimatorBinder.Trigger(GetTileAnimator(tile), triggerDiscard);
-                Destroy(tile.gameObject, Mathf.Max(0.05f, discardClipDuration)); // ลบหลังคลิปจบ
+                Destroy(tile.gameObject, Mathf.Max(0.05f, discardClipDuration));
                 yield return new WaitForSecondsRealtime(Mathf.Max(0f, discardStagger));
             }
+
+            // ✅ รอให้ชิ้นสุดท้ายถูก Destroy จริง ๆ
+            float wait = Mathf.Max(0f, discardClipDuration - discardStagger);
+            if (wait > 0f)
+                yield return new WaitForSecondsRealtime(wait);
         }
         finally
         {
             UiGuard.Pop();
-            BenchManager.Instance?.RefillEmptySlots();
+            BenchManager.Instance?.RefillEmptySlots();   // ตอนนี้มือ “ว่าง” จริง จึงเติมได้
             UpdateDiscardButton();
         }
     }
+
 
     /* ===================== UI ===================== */
 

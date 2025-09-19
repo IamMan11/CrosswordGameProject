@@ -52,22 +52,15 @@ public class LevelManager : MonoBehaviour
 
     // ===== Level 2 systems (คงเดิม) =====
     [Header("Level 2 – Triangle Objective")]
-    public bool level2_useTriangleObjective = true;
     public Vector2Int[] level2_triangleTargets = new Vector2Int[] {
         new Vector2Int(2,2),
         new Vector2Int(2,12),
         new Vector2Int(12,7)
     };
-    public float level2_triangleCheckPeriod = 0.5f;
     private bool  level2_triangleComplete;
     private float level2_triangleCheckTimer;
 
     [Header("Level 2 – Periodic X2 Zones (3x3)")]
-    public bool  level2_enablePeriodicX2Zones = true;
-    public float level2_x2IntervalSec = 180f;
-    public int   level2_x2ZonesPerWave = 2;
-    public float level2_x2ZoneDurationSec = 30f;
-    public SlotType level2_multiplierSlotType = SlotType.DoubleWord;
     private Coroutine level2_x2Routine;
     private readonly List<(Vector2Int pos, SlotType prevType, int prevMana)> level2_activeZoneChanges
         = new List<(Vector2Int, SlotType, int)>();
@@ -94,6 +87,24 @@ public class LevelManager : MonoBehaviour
     public bool   level2_grantWinRewards  = true;
     public int    level2_winCogCoin       = 1;
     public string level2_nextFloorClue    = "เลขชั้นถัดไป";
+    [Header("Level 2 – Triangle Objective")]
+    public bool  level2_useTriangleObjective = true;
+    [Min(1)] public int   level2_triangleNodeSize = 1;         // ขนาดโหนด (เช่น 2 = 2×2)
+    [Min(2)] public int   level2_triangleMinManhattanGap = 6;  // ระยะห่างระหว่างโหนด
+    public  float level2_triangleCheckPeriod = 0.5f;
+    public  Color level2_triangleIdleColor   = new Color32(40, 40, 40, 200);
+    public  Color level2_triangleLinkedColor = new Color32(30, 180, 60, 200);
+
+    [Header("Level 2 – Periodic X2 Zones (3×3)")]
+    public bool  level2_enablePeriodicX2Zones = true;
+    public float level2_x2IntervalSec = 180f;
+    public int   level2_x2ZonesPerWave = 2;
+    
+    [Header("Level 2 – Zone spacing")]
+    [Min(3)] public int level2_zoneMinCenterCheby = 4; // 3=ไม่แตะกัน, 4+=ห่างขึ้น
+    public float level2_x2ZoneDurationSec = 30f;
+    public SlotType level2_multiplierSlotType = SlotType.DoubleWord;
+    public Color    level2_zoneOverlayColor   = new Color(0.2f, 0.9f, 0.2f, 0.28f);
 
     // ----------------------------------------
 
@@ -205,26 +216,8 @@ public class LevelManager : MonoBehaviour
         }
 
         // ----- Level 2 ticks -----
-        if (cfg.levelIndex == 2)
-        {
-            if (level2_useTriangleObjective && level2_triangleTargets != null && level2_triangleTargets.Length >= 3)
-            {
-                level2_triangleCheckTimer += Time.unscaledDeltaTime;
-                if (level2_triangleCheckTimer >= level2_triangleCheckPeriod)
-                {
-                    level2_triangleCheckTimer = 0f;
-                    level2_triangleComplete = CheckTriangleComplete();
-                    // >>> อัปเดต UI Indicator ทุกครั้งที่เช็ก
-                    UIManager.Instance?.UpdateTriangleHint(level2_triangleComplete);
-                }
-            }
-
-            if (level2_enablePeriodicX2Zones && level2_x2Routine == null)
-                level2_x2Routine = StartCoroutine(Level2_PeriodicX2Zones(spawnImmediately: true));
-
-            if (level2_enableBenchIssue && level2_benchIssueRoutine == null)
-                level2_benchIssueRoutine = StartCoroutine(Level2_BenchIssueLoop());
-        }
+        if (currentLevelConfig?.levelIndex == 2)
+            Level2Controller.Instance?.Tick(Time.unscaledDeltaTime);
 
         // ----- Win condition -----
         if (CheckWinConditions(cfg) && !(TurnManager.Instance?.IsScoringAnimation ?? false))
@@ -289,8 +282,9 @@ public class LevelManager : MonoBehaviour
 
         // เริ่ม wave x2 ของด่าน 2 ถ้ายังไม่เริ่ม
         var cfg = currentLevelConfig;
-        if (cfg != null && cfg.levelIndex == 2 && level2_enablePeriodicX2Zones && level2_x2Routine == null)
-            level2_x2Routine = StartCoroutine(Level2_PeriodicX2Zones(spawnImmediately: true));
+        // ✅ ให้ Level2Controller จัดการทั้งหมด
+        if (currentLevelConfig?.levelIndex == 2)
+            Level2Controller.Instance?.OnTimerStart();
     }
 
     public void PauseLevelTimer()  { timerPaused = true;  }
@@ -346,22 +340,36 @@ public class LevelManager : MonoBehaviour
         Level1GarbledIT.Instance?.Setup(currentLevelConfig);
 
         // ด่าน 2: seed/ธีม/เริ่มโซน x2
-        if (currentLevelConfig.levelIndex == 2)
-        {
-            Level2_ApplyThemeAndUpgrades();
-            if (level2_enableLockedBoard) Level2_SeedLockedSlots();
-
-            // เริ่มโซน x2 ทันที (กันลืม OnFirstConfirm) และอัปเดต triangle hint ครั้งแรก
-
-            if (level2_enablePeriodicX2Zones && level2_x2Routine == null)
-                level2_x2Routine = StartCoroutine(Level2_PeriodicX2Zones(spawnImmediately: true));
-
-            UIManager.Instance?.UpdateTriangleHint(level2_triangleComplete);
-        }
+        if (currentLevelConfig?.levelIndex == 2)
+            Level2Controller.Instance?.Setup();
 
         Debug.Log($"▶ เริ่มด่าน {currentLevelConfig.levelIndex} | Time: {currentLevelConfig.timeLimit}s | Score target: {currentLevelConfig.requiredScore}");
         LevelTaskUI.I?.Refresh();    // <-- เพิ่ม
         phase = GamePhase.Ready;
+    }
+    void SetupLevel_Level2Hook()
+    {
+        if (currentLevelConfig != null && currentLevelConfig.levelIndex == 2)
+            Level2Controller.Instance?.Setup(); // <-- ไม่มีพารามิเตอร์แล้ว
+    }
+
+    void Update_Level2Hook()
+    {
+        if (currentLevelConfig != null && currentLevelConfig.levelIndex == 2)
+            Level2Controller.Instance?.Tick(Time.unscaledDeltaTime);
+    }
+
+    void OnFirstConfirm_Level2Hook()
+    {
+        if (currentLevelConfig != null && currentLevelConfig.levelIndex == 2)
+            Level2Controller.Instance?.OnTimerStart();
+    }
+    bool CheckWinConditions_Level2Hook(bool baseOK)
+    {
+        if (!baseOK) return false;
+        if (currentLevelConfig != null && currentLevelConfig.levelIndex == 2)
+            return !level2_useTriangleObjective || (Level2Controller.Instance?.IsTriangleComplete() ?? false);
+        return true;
     }
 
     private void ShowStageClearAndShop(LevelConfig cfg)
@@ -374,8 +382,8 @@ public class LevelManager : MonoBehaviour
         var result = BuildStageResult(cfg);
         stageClearPanel?.Show(result, next: () =>
         {
-            StageResultBus.LastResult       = result;
-            StageResultBus.NextLevelIndex   = Mathf.Clamp(currentLevel + 1, 0, levels.Length - 1);
+            StageResultBus.LastResult = result;
+            StageResultBus.NextLevelIndex = Mathf.Clamp(currentLevel + 1, 0, levels.Length - 1);
             StageResultBus.GameplaySceneName = SceneManager.GetActiveScene().name;
 
             Time.timeScale = 1f;

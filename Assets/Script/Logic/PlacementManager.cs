@@ -158,6 +158,13 @@ public class PlacementManager : MonoBehaviour
     {
         if (_isRefreshing) return;
         _isRefreshing = true;
+        bool IsTriangleBlocked(int rr, int cc)
+        {
+            // ข้ามเฉพาะถ้าเล่นด่าน 2 และมีระบบ triangle ทำงาน
+            var lm = LevelManager.Instance;
+            if (lm?.currentLevelConfig?.levelIndex != 2) return false;
+            return Level2Controller.IsTriangleCell(rr, cc);
+        }
         try
         {
             ClearPreview();
@@ -192,7 +199,7 @@ public class PlacementManager : MonoBehaviour
 
             int r = startSlot.row;
             int c = startSlot.col;
-            int dr = (orient == Orient.Vertical)   ? 1 : 0;
+            int dr = (orient == Orient.Vertical) ? 1 : 0;
             int dc = (orient == Orient.Horizontal) ? 1 : 0;
 
             int placed = 0, steps = 0;
@@ -206,7 +213,7 @@ public class PlacementManager : MonoBehaviour
                 if (s == null) { previewIsValid = false; break; }
 
                 // ไฮไลต์เฉพาะช่องว่างและไม่ถูกล็อก
-                if (!s.HasLetterTile() && !s.IsLocked)
+                if (!s.HasLetterTile() && !s.IsLocked && !IsTriangleBlocked(r, c))
                 {
                     currentPreview.Add(s);
                     placed++;

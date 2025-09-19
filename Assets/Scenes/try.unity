@@ -2585,7 +2585,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -81}
+  m_AnchoredPosition: {x: 100, y: -108}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &220231810
@@ -2635,13 +2635,13 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 36
-  m_fontSizeBase: 36
+  m_fontSize: 26
+  m_fontSizeBase: 26
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 0
+  m_fontStyle: 1
   m_HorizontalAlignment: 1
   m_VerticalAlignment: 256
   m_textAlignment: 65535
@@ -3177,11 +3177,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   wordRequestTargetLevel1: 10
   levels:
-  - levelIndex: 1
+  - levelIndex: 2
     requiredScore: 500
-    requiredWords: 10
+    requiredWords: 0
     timeLimit: 900
-    level1_enableGarbledIT: 1
+    level1_enableGarbledIT: 0
     level1_garbledCount: 4
     level1_minGapBetweenSets: 2
     level1_placeMaxRetries: 200
@@ -3205,7 +3205,7 @@ MonoBehaviour:
     level1_garbledSlotBg: {r: 0, g: 0, b: 0, a: 1}
     level1_outlineDefaultColor: {r: 1, g: 0, b: 0, a: 1}
     level1_outlineTouchedColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-    requireThemedWords: 1
+    requireThemedWords: 0
     requiredThemeTag: IT
     requiredThemeCount: 5
     manualThemeWords: []
@@ -3347,21 +3347,14 @@ MonoBehaviour:
   - cache
   - login
   - token
-  level2_useTriangleObjective: 1
   level2_triangleTargets:
   - {x: 2, y: 2}
   - {x: 2, y: 12}
   - {x: 12, y: 7}
-  level2_triangleCheckPeriod: 0.5
-  level2_enablePeriodicX2Zones: 1
-  level2_x2IntervalSec: 1
-  level2_x2ZonesPerWave: 2
-  level2_x2ZoneDurationSec: 30
-  level2_multiplierSlotType: 3
-  level2_enableLockedBoard: 1
-  level2_lockedCount: 7
+  level2_enableLockedBoard: 0
+  level2_lockedCount: 0
   level2_requiredLenRange: {x: 3, y: 7}
-  level2_enableBenchIssue: 1
+  level2_enableBenchIssue: 0
   level2_benchIssueIntervalSec: 60
   level2_benchIssueDurationSec: 20
   level2_benchZeroPerMove: 2
@@ -3370,6 +3363,19 @@ MonoBehaviour:
   level2_grantWinRewards: 1
   level2_winCogCoin: 1
   level2_nextFloorClue: "\u0E40\u0E25\u0E02\u0E0A\u0E31\u0E49\u0E19\u0E16\u0E31\u0E14\u0E44\u0E1B"
+  level2_useTriangleObjective: 1
+  level2_triangleNodeSize: 1
+  level2_triangleMinManhattanGap: 6
+  level2_triangleCheckPeriod: 0.5
+  level2_triangleIdleColor: {r: 0.24528301, g: 0.22792807, b: 0.22792807, a: 1}
+  level2_triangleLinkedColor: {r: 0.11764706, g: 0.7058824, b: 0.23529412, a: 1}
+  level2_enablePeriodicX2Zones: 1
+  level2_x2IntervalSec: 30
+  level2_x2ZonesPerWave: 2
+  level2_zoneMinCenterCheby: 4
+  level2_x2ZoneDurationSec: 30
+  level2_multiplierSlotType: 4
+  level2_zoneOverlayColor: {r: 0.2, g: 0.9, b: 0.2, a: 0.20392157}
 --- !u!4 &260603165
 Transform:
   m_ObjectHideFlags: 0
@@ -3384,6 +3390,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1639265747}
+  - {fileID: 769547977}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &272039406
@@ -3746,7 +3753,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -149}
+  m_AnchoredPosition: {x: 100, y: -174}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &295681362
@@ -3796,13 +3803,13 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 36
-  m_fontSizeBase: 36
+  m_fontSize: 26
+  m_fontSizeBase: 26
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 0
+  m_fontStyle: 1
   m_HorizontalAlignment: 1
   m_VerticalAlignment: 256
   m_textAlignment: 65535
@@ -4101,7 +4108,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 640, y: 100}
+  m_AnchoredPosition: {x: 770, y: -365}
   m_SizeDelta: {x: 171, y: 70}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &297668891
@@ -4525,8 +4532,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 200, y: 50}
+  m_AnchoredPosition: {x: 125, y: -43}
+  m_SizeDelta: {x: 250, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &338977668
 MonoBehaviour:
@@ -4575,13 +4582,13 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 36
-  m_fontSizeBase: 36
+  m_fontSize: 26
+  m_fontSizeBase: 26
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 0
+  m_fontStyle: 1
   m_HorizontalAlignment: 1
   m_VerticalAlignment: 256
   m_textAlignment: 65535
@@ -6479,9 +6486,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 0}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
-  m_Maskable: 1
+  m_Maskable: 0
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
@@ -8598,6 +8605,50 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: -200}
   m_SizeDelta: {x: 131.5, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &769547976
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 769547977}
+  - component: {fileID: 769547978}
+  m_Layer: 0
+  m_Name: Level2Controller
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &769547977
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 769547976}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 260603165}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &769547978
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 769547976}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 00b4fc91c277e4e4e9ce566947c1fb93, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &769700902
 GameObject:
   m_ObjectHideFlags: 0
@@ -9118,11 +9169,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 111476329290003487, guid: dbabd47e13bf09346a342f3697607528, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 73
+      value: 100
       objectReference: {fileID: 0}
     - target: {fileID: 111476329290003487, guid: dbabd47e13bf09346a342f3697607528, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -100
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 671200389770861880, guid: dbabd47e13bf09346a342f3697607528, type: 3}
       propertyPath: m_Pivot.x
@@ -9306,11 +9357,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4431801845906429911, guid: dbabd47e13bf09346a342f3697607528, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -73
+      value: -100
       objectReference: {fileID: 0}
     - target: {fileID: 4431801845906429911, guid: dbabd47e13bf09346a342f3697607528, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -100
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4515445269844136245, guid: dbabd47e13bf09346a342f3697607528, type: 3}
       propertyPath: m_Name
@@ -11250,7 +11301,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: -56}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1049311527

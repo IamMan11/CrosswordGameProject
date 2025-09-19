@@ -156,15 +156,14 @@ public class TurnManager : MonoBehaviour
     {
         ClearAllSlotFx();
         IsScoringAnimation = true;
+        Level2Controller.SetZoneTimerFreeze(true);    // NEW: freeze โซน
 
         if (inputBlocker) inputBlocker.SetActive(true);
-
         if (scoreOverlayAnimator)
         {
             scoreOverlayAnimator.updateMode = AnimatorUpdateMode.UnscaledTime;
             scoreOverlayAnimator.SetBool("Scoring", true);
         }
-
         if (pauseTimeDuringScoring) Time.timeScale = 0f;
     }
 
@@ -172,13 +171,13 @@ public class TurnManager : MonoBehaviour
     {
         if (pauseTimeDuringScoring) Time.timeScale = 1f;
         if (inputBlocker != null) inputBlocker.SetActive(false);
-
         if (scoreOverlayAnimator != null)
             scoreOverlayAnimator.SetBool("Scoring", false);
 
         CardManager.Instance?.HoldUI(false);
-
         ScoreManager.ClearZeroScoreTiles();
+
+        Level2Controller.SetZoneTimerFreeze(false);   // NEW: คลาย freeze โซน
         IsScoringAnimation = false;
     }
 
@@ -498,13 +497,17 @@ public class TurnManager : MonoBehaviour
 
         foreach (var w in correct)
         {
-            int wordMul = 1;
+            int baseMul = 1;     // คูณจากชนิดช่องจริง (DW/TW) บนกระดาน
+            int zoneOnce = 1;    // ✅ คูณจากโซน “ครั้งเดียวต่อคำ”
+
             foreach (var s in SlotsInWord(w))
             {
-                int wm = ScoreManager.EffectiveWordMulFor(s.type);
-                if (wm > 1) wordMul *= wm;
+                baseMul *= ScoreManager.EffectiveWordMulFor(s.type);
+                zoneOnce = Mathf.Max(zoneOnce, Mathf.Max(1, s.GetTempWordMul()));
             }
-            if (wordMul > 1) factors.Add(wordMul);
+
+            int wordFactor = Mathf.Max(1, baseMul * zoneOnce);
+            if (wordFactor > 1) factors.Add(wordFactor);
         }
 
         if (ScoreManager.GetWordOverride() > 1)
@@ -526,6 +529,7 @@ public class TurnManager : MonoBehaviour
                 if (ScoreManager.IsZeroScoreTile(t)) baseSc = 0;
 
                 int lm = ScoreManager.EffectiveLetterMulFor(s.type);
+                lm *= Mathf.Max(1, s.GetTempLetterMul()); 
                 adds.Add(baseSc * Mathf.Max(1, lm));
             }
         }
@@ -545,6 +549,7 @@ public class TurnManager : MonoBehaviour
                 if (ScoreManager.IsZeroScoreTile(t)) baseSc = 0;
 
                 int lm = ScoreManager.EffectiveLetterMulFor(s.type);
+                lm *= Mathf.Max(1, s.GetTempLetterMul());
                 steps.Add((t, s, baseSc * Mathf.Max(1, lm)));
             }
         }
@@ -756,6 +761,7 @@ public class TurnManager : MonoBehaviour
             foreach (var (t, _) in placed)
                 if (!bounced.Contains(t)) t.Lock();
 
+            Level2Controller.Instance?.OnAfterLettersLocked();
             BenchManager.Instance.RefillEmptySlots();
             LevelTaskUI.I?.Refresh();
             UpdateBagUI();
@@ -770,6 +776,7 @@ public class TurnManager : MonoBehaviour
         finally
         {
             Time.timeScale = prevTimeScale;
+            Level2Controller.SetZoneTimerFreeze(false);   // NEW: safety เผื่อจบผิดปกติ
             LevelManager.Instance?.ResumeLevelTimer();
         }
     }
