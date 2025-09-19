@@ -3178,14 +3178,14 @@ MonoBehaviour:
   wordRequestTargetLevel1: 10
   levels:
   - levelIndex: 2
-    requiredScore: 500
+    requiredScore: 1
     requiredWords: 0
     timeLimit: 900
     level1_enableGarbledIT: 0
-    level1_garbledCount: 4
+    level1_garbledCount: 1
     level1_minGapBetweenSets: 2
     level1_placeMaxRetries: 200
-    level1_reserveCenterBox: 1
+    level1_reserveCenterBox: 0
     level1_centerBoxHalfExtent: 1
     level1_itWords:
     - code
@@ -3207,7 +3207,7 @@ MonoBehaviour:
     level1_outlineTouchedColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
     requireThemedWords: 0
     requiredThemeTag: IT
-    requiredThemeCount: 5
+    requiredThemeCount: 1
     manualThemeWords: []
     baseCoins: 50
     targetTimeSec: 900
@@ -3315,7 +3315,7 @@ MonoBehaviour:
   itProgressText: {fileID: 0}
   stageClearPanel: {fileID: 1914259710}
   shopSceneName: Shop
-  itWordsTargetLevel1: 10
+  itWordsTargetLevel1: 1
   itKeywordsLevel1:
   - it
   - code
@@ -3351,13 +3351,13 @@ MonoBehaviour:
   - {x: 2, y: 2}
   - {x: 2, y: 12}
   - {x: 12, y: 7}
-  level2_enableLockedBoard: 0
-  level2_lockedCount: 0
+  level2_enableLockedBoard: 1
+  level2_lockedCount: 3
   level2_requiredLenRange: {x: 3, y: 7}
-  level2_enableBenchIssue: 0
+  level2_enableBenchIssue: 1
   level2_benchIssueIntervalSec: 60
   level2_benchIssueDurationSec: 20
-  level2_benchZeroPerMove: 2
+  level2_benchZeroPerMove: 0
   level2_benchPenaltyPerMove: 0
   level2_applyThemeOnStart: 1
   level2_grantWinRewards: 1
@@ -3376,6 +3376,8 @@ MonoBehaviour:
   level2_x2ZoneDurationSec: 30
   level2_multiplierSlotType: 4
   level2_zoneOverlayColor: {r: 0.2, g: 0.9, b: 0.2, a: 0.20392157}
+  level2_benchIssueCount: 2
+  level2_benchIssueOverlayColor: {r: 0, g: 0, b: 0, a: 0.55}
 --- !u!4 &260603165
 Transform:
   m_ObjectHideFlags: 0

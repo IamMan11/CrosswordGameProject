@@ -91,7 +91,7 @@ public class BenchManager : MonoBehaviour
         if (_refillCo != null) { StopCoroutine(_refillCo); _refillCo = null; }
         _refillQueued = false;
     }
-    public void PauseAutoRefill()  { _refillPause++; }
+    public void PauseAutoRefill() { _refillPause++; }
     public void ResumeAutoRefill() { _refillPause = Mathf.Max(0, _refillPause - 1); }
     bool CanAutoRefill() => autoRefillEnabled && _refillPause == 0;
 
@@ -254,7 +254,7 @@ public class BenchManager : MonoBehaviour
     }
 
     private void SafeUiGuardPush() { UiGuard.Push(); _uiGuardDepth++; }
-    private void SafeUiGuardPop()  { if (_uiGuardDepth > 0) { UiGuard.Pop(); _uiGuardDepth--; } }
+    private void SafeUiGuardPop() { if (_uiGuardDepth > 0) { UiGuard.Pop(); _uiGuardDepth--; } }
     #endregion
     // ======================================================
 
@@ -663,4 +663,19 @@ public class BenchManager : MonoBehaviour
             Debug.Log("[BenchManager] OmniSpark: ไม่มีตัวอักษรใน Bench ให้แปลง");
     }
     #endregion
+    public bool IsRefilling()
+    {
+        // กำลัง Refill แบบคิวหรือคอร์รุตีนอยู่หรือไม่
+        return _refillQueued || _refillCo != null;
+    }
+
+    public IEnumerable<LetterTile> GetAllBenchTiles()
+    {
+        foreach (var t in slotTransforms)
+        {
+            if (t == null || t.childCount == 0) continue;
+            var lt = t.GetChild(0).GetComponent<LetterTile>();
+            if (lt) yield return lt;
+        }
+    }
 }

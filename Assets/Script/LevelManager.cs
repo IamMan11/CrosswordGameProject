@@ -32,13 +32,13 @@ public class LevelManager : MonoBehaviour
     private enum GamePhase { None, Setup, Ready, Running, Transition, GameOver }
     private GamePhase phase = GamePhase.None;
 
-    private int   currentLevel;
-    private bool  isGameOver;
+    private int currentLevel;
+    private bool isGameOver;
 
     private float levelTimeLimit;
     private float levelTimeElapsed;
-    private bool  levelTimerRunning;
-    private bool  timerStarted, timerPaused;
+    private bool levelTimerRunning;
+    private bool timerStarted, timerPaused;
 
     // ===== Level 1 – IT words objective (progress) =====
     [Header("Level 1 – IT Words")]
@@ -57,7 +57,7 @@ public class LevelManager : MonoBehaviour
         new Vector2Int(2,12),
         new Vector2Int(12,7)
     };
-    private bool  level2_triangleComplete;
+    private bool level2_triangleComplete;
     private float level2_triangleCheckTimer;
 
     [Header("Level 2 – Periodic X2 Zones (3x3)")]
@@ -66,45 +66,49 @@ public class LevelManager : MonoBehaviour
         = new List<(Vector2Int, SlotType, int)>();
 
     [Header("Level 2 – Locked Board (ปลดด้วยความยาวคำหลัก)")]
-    public bool  level2_enableLockedBoard = true;
-    public int   level2_lockedCount = 7;
+    public bool level2_enableLockedBoard = true;
+    public int level2_lockedCount = 7;
     public Vector2Int level2_requiredLenRange = new Vector2Int(3, 7);
-    private readonly Dictionary<BoardSlot,int> level2_lockedSlots = new Dictionary<BoardSlot,int>();
+    private readonly Dictionary<BoardSlot, int> level2_lockedSlots = new Dictionary<BoardSlot, int>();
 
     [Header("Level 2 – Bench Issue")]
-    public bool  level2_enableBenchIssue = true;
+    public bool level2_enableBenchIssue = true;
     public float level2_benchIssueIntervalSec = 60f;
     public float level2_benchIssueDurationSec = 20f;
-    public int   level2_benchZeroPerMove = 2;
-    public int   level2_benchPenaltyPerMove = 0;
-    private bool   level2_benchIssueActive;
-    private float  level2_benchIssueEndTime;
+    public int level2_benchZeroPerMove = 2;
+    public int level2_benchPenaltyPerMove = 0;
+    private bool level2_benchIssueActive;
+    private float level2_benchIssueEndTime;
     private Coroutine level2_benchIssueRoutine;
     private string level2_lastPenalizedWord = "";
 
     [Header("Level 2 – Theme & Rewards")]
-    public bool   level2_applyThemeOnStart = true;
-    public bool   level2_grantWinRewards  = true;
-    public int    level2_winCogCoin       = 1;
-    public string level2_nextFloorClue    = "เลขชั้นถัดไป";
+    public bool level2_applyThemeOnStart = true;
+    public bool level2_grantWinRewards = true;
+    public int level2_winCogCoin = 1;
+    public string level2_nextFloorClue = "เลขชั้นถัดไป";
     [Header("Level 2 – Triangle Objective")]
-    public bool  level2_useTriangleObjective = true;
-    [Min(1)] public int   level2_triangleNodeSize = 1;         // ขนาดโหนด (เช่น 2 = 2×2)
-    [Min(2)] public int   level2_triangleMinManhattanGap = 6;  // ระยะห่างระหว่างโหนด
-    public  float level2_triangleCheckPeriod = 0.5f;
-    public  Color level2_triangleIdleColor   = new Color32(40, 40, 40, 200);
-    public  Color level2_triangleLinkedColor = new Color32(30, 180, 60, 200);
+    public bool level2_useTriangleObjective = true;
+    [Min(1)] public int level2_triangleNodeSize = 1;         // ขนาดโหนด (เช่น 2 = 2×2)
+    [Min(2)] public int level2_triangleMinManhattanGap = 6;  // ระยะห่างระหว่างโหนด
+    public float level2_triangleCheckPeriod = 0.5f;
+    public Color level2_triangleIdleColor = new Color32(40, 40, 40, 200);
+    public Color level2_triangleLinkedColor = new Color32(30, 180, 60, 200);
 
     [Header("Level 2 – Periodic X2 Zones (3×3)")]
-    public bool  level2_enablePeriodicX2Zones = true;
+    public bool level2_enablePeriodicX2Zones = true;
     public float level2_x2IntervalSec = 180f;
-    public int   level2_x2ZonesPerWave = 2;
-    
+    public int level2_x2ZonesPerWave = 2;
+
     [Header("Level 2 – Zone spacing")]
     [Min(3)] public int level2_zoneMinCenterCheby = 4; // 3=ไม่แตะกัน, 4+=ห่างขึ้น
     public float level2_x2ZoneDurationSec = 30f;
     public SlotType level2_multiplierSlotType = SlotType.DoubleWord;
-    public Color    level2_zoneOverlayColor   = new Color(0.2f, 0.9f, 0.2f, 0.28f);
+    public Color level2_zoneOverlayColor = new Color(0.2f, 0.9f, 0.2f, 0.28f);
+    [Header("Level 2 – Bench Issue (Per-Confirm)")]
+    [Min(0)] public int level2_benchIssueCount = 2; // x ตัวที่จะสุ่ม
+    public Color level2_benchIssueOverlayColor = new Color(0f, 0f, 0f, 0.55f);
+    private Coroutine level2_benchIssueAfterRefillCo;
 
     // ----------------------------------------
 
@@ -133,7 +137,7 @@ public class LevelManager : MonoBehaviour
         LevelTaskUI.I?.Refresh();
         OnScoreOrWordProgressChanged();
     }
-    
+
     private bool IsWordMatchingTheme(string w)
     {
         var cfg = currentLevelConfig;
@@ -171,13 +175,13 @@ public class LevelManager : MonoBehaviour
         return cfg != null && cfg.levelIndex == 1 && cfg.requireThemedWords && cfg.requiredThemeCount > 0;
     }
     // ใช้โดย UI Task
-    public int  GetITWordsFoundCount()     => itWordsFound.Count;
-    public int  GetITWordsTargetLevel1()   => itWordsTargetLevel1;
+    public int GetITWordsFoundCount() => itWordsFound.Count;
+    public int GetITWordsTargetLevel1() => itWordsTargetLevel1;
 
     private void OnDisable() => StopAllLoops();
 
     public bool IsGameOver() => isGameOver;
-    public int  GetCurrentLevelIndex() => currentLevelConfig != null ? currentLevelConfig.levelIndex : 0;
+    public int GetCurrentLevelIndex() => currentLevelConfig != null ? currentLevelConfig.levelIndex : 0;
 
     private void UpdateLevelTimerText(float seconds)
     {
@@ -287,7 +291,7 @@ public class LevelManager : MonoBehaviour
             Level2Controller.Instance?.OnTimerStart();
     }
 
-    public void PauseLevelTimer()  { timerPaused = true;  }
+    public void PauseLevelTimer() { timerPaused = true; }
     public void ResumeLevelTimer() { timerPaused = false; }
 
     public void ShowToast(string msg, Color col)
@@ -302,16 +306,16 @@ public class LevelManager : MonoBehaviour
         idx = Mathf.Clamp(idx, 0, levels.Length - 1);
 
         StopAllLoops();
-        isGameOver       = false;
-        phase            = GamePhase.Setup;
+        isGameOver = false;
+        phase = GamePhase.Setup;
 
-        currentLevel       = idx;
+        currentLevel = idx;
         currentLevelConfig = levels[currentLevel];
 
         // UI
         if (levelText) levelText.text = $"Level {currentLevelConfig.levelIndex}";
         levelTimeElapsed = 0f;
-        levelTimeLimit   = Mathf.Max(0f, currentLevelConfig.timeLimit);
+        levelTimeLimit = Mathf.Max(0f, currentLevelConfig.timeLimit);
         levelTimerRunning = false;
         timerStarted = timerPaused = false;
         UpdateLevelTimerText(levelTimeLimit > 0 ? levelTimeLimit : 0f);
@@ -410,9 +414,9 @@ public class LevelManager : MonoBehaviour
     private StageResult BuildStageResult(LevelConfig cfg)
     {
         var tm = TurnManager.Instance;
-        int timeUsed  = Mathf.FloorToInt(levelTimeElapsed);
-        int words     = tm ? tm.UniqueWordsThisLevel : 0;
-        int turns     = tm ? tm.ConfirmsThisLevel    : 0;
+        int timeUsed = Mathf.FloorToInt(levelTimeElapsed);
+        int words = tm ? tm.UniqueWordsThisLevel : 0;
+        int turns = tm ? tm.ConfirmsThisLevel : 0;
         int tilesLeft = TileBag.Instance ? TileBag.Instance.Remaining : 0;
         int moveScore = tm ? tm.Score : 0;
 
@@ -437,24 +441,25 @@ public class LevelManager : MonoBehaviour
 
         int totalCoins = Mathf.Max(0, cfg.baseCoins + bonusCoins);
 
-        return new StageResult {
-            levelIndex  = cfg.levelIndex,
+        return new StageResult
+        {
+            levelIndex = cfg.levelIndex,
             timeUsedSec = timeUsed,
-            words       = words,
-            turns       = turns,
-            tilesLeft   = tilesLeft,
-            moveScore   = moveScore,
-            bonusScore  = bonusScore,
-            totalScore  = totalScore,
-            baseCoins   = cfg.baseCoins,
-            bonusCoins  = bonusCoins,
-            totalCoins  = totalCoins
+            words = words,
+            turns = turns,
+            tilesLeft = tilesLeft,
+            moveScore = moveScore,
+            bonusScore = bonusScore,
+            totalScore = totalScore,
+            baseCoins = cfg.baseCoins,
+            bonusCoins = bonusCoins,
+            totalCoins = totalCoins
         };
     }
 
     // ------------------------------ Timer helpers ------------------------------
     private void StartLevelTimer() { if (!levelTimerRunning) { levelTimerRunning = true; levelTimeElapsed = 0f; } }
-    private void StopLevelTimer()  { if (levelTimerRunning)  { levelTimerRunning = false; } }
+    private void StopLevelTimer() { if (levelTimerRunning) { levelTimerRunning = false; } }
 
     // ------------------------------ Game over / stop loops ------------------------------
     private void GameOver(bool win)
@@ -478,8 +483,8 @@ public class LevelManager : MonoBehaviour
     private void StopAllLoops()
     {
 
-        if (level2_x2Routine != null)          { StopCoroutine(level2_x2Routine);          level2_x2Routine = null; }
-        if (level2_benchIssueRoutine != null)  { StopCoroutine(level2_benchIssueRoutine);  level2_benchIssueRoutine = null; }
+        if (level2_x2Routine != null) { StopCoroutine(level2_x2Routine); level2_x2Routine = null; }
+        if (level2_benchIssueRoutine != null) { StopCoroutine(level2_benchIssueRoutine); level2_benchIssueRoutine = null; }
         Level2_RevertAllZones();
     }
 
@@ -517,13 +522,13 @@ public class LevelManager : MonoBehaviour
         int rows = bm.rows, cols = bm.cols;
         var all = new List<BoardSlot>();
         for (int r = 0; r < rows; r++)
-        for (int c = 0; c < cols; c++)
-        {
-            var s = bm.grid[r, c];
-            if (s == null) continue;
-            if (s.HasLetterTile()) continue;
-            all.Add(s);
-        }
+            for (int c = 0; c < cols; c++)
+            {
+                var s = bm.grid[r, c];
+                if (s == null) continue;
+                if (s.HasLetterTile()) continue;
+                all.Add(s);
+            }
         if (all.Count == 0) return;
 
         int want = Mathf.Clamp(level2_lockedCount, 0, all.Count);
@@ -604,7 +609,7 @@ public class LevelManager : MonoBehaviour
     }
 
     public bool Level2_IsBenchIssueActive() => level2_benchIssueActive;
-    public int  Level2_SelectZeroCount(int placedCount)
+    public int Level2_SelectZeroCount(int placedCount)
     {
         if (!level2_enableBenchIssue || !level2_benchIssueActive) return 0;
         if (placedCount <= 0) return 0;
@@ -695,18 +700,18 @@ public class LevelManager : MonoBehaviour
         foreach (var center in chosenCenters)
         {
             for (int dr = -1; dr <= 1; dr++)
-            for (int dc = -1; dc <= 1; dc++)
-            {
-                int rr = center.x + dr, cc = center.y + dc;
-                if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue;
+                for (int dc = -1; dc <= 1; dc++)
+                {
+                    int rr = center.x + dr, cc = center.y + dc;
+                    if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue;
 
-                var slot = bm.grid[rr, cc];
-                if (slot == null) continue;
+                    var slot = bm.grid[rr, cc];
+                    if (slot == null) continue;
 
-                level2_activeZoneChanges.Add((new Vector2Int(rr, cc), slot.type, slot.manaGain));
-                slot.type = level2_multiplierSlotType;
-                slot.ApplyVisual();
-            }
+                    level2_activeZoneChanges.Add((new Vector2Int(rr, cc), slot.type, slot.manaGain));
+                    slot.type = level2_multiplierSlotType;
+                    slot.ApplyVisual();
+                }
         }
 
         if (level2_activeZoneChanges.Count > 0)
@@ -767,5 +772,53 @@ public class LevelManager : MonoBehaviour
             Debug.Log($"[Level2] (Reward hook) No cogCoin field/property found. Clue: {clue}");
         }
         catch (Exception ex) { Debug.LogWarning($"[Level2] Reward hook exception: {ex.Message}"); }
+    }
+    public void TriggerBenchIssueAfterRefill()
+    {
+        if (!level2_enableBenchIssue) return;
+        if (currentLevelConfig == null || currentLevelConfig.levelIndex != 2) return;
+
+        if (level2_benchIssueAfterRefillCo != null)
+            StopCoroutine(level2_benchIssueAfterRefillCo);
+
+        level2_benchIssueAfterRefillCo = StartCoroutine(Level2_BenchIssueAfterRefillCo());
+    }
+
+    private IEnumerator Level2_BenchIssueAfterRefillCo()
+    {
+        var bm = BenchManager.Instance;
+        if (bm == null) yield break;
+
+        // รอจนเติม Bench เสร็จ (รวมอนิเมชัน)
+        while (bm.IsRefilling()) yield return null;
+        yield return null; // กัน 1 เฟรมใหญ่วางลงจริง
+
+        // เคลียร์สถานะเก่าก่อน
+        ScoreManager.ClearZeroScoreTiles();
+        foreach (var t in bm.GetAllBenchTiles())
+            t.SetBenchIssueOverlay(false);
+
+        // สุ่ม x ตัวจาก Bench
+        var pool = new List<LetterTile>(bm.GetAllBenchTiles());
+        int pick = Mathf.Clamp(level2_benchIssueCount, 0, pool.Count);
+
+        var chosen = new List<LetterTile>();
+        for (int i = 0; i < pick && pool.Count > 0; i++)
+        {
+            int idx = UnityEngine.Random.Range(0, pool.Count);
+            chosen.Add(pool[idx]);
+            pool.RemoveAt(idx);
+        }
+
+        // ทำให้ตัวที่ถูกเลือก "คะแนน = 0" + ใส่ overlay
+        if (chosen.Count > 0)
+        {
+            ScoreManager.MarkZeroScoreTiles(chosen);
+            foreach (var t in chosen)
+                t.SetBenchIssueOverlay(true, level2_benchIssueOverlayColor);
+            UIManager.Instance?.ShowFloatingToast($"Bench issue: {chosen.Count} tile(s) score 0 next turn", Color.gray, 2f);
+        }
+
+        level2_benchIssueAfterRefillCo = null;
     }
 }

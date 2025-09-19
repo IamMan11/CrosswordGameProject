@@ -772,6 +772,13 @@ public class TurnManager : MonoBehaviour
             EndScoreSequence();
             BoardManager.Instance?.RevertTempSpecialsThisTurn();
             ResetOncePerTurnEffects();
+            // >>> NEW: สุ่ม Bench Issue สำหรับเทิร์นถัดไป (หลังเติม Bench เสร็จแล้ว)
+            if (LevelManager.Instance != null &&
+                LevelManager.Instance.GetCurrentLevelIndex() == 2 &&
+                LevelManager.Instance.level2_enableBenchIssue)
+            {
+                LevelManager.Instance.TriggerBenchIssueAfterRefill();
+            }
         }
         finally
         {
@@ -977,29 +984,6 @@ public class TurnManager : MonoBehaviour
 
             // เริ่มจับเวลาเมื่อคอนเฟิร์มครั้งแรก
             LevelManager.Instance?.OnFirstConfirm();
-
-            // Bench Issue (Level 2): mark zero-score บางตัวแบบสุ่ม
-            ScoreManager.ClearZeroScoreTiles();
-            if (LevelManager.Instance != null &&
-                LevelManager.Instance.GetCurrentLevelIndex() == 2 &&
-                LevelManager.Instance.Level2_IsBenchIssueActive())
-            {
-                int k = LevelManager.Instance.Level2_SelectZeroCount(placed.Count);
-                if (k > 0)
-                {
-                    var pool = new List<LetterTile>(placed.Select(p => p.t));
-                    var chosen = new List<LetterTile>();
-                    for (int i = 0; i < k && pool.Count > 0; i++)
-                    {
-                        int idx = Random.Range(0, pool.Count);
-                        chosen.Add(pool[idx]);
-                        pool.RemoveAt(idx);
-                    }
-                    ScoreManager.MarkZeroScoreTiles(chosen);
-                    if (chosen.Count > 0)
-                        ShowMessage($"Bench bug: {chosen.Count} letter(s) score 0", Color.yellow);
-                }
-            }
 
             int moveScore = 0;
             int newWordCountThisMove = 0;
