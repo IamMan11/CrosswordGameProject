@@ -101,7 +101,7 @@ public class CardSlotUI : MonoBehaviour,
         }
         else
         {
-            // fallback (ไม่มี Animator): ย่อด้วยโค้ดอย่างไว
+            // fallback scale-to-zero
             float t = 0f, dur = Mathf.Max(0.06f, useHideDuration);
             Vector3 s0 = graphicRoot ? graphicRoot.localScale : Vector3.one;
             while (t < 1f)
@@ -112,6 +112,20 @@ public class CardSlotUI : MonoBehaviour,
                 yield return null;
             }
         }
+
         onAfter?.Invoke();
+
+        // ★ สำคัญ: รีเซ็ตช่องให้กลับสู่สถานะ Idle เสมอ
+        if (animator)
+        {
+            animator.SetBool(HashHover, false);
+            animator.SetBool(HashPressed, false);
+            animator.ResetTrigger(HashUse);
+            animator.Rebind();   // กลับ default pose/clip (Idle)
+            animator.Update(0f);
+        }
+        if (graphicRoot)
+            graphicRoot.localScale = Vector3.one; // เผื่อ fallback path
     }
+
 }

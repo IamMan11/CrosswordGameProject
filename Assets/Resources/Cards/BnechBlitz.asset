@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 1
   displayName: Bench Blitz
   description: Refill all letter in bench
-  icon: {fileID: 0}
+  icon: {fileID: 9155445815080071039, guid: cdbf76f0b9b239a4a8887ac652320fcf, type: 3}
   effectType: 7
   Mana: 3
   maxUsagePerTurn: 3

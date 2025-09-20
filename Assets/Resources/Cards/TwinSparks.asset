@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 25
   displayName: Twin Sparks
   description: Turn 2 Letter to Special Letter
-  icon: {fileID: 0}
+  icon: {fileID: -2712216614129409070, guid: 24ffe5abb3a289348b11171a9f481cea, type: 3}
   effectType: 11
   Mana: 4
   maxUsagePerTurn: 1

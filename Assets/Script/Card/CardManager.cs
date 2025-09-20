@@ -169,6 +169,22 @@ public class CardManager : MonoBehaviour
 
         UIManager.Instance?.UpdateCardSlots(heldCards);
     }
+    void EnsureHeldSize()
+    {
+        if (heldCards == null) heldCards = new List<CardData>();
+        while (heldCards.Count < maxHeldCards) heldCards.Add(null);
+        if (heldCards.Count > maxHeldCards)
+            heldCards.RemoveRange(maxHeldCards, heldCards.Count - maxHeldCards);
+    }
+
+    int FirstEmptySlot()
+    {
+        for (int i = 0; i < heldCards.Count; i++)
+            if (heldCards[i] == null) return i;
+        return -1;
+    }
+
+    bool HasFreeSlot() => FirstEmptySlot() >= 0;
 
     #endregion
     // =======================================================================
@@ -269,10 +285,10 @@ public class CardManager : MonoBehaviour
     {
         if (selected == null) return;
 
-        if (heldCards.Count < maxHeldCards)
-            heldCards.Add(selected);
-        else
-            heldCards[0] = selected; // ตัวอย่าง: แทน index 0
+        EnsureHeldSize();
+        int i = FirstEmptySlot();
+        if (i >= 0) heldCards[i] = selected;
+        else        heldCards[0] = selected; // เต็มจริง ๆ ค่อยทับ 0
 
         UIManager.Instance?.UpdateCardSlots(heldCards);
     }
@@ -297,6 +313,7 @@ public class CardManager : MonoBehaviour
     public void UpgradeMaxHeldCards(int newMax)
     {
         maxHeldCards = Mathf.Clamp(newMax, 2, 6);
+        EnsureHeldSize(); // ★ เพิ่มบรรทัดนี้
         UIManager.Instance?.UpdateCardSlots(heldCards);
     }
 
@@ -326,17 +343,14 @@ public class CardManager : MonoBehaviour
         // ให้ UICardSelect ปิด/ซ่อนโคลนในเฟรมปัจจุบันก่อน
         yield return new WaitForEndOfFrame();
 
-        // ===== เคส "ช่องเต็ม" → เข้าสู่โหมด Replace ทันที (อย่ารอโคลนหาย) =====
-        if (heldCards.Count >= maxHeldCards)
+        EnsureHeldSize();
+        if (!HasFreeSlot())
         {
             pendingReplacementCard = picked;
             isReplaceMode = true;
-
-            // โชว์ UI โหมดแทนที่ทันที เพื่อให้กดสลอตได้
             UIManager.Instance?.UpdateCardSlots(heldCards, true);
-            yield break; // จบที่นี่ รอผู้เล่นคลิกสลอต → ReplaceSlot/ReplaceWithAnim
+            yield break;
         }
-
         // ===== เคส "มีที่ว่าง" → ค่อยรอให้ UI ปิด/โคลนหายก่อนอัปเดต =====
         if (uiSelect != null)
             yield return new WaitUntil(() =>
@@ -345,7 +359,10 @@ public class CardManager : MonoBehaviour
 
         yield return null; // เผื่อ layout รีเฟรช
 
-        heldCards.Add(picked);
+        EnsureHeldSize();
+        int slot = FirstEmptySlot();
+        if (slot < 0) slot = 0; // กันพลาด
+        heldCards[slot] = picked;
         UIManager.Instance?.UpdateCardSlots(heldCards);
 
         isReplaceMode = false;
@@ -426,11 +443,20 @@ public class CardManager : MonoBehaviour
                     UIManager.Instance?.ShowMessage("TurnManager ไม่พร้อม", 1.2f);
                     return;
                 }
+                
+                if (TurnManager.Instance != null &&
+                    !TurnManager.Instance.CanTriggerOncePerTurn(card.effectType))
+                {
+                    UIManager.Instance?.ShowMessage("เอฟเฟกต์นี้ใช้ได้ครั้งเดียวต่อเทิร์น", 2f);
+                    return;
+                }
+
                 if (!TurnManager.Instance.CanUseCard(card))
                 {
                     UIManager.Instance?.ShowMessage("เกินจำนวนที่ใช้ได้", 2f);
                     return;
                 }
+
                 int cost = card.Mana;
                 if (!TurnManager.Instance.UseMana(cost))
                 {
@@ -459,13 +485,19 @@ public class CardManager : MonoBehaviour
 
         if (slotUI != null)
             yield return slotUI.PlayUseThen(null); // รอคลิปจบ
-        // ใช้เอฟเฟกต์ + จดว่าใช้ในเทิร์นนี้
+        // ใช้เอฟเฟกต์ + จดการใช้งาน
         ApplyEffect(card);
         TurnManager.Instance?.OnCardUsed(card);
 
-        // ลบการ์ดออกจากมือ (กัน index เปลี่ยนระหว่างรออนิเมชัน)
-        int cur = heldCards.IndexOf(card);
-        if (cur >= 0) heldCards.RemoveAt(cur);
+        // ★ แก้จุดนี้: ห้าม RemoveAt เพราะจะทำให้ช่องขยับ
+        EnsureHeldSize();
+        if (index >= 0 && index < heldCards.Count && heldCards[index] == card)
+            heldCards[index] = null;
+        else
+        {
+            int cur = heldCards.IndexOf(card);
+            if (cur >= 0) heldCards[cur] = null;
+        }
 
         UIManager.Instance?.UpdateCardSlots(heldCards);
     }
@@ -498,9 +530,8 @@ public class CardManager : MonoBehaviour
         }
 
         heldCards[toIndex] = result;
-        // ลบใบ A ออก; การ set ช่อง B แล้วทำให้ index ขยับไม่เป็นปัญหา
-        heldCards.RemoveAt(fromIndex);
-
+        // ★ เดิม RemoveAt(fromIndex) → เปลี่ยนเป็น:
+        if (fromIndex != toIndex) heldCards[fromIndex] = null;
         UIManager.Instance?.UpdateCardSlots(heldCards);
         UIManager.Instance?.ShowMessage($"Fusion: {a.displayName} + {b.displayName} → {result.displayName}", 2f);
         return true;
@@ -511,16 +542,29 @@ public class CardManager : MonoBehaviour
     {
         if (fromIndex == toIndex) return;
         if (fromIndex < 0 || fromIndex >= heldCards.Count) return;
-        if (toIndex < 0) return;
+        if (toIndex   < 0 || toIndex   >= maxHeldCards)    return;
+
+        EnsureHeldSize();
 
         var card = heldCards[fromIndex];
-        heldCards.RemoveAt(fromIndex);
+        if (card == null) return;
 
-        if (toIndex > heldCards.Count) toIndex = heldCards.Count;
-        heldCards.Insert(toIndex, card);
-
+        if (heldCards[toIndex] == null)
+        {
+            // ย้ายไปช่องว่าง
+            heldCards[toIndex] = card;
+            heldCards[fromIndex] = null;
+        }
+        else
+        {
+            // (กันพลาด) ถ้าปลายทางไม่ว่างให้สลับ
+            var tmp = heldCards[toIndex];
+            heldCards[toIndex] = card;
+            heldCards[fromIndex] = tmp;
+        }
         UIManager.Instance?.UpdateCardSlots(heldCards);
     }
+
 
     #endregion
     // =======================================================================
@@ -570,7 +614,7 @@ public class CardManager : MonoBehaviour
                 UIManager.Instance?.ShowMessage("Quad Supply – เติม 4 ตัวอักษร!", 2);
                 break;
 
-            // 7) เติม Bench ทุกช่องว่าง
+            // 7) เติม Bench ทุกช่องว่าง Done
             case CardEffectType.BenchBlitz:
                 BenchManager.Instance?.RefillEmptySlots();
                 UIManager.Instance?.ShowMessage("Bench Blitz – เติมครบทุกช่องว่าง!", 2);
@@ -627,16 +671,18 @@ public class CardManager : MonoBehaviour
                     TurnManager.Instance.AddMana(TurnManager.Instance.maxMana);
                 break;
 
-            // 17) Wild Bloom – เพิ่มช่องพิเศษสุ่ม 10 ช่อง
+            // 17) Wild Bloom – เพิ่มช่องพิเศษสุ่ม 10 ช่อง (ชั่วคราว 1 เทิร์น)
             case CardEffectType.WildBloom:
-                BoardManager.Instance?.AddRandomSpecialSlots(10);
-                UIManager.Instance?.ShowMessage("Wild Bloom — เพิ่มช่องพิเศษแบบสุ่ม 10 ช่อง!", 2f);
+                BoardManager.Instance?.AddRandomSpecialSlotsTemporary(10);   // ★ เปลี่ยนเมธอด
+                UIManager.Instance?.ShowMessage("Wild Bloom — เพิ่มช่องพิเศษสุ่ม 10 ช่อง (ชั่วคราวเทิร์นนี้)!", 2f);
+                TurnManager.Instance?.MarkEffectOncePerTurn(CardEffectType.WildBloom);
                 break;
 
-            // 18) Chaos Bloom – เพิ่มช่องพิเศษสุ่ม 25 ช่อง
+            // 18) Chaos Bloom – เพิ่มช่องพิเศษสุ่ม 25 ช่อง (ชั่วคราว 1 เทิร์น)
             case CardEffectType.ChaosBloom:
-                BoardManager.Instance?.AddRandomSpecialSlots(25);
-                UIManager.Instance?.ShowMessage("Chaos Bloom — เพิ่มช่องพิเศษแบบสุ่ม 25 ช่อง!", 2f);
+                BoardManager.Instance?.AddRandomSpecialSlotsTemporary(25);   // ★ เปลี่ยนเมธอด
+                UIManager.Instance?.ShowMessage("Chaos Bloom — เพิ่มช่องพิเศษสุ่ม 25 ช่อง (ชั่วคราวเทิร์นนี้)!", 2f);
+                TurnManager.Instance?.MarkEffectOncePerTurn(CardEffectType.ChaosBloom);
                 break;
 
             // 19) Targeted Flux – เลือก 5 ช่องให้เป็น special
@@ -663,7 +709,7 @@ public class CardManager : MonoBehaviour
                 // ข้อความแสดงในเมธอดข้างในแล้ว
                 break;
 
-            // 23) Card Refresh – รีเซ็ตจำนวนใช้การ์ดในเทิร์นนี้
+            // 23) Card Refresh – รีเซ็ตจำนวนใช้การ์ดในเทิร์นนี้ Done
             case CardEffectType.CardRefresh:
                 TurnManager.Instance?.ResetCardUsage();
                 break;

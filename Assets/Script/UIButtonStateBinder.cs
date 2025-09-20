@@ -27,20 +27,19 @@ public class UIButtonStateBinder : MonoBehaviour
 
     void ApplyStateImmediate()
     {
+        var tm = TurnManager.Instance;
+        bool busy = tm != null && (tm.IsConfirmInProgress || tm.IsScoringAnimation);
+
         bool can = role switch
         {
-            Role.Confirm => BoardHasAnyTile(),
+            Role.Confirm => BoardHasAnyTile() && !busy, // ← เพิ่ม !busy
             Role.Clear   => SpaceHasAnyTile(),
             Role.CancelAlwaysDisabled => false,
             _ => false
         };
 
         if (button) button.interactable = can;
-
-        // ส่งให้ Animator คุมภาพ (ไป state Disabled/Idle ตามพารามิเตอร์นี้)
         if (animatorOnThis) animatorOnThis.SetBool("Interactable", can);
-
-        // เผื่อยังไม่ได้ทำ state Disabled ใน Animator: จางด้วย CanvasGroup
         if (fadeGroup) fadeGroup.alpha = can ? 1f : disabledAlpha;
     }
 

@@ -34,6 +34,14 @@ public class BoardManager : MonoBehaviour
     public static BoardManager Instance { get; private set; }
 
     // -------------------- Config: Board --------------------
+    private struct TempSlot
+    {
+        public int row, col;
+        public SlotType prevType;
+        public int prevMana;
+        public Sprite prevIcon;
+    }
+    private readonly List<TempSlot> _tempSlotsThisTurn = new List<TempSlot>();
     [Header("Board Size")]
     [Min(1)] public int rows = 15;
     [Min(1)] public int cols = 15;
@@ -51,6 +59,11 @@ public class BoardManager : MonoBehaviour
     public GameObject boardSlotPrefab;
     [Tooltip("RectTransform ที่จะวางกริดของบอร์ด")]
     public RectTransform boardParent;
+    [Header("Special Type Sprites (for runtime changes)")]        // ADD
+    public Sprite doubleLetterSprite;                              // ADD
+    public Sprite tripleLetterSprite;                              // ADD
+    public Sprite doubleWordSprite;                                // ADD
+    public Sprite tripleWordSprite;                                // ADD
     [Header("Auto Generate")]
     public bool autoGenerateOnStart = false;
 
@@ -94,6 +107,17 @@ public class BoardManager : MonoBehaviour
     // Helper properties (อ่านอย่างเดียว)
     public int RowCount => grid != null ? grid.GetLength(0) : rows;
     public int ColCount => grid != null ? grid.GetLength(1) : cols;
+    private Sprite SpriteFor(SlotType t)                           // ADD
+    {                                                              // ADD
+        switch (t)                                                 // ADD
+        {                                                          // ADD
+            case SlotType.DoubleLetter: return doubleLetterSprite; // ADD
+            case SlotType.TripleLetter: return tripleLetterSprite; // ADD
+            case SlotType.DoubleWord:   return doubleWordSprite;   // ADD
+            case SlotType.TripleWord:   return tripleWordSprite;   // ADD
+            default: return null;                                  // ADD
+        }                                                          // ADD
+    }       
 
     // -------------------- Unity Lifecycle --------------------
     private void Awake()
@@ -259,10 +283,68 @@ public class BoardManager : MonoBehaviour
             if (slot == null) continue; // กัน null
             slot.type = newType;
             slot.ApplyVisual();
-
+            slot.SetIcon(SpriteFor(newType));
             // บันทึกไว้ใน specials (ใช้ชนิดที่มี manaGain ได้)
             specials.Add(new SpecialSlotData { row = rr, col = cc, type = newType, manaGain = 0 });
+            
         }
+    }
+    public void AddRandomSpecialSlotsTemporary(int count)
+    {
+        if (grid == null) return;
+        // ถ้าอยากกันชนกับโหมด Pandemonium ให้ยกเลิกเมื่อกำลังทำงานอยู่
+        // if (isAllRandomActive) return;
+
+        // เก็บช่อง Normal ทั้งหมด (ไม่ทับกัน)
+        var normals = new List<(int r, int c)>();
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                if (grid[r, c] != null && grid[r, c].type == SlotType.Normal)
+                    normals.Add((r, c));
+
+        count = Mathf.Min(count, normals.Count);
+        for (int i = 0; i < count; i++)
+        {
+            int idx = Random.Range(0, normals.Count);
+            var (rr, cc) = normals[idx];
+            normals.RemoveAt(idx);
+
+            var slot = grid[rr, cc];
+            if (!slot) continue;
+
+            // สำรองของเดิม
+            _tempSlotsThisTurn.Add(new TempSlot {
+                row = rr, col = cc,
+                prevType = slot.type,
+                prevMana = slot.manaGain,
+                prevIcon = slot.icon ? slot.icon.sprite : null
+            });
+
+            // ตั้งเป็น special ชั่วคราว
+            var newType = RandomSpecialType();
+            slot.type = newType;
+            slot.manaGain = 0;
+            slot.ApplyVisual();
+            slot.SetIcon(SpriteFor(newType));
+        }
+    }
+
+    public void RevertTempSpecialsThisTurn()
+    {
+        if (grid == null || _tempSlotsThisTurn.Count == 0) { _tempSlotsThisTurn.Clear(); return; }
+
+        foreach (var t in _tempSlotsThisTurn)
+        {
+            if (!InBounds(t.row, t.col)) continue;
+            var slot = grid[t.row, t.col];
+            if (!slot) continue;
+
+            slot.type = t.prevType;
+            slot.manaGain = t.prevMana;
+            slot.ApplyVisual();
+            slot.SetIcon(t.prevIcon); // ← คืนรูปเดิม (ถ้าเดิมไม่มีรูปก็จะซ่อนไปเอง)
+        }
+        _tempSlotsThisTurn.Clear();
     }
 
     /// <summary>เริ่มโหมด Targeted Flux (ให้ผู้เล่นคลิกเลือกช่องจำนวน count ช่อง)</summary>
@@ -292,6 +374,7 @@ public class BoardManager : MonoBehaviour
 
             slot.type = newType;
             slot.ApplyVisual();
+            slot.SetIcon(SpriteFor(newType));
             specials.Add(new SpecialSlotData { row = row, col = col, type = newType, manaGain = 0 });
 
             targetedFluxRemaining--;
@@ -341,7 +424,6 @@ public class BoardManager : MonoBehaviour
         if (isAllRandomActive) return;
         if (grid == null) return;
 
-        // เก็บสำรองค่าปัจจุบันทุกช่อง
         backupSlots.Clear();
         for (int r = 0; r < rows; r++)
         {
@@ -349,12 +431,11 @@ public class BoardManager : MonoBehaviour
             {
                 var slot = grid[r, c];
                 if (slot == null) continue;
-                backupSlots.Add(new BackupSlot
-                {
-                    row = r,
-                    col = c,
+                backupSlots.Add(new BackupSlot {
+                    row = r, col = c,
                     type = slot.type,
-                    manaGain = slot.manaGain
+                    manaGain = slot.manaGain,
+                    iconSprite = slot.icon ? slot.icon.sprite : null   // ★
                 });
             }
         }
@@ -370,6 +451,7 @@ public class BoardManager : MonoBehaviour
                 slot.type = RandomSpecialType();
                 slot.ApplyVisual();
                 slot.manaGain = 0;
+                slot.SetIcon(SpriteFor(slot.type)); 
             }
         }
 
@@ -384,15 +466,34 @@ public class BoardManager : MonoBehaviour
 
         if (grid != null)
         {
+            int centerR = rows / 2;
+            int centerC = cols / 2;
+
             foreach (var b in backupSlots)
             {
                 if (!InBounds(b.row, b.col)) continue;
                 var slot = grid[b.row, b.col];
                 if (slot == null) continue;
 
+                // คืนชนิด + ค่ามานา
                 slot.type = b.type;
                 slot.manaGain = b.manaGain;
                 slot.ApplyVisual();
+                slot.SetIcon(b.iconSprite);
+
+                // ✅ คืน "รูปไอคอน" ตามชนิดเดิม
+                if (b.type == SlotType.Normal)
+                {
+                    // ช่องกึ่งกลางให้ใช้รูป center ถ้ามี
+                    if (centerSlotSprite != null && b.row == centerR && b.col == centerC)
+                        slot.SetIcon(centerSlotSprite);
+                    else
+                        slot.SetIcon(null); // ช่องปกติไม่มีรูปทับ
+                }
+                else
+                {
+                    slot.SetIcon(SpriteFor(b.type)); // DL/TL/DW/TW
+                }
             }
         }
 
@@ -400,6 +501,7 @@ public class BoardManager : MonoBehaviour
         isAllRandomActive = false;
         UIManager.Instance?.ShowMessage("All Random Special หมดเวลา – คืนสภาพเดิมแล้ว", 2f);
     }
+
 
     /// <summary>คืน BoardSlot ที่ตำแหน่ง (row,col) ถ้าอยู่นอกขอบจะคืน null</summary>
     public BoardSlot GetSlot(int row, int col)
@@ -439,10 +541,10 @@ public class BoardManager : MonoBehaviour
 
     private struct BackupSlot
     {
-        public int row;
-        public int col;
+        public int row, col;
         public SlotType type;
         public int manaGain;
+        public Sprite iconSprite;   // <- เพิ่มรูปเดิมไว้ด้วย
     }
 
     /// <summary>เช็กตำแหน่งว่าอยู่ในกรอบบอร์ดหรือไม่</summary>

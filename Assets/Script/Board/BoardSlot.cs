@@ -45,6 +45,10 @@ public class BoardSlot : MonoBehaviour,
     [HideInInspector] public SlotType type = SlotType.Normal;
 
     [HideInInspector] public bool IsLocked = false;
+    // วางในคลาส BoardSlot (ส่วนฟิลด์ runtime)
+    [HideInInspector] public int tempWordMul = 1;
+    [HideInInspector] public int tempLetterMul = 1;
+    [SerializeField] private UnityEngine.UI.Image lockOverlay;
 
     private Coroutine _flashCo;
     [Header("Hover (Animator optional)")]
@@ -65,6 +69,23 @@ public class BoardSlot : MonoBehaviour,
     // ชื่อ state Idle ใน Animator (สะกดตามคลิปคุณ)
     public string idleStateName = "Idel";
     static BoardSlot s_currentPreview;
+    static Sprite s_SolidSprite;
+    enum OverlayMode { None, Triangle, ZoneTop }
+    OverlayMode _overlayMode = OverlayMode.None;
+    static Sprite GetSolidSprite()
+    {
+        if (s_SolidSprite) return s_SolidSprite;
+
+        var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        for (int y = 0; y < 2; y++)
+            for (int x = 0; x < 2; x++)
+                tex.SetPixel(x, y, Color.white);
+        tex.Apply(false, true); // ทำให้เป็น read-only เพื่อลด GC
+
+        s_SolidSprite = Sprite.Create(tex, new Rect(0, 0, 2, 2), new Vector2(0.5f, 0.5f), 100f);
+        s_SolidSprite.name = "BoardSlotSolidOverlay";
+        return s_SolidSprite;
+    }
     
     RectTransform PulseTarget => pulseRoot ? pulseRoot : (transform as RectTransform);
 
@@ -85,6 +106,7 @@ public class BoardSlot : MonoBehaviour,
         if (!hoverAnimator && pulseRoot) hoverAnimator = pulseRoot.GetComponent<Animator>();
         if (hoverAnimator && useUnscaledTimeForAnimator)
             hoverAnimator.updateMode = AnimatorUpdateMode.UnscaledTime;
+        EnsureOverlay();
     }
 
     void OnDisable()
@@ -100,6 +122,7 @@ public class BoardSlot : MonoBehaviour,
     }
     public void OnDrop(UnityEngine.EventSystems.PointerEventData eventData)
     {
+        if (IsLocked) return;
         if (eventData == null) return;
 
         var tileGO = eventData.pointerDrag;
@@ -234,6 +257,185 @@ public class BoardSlot : MonoBehaviour,
         if (pm != null)
             pm.HoverSlot(this);
     }
+    // ===== [ADD] วางไว้ใน class BoardSlot =====
+    void EnsureOverlay()
+    {
+        if (!specialBg)
+        {
+            // หา/สร้างลูกชื่อ "SpecialOverlay"
+            var t = transform.Find("SpecialOverlay") as RectTransform;
+            if (!t)
+            {
+                var go = new GameObject("SpecialOverlay", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+                go.transform.SetParent(transform, false);
+                t = go.GetComponent<RectTransform>();
+            }
+            specialBg = t.GetComponent<UnityEngine.UI.Image>();
+        }
+
+        // ยืดเต็มช่องทุกครั้ง (กันถูกแก้ในพรีแฟบ)
+        var rt = specialBg.rectTransform;
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+
+        // ให้มีสไปรต์สีทึบเสมอ
+        if (!specialBg.sprite) specialBg.sprite = GetSolidSprite();
+        specialBg.type = Image.Type.Simple;
+        specialBg.maskable = true;
+        specialBg.raycastTarget = false;
+        specialBg.enabled = false;
+
+        // จัดลำดับ: icon(ล่างสุด) → overlay → (ตัวอักษร/Highlight)
+        if (icon) icon.transform.SetAsFirstSibling();
+        specialBg.transform.SetAsLastSibling();  // เอา overlay ไว้เหนือ icon แน่ๆ
+    }
+    void EnsureLockOverlay()
+    {
+        if (!lockOverlay)
+        {
+            var t = transform.Find("LockOverlay") as RectTransform;
+            if (!t)
+            {
+                var go = new GameObject("LockOverlay", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+                go.transform.SetParent(transform, false);
+                t = go.GetComponent<RectTransform>();
+            }
+
+            var img = t.GetComponent<UnityEngine.UI.Image>();
+            img.raycastTarget = false;
+            if (!img.sprite) img.sprite = GetSolidSprite(); // ใช้สไปรต์ทึบเดียวกับ overlay อื่น
+            img.type = Image.Type.Simple;
+            lockOverlay = img;
+        }
+
+        var rt = lockOverlay.rectTransform;
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+    }
+    public void SetLockedVisual(bool on, Color? overlayColor = null)
+    {
+        IsLocked = on;
+        EnsureLockOverlay();
+
+        if (on)
+        {
+            if (bg) bg.color = new Color32(120, 120, 120, 255);     // พื้นหลังเทาเข้ม
+            lockOverlay.color = overlayColor ?? new Color(0f, 0f, 0f, 0.55f); // ดำเทาโปร่ง
+            lockOverlay.enabled = true;
+            lockOverlay.transform.SetAsLastSibling();               // ครอบบนสุดของช่อง
+            if (highlight) highlight.enabled = false;               // กันไฮไลต์ค้าง
+        }
+        else
+        {
+            if (lockOverlay) lockOverlay.enabled = false;
+            ClearSpecialBg();   // คืนสีพื้นมาตรฐานของช่อง
+            ApplyVisual();
+        }
+    }
+
+    // สะดวกเรียกแบบเดิม
+    public void Lock()
+    {
+        SetLockedVisual(true);
+    }
+    public void RefreshOverlayOrder()
+    {
+        EnsureOverlay();
+        if (icon) icon.transform.SetAsFirstSibling();   // ไอคอนล่างสุดเสมอ
+
+        // ถ้ายังไม่มี overlay/ปิดไว้ ก็แค่ให้ highlight ทับสุด
+        if (!specialBg || !specialBg.enabled)
+        {
+            if (highlight) highlight.transform.SetAsLastSibling();
+            return;
+        }
+
+        switch (_overlayMode)
+        {
+            case OverlayMode.ZoneTop:
+                {
+                    // โซน x2 → overlay ต้องอยู่บนไทล์
+                    var tile = GetLetterTile();
+                    if (tile) tile.transform.SetAsLastSibling();
+                    specialBg.transform.SetAsLastSibling();
+                    break;
+                }
+            case OverlayMode.Triangle:
+            default:
+                {
+                    // triangle → overlay ใต้ไทล์ (อ่านตัวอักษรง่าย)
+                    specialBg.transform.SetAsLastSibling();
+                    var tile = GetLetterTile();
+                    if (tile) tile.transform.SetAsLastSibling();
+                    break;
+                }
+        }
+
+        if (highlight) highlight.transform.SetAsLastSibling(); // เส้นพรีวิวทับสุด
+    }
+    public void SetTriangleOverlay(Color c)
+    {
+        EnsureOverlay(); if (!specialBg) return;
+
+        specialBg.color = c;
+        specialBg.enabled = true;
+
+        var rt = specialBg.rectTransform;
+        rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
+
+        if (icon) icon.transform.SetAsFirstSibling();   // ไอคอนล่างสุด
+        specialBg.transform.SetAsLastSibling();         // overlay เหนือ icon
+
+        var tile = GetLetterTile();
+        if (tile) tile.transform.SetAsLastSibling();    // ไทล์ทับ overlay
+        if (highlight) highlight.transform.SetAsLastSibling(); // highlight ทับสุด
+    }
+    // ===== [MOD] แทนที่ SetZoneOverlay ให้เรียก EnsureOverlay ก่อน =====
+
+    // NEW: x2 zone overlay บนไทล์ (ตอนกำลังวาง)
+    public void SetZoneOverlayTop(Color c)
+    {
+        EnsureOverlay(); if (!specialBg) return;
+
+        specialBg.color = c;
+        specialBg.enabled = true;
+
+        var rt = specialBg.rectTransform;
+        rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
+
+        if (icon) icon.transform.SetAsFirstSibling();   // ไอคอนล่างสุด
+
+        var tile = GetLetterTile();                     // ดันไทล์ขึ้นก่อน…
+        if (tile) tile.transform.SetAsLastSibling();
+        specialBg.transform.SetAsLastSibling();         // …แล้วค่อยดัน overlay ทับไทล์
+
+        if (highlight) highlight.transform.SetAsLastSibling();  // ให้เส้นพรีวิว/ไฮไลต์ทับสุด
+    }
+
+    // ===== [MOD] แทนที่ ClearZoneOverlay =====
+    public void ClearZoneOverlay()
+    {
+        if (!specialBg) return;
+        specialBg.enabled = false;
+    }
+    public void SetTempMultipliers(int letterMul, int wordMul)
+    {
+        tempLetterMul = Mathf.Max(1, letterMul);
+        tempWordMul   = Mathf.Max(1, wordMul);
+    }
+    public void ClearTempMultipliers()
+    {
+        tempLetterMul = 1;
+        tempWordMul   = 1;
+    }
+    public int GetTempWordMul()   => Mathf.Max(1, tempWordMul);
+    public int GetTempLetterMul() => Mathf.Max(1, tempLetterMul);
 
     /// <summary>คลิกซ้าย: โหมด Targeted Flux ก่อน, ไม่งั้นให้วางตัวอักษร</summary>
     public void OnPointerClick(PointerEventData eventData)
@@ -477,15 +679,5 @@ public class BoardSlot : MonoBehaviour,
         if (tile == null) return null;   // กัน NRE
         tile.transform.SetParent(null);  // หลุดจากสลอต
         return tile;
-    }
-
-    // ===================== Lock =====================
-    /// <summary>ล็อกช่อง (ปรับสีเป็นเทาเข้ม) — หมายเหตุ: ApplyVisual ภายหลังอาจทับสีนี้ได้</summary>
-    public void Lock()
-    {
-        IsLocked = true;
-        if (bg != null)
-            bg.color = new Color32(120, 120, 120, 255); // สีช่องที่ถูกล็อก
-        // ถ้าต้องการเอฟเฟกต์เพิ่ม: Flash(Color.black);
     }
 }

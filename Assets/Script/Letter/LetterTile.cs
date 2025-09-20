@@ -26,9 +26,10 @@ public class LetterTile : MonoBehaviour,
     private bool dragging = false;                     // กำลังลากอยู่หรือไม่
     private bool isBusy = false;                       // กันคลิก/ลากซ้อนตอนกำลังบิน
     private bool isSpecialTile;                        // สถานะ special (ซิงก์กับ data)
-    public  bool isLocked = false;                     // ล็อกการอินพุตสำหรับไทล์นี้
+    public bool isLocked = false;                     // ล็อกการอินพุตสำหรับไทล์นี้
     private bool _garbledBoardDrag = false;
     private bool _inFlight = false;
+    private GameObject _benchIssueOverlay;
 
     [HideInInspector] public bool IsInSpace = false;   // สถานะขณะอยู่ใน Space (เผื่อ UI ใช้)
     private bool wasInSpaceAtDragStart = false;        // จำค่าสถานะตอนเริ่มลาก
@@ -53,11 +54,11 @@ public class LetterTile : MonoBehaviour,
     private Animator visualAnimator;
 
     // NOTE: STATE_IDLE ไม่ได้ใช้งาน → ตัดออก
-    [SerializeField] private string STATE_DRAG   = "Draggloop";
+    [SerializeField] private string STATE_DRAG = "Draggloop";
     [SerializeField] private string STATE_SETTLE = "Settle";
     // บนคลาสเดียวกับ PlaySettle()
     static readonly int HASH_DRAGGING = Animator.StringToHash("Dragging");
-    static readonly int HASH_INSPACE  = Animator.StringToHash("InSpace");
+    static readonly int HASH_INSPACE = Animator.StringToHash("InSpace");
     const string STATE_SPACEWAVE = "SpaceWave";
 
     [SerializeField] private float settleDebounce = 0.10f; // กันสั่งซ้อนถี่เกินไป
@@ -74,14 +75,15 @@ public class LetterTile : MonoBehaviour,
     private void Awake()
     {
         rectTf = GetComponent<RectTransform>();
+        RefreshCanvasRef(); 
 
         canvas = GetComponentInParent<Canvas>();
         if (canvas == null)
-            #if UNITY_2023_1_OR_NEWER
+#if UNITY_2023_1_OR_NEWER
             canvas = UnityEngine.Object.FindFirstObjectByType<Canvas>();
-            #else
+#else
             canvas = FindObjectOfType<Canvas>();
-            #endif
+#endif
 
         if (canvas != null && canvas.rootCanvas != null)
             rootCanvasRect = canvas.rootCanvas.transform as RectTransform;
@@ -119,6 +121,43 @@ public class LetterTile : MonoBehaviour,
     {
         var slot = GetComponentInParent<BoardSlot>();
         return Level1GarbledIT.Instance != null && Level1GarbledIT.Instance.IsGarbledSlot(slot);
+    }
+    // ==== Canvas resolver (กันถูกย้ายไปอยู่ใต้ _SceneTransitioner) ====
+    bool IsTransitionerCanvas(Canvas c) =>
+        c != null && c.GetComponentInParent<SceneTransitioner>() != null;
+
+    Canvas ResolveGameplayCanvas()
+    {
+        // 1) เอา Canvas บนสายพ่อแม่ตัวเองก่อน ถ้าไม่ใช่ของ SceneTransitioner
+        var c = GetComponentInParent<Canvas>();
+        if (c && !IsTransitionerCanvas(c)) return c.rootCanvas;
+
+        // 2) หา Canvas ใน "ซีนเดียวกัน" ที่ไม่ใช่ SceneTransitioner
+        Canvas best = null;
+        var myScene = gameObject.scene;
+        foreach (var ca in FindObjectsOfType<Canvas>(false))
+        {
+            if (IsTransitionerCanvas(ca)) continue;
+            if (ca.gameObject.scene != myScene) continue;
+            if (best == null || ca.sortingOrder > best.sortingOrder) best = ca;
+        }
+        if (best) return best.rootCanvas;
+
+        // 3) เผื่อกรณีสุดท้าย: เอา Canvas ไหนก็ได้ที่ไม่ใช่ SceneTransitioner
+        foreach (var ca in FindObjectsOfType<Canvas>(false))
+            if (!IsTransitionerCanvas(ca)) return ca.rootCanvas;
+
+        return null;
+    }
+
+    void RefreshCanvasRef()
+    {
+        var c = ResolveGameplayCanvas();
+        if (c != null)
+        {
+            canvas = c;
+            rootCanvasRect = c.transform as RectTransform;
+        }
     }
 
     // ===================== Drag Handlers =====================
@@ -158,11 +197,12 @@ public class LetterTile : MonoBehaviour,
         int spaceIdx = SpaceManager.Instance ? SpaceManager.Instance.IndexOfSlot(OriginalParent) : -1;
         if (!_garbledBoardDrag)
         {
-            if (benchIdx >= 0) { _fromBenchDrag = true;  BenchManager.Instance.BeginDrag(this, benchIdx); }
+            if (benchIdx >= 0) { _fromBenchDrag = true; BenchManager.Instance.BeginDrag(this, benchIdx); }
             else if (spaceIdx >= 0) { _fromBenchDrag = false; SpaceManager.Instance.BeginDrag(this, spaceIdx); }
         }
 
         wasInSpaceAtDragStart = IsInSpace;
+        RefreshCanvasRef();
 
         if (canvas != null)
         {
@@ -249,7 +289,7 @@ public class LetterTile : MonoBehaviour,
             IsInSpace = (space != null && board == null);
 
             if (IsInSpace != wasInSpaceAtDragStart) SfxPlayer.Play(SfxId.TileTransfer);
-            else                                     SfxPlayer.Play(SfxId.TileDrop);
+            else SfxPlayer.Play(SfxId.TileDrop);
 
             PlaySettle();
         }
@@ -257,7 +297,7 @@ public class LetterTile : MonoBehaviour,
         SetDragging(false);
 
         if (_fromBenchDrag) BenchManager.Instance?.EndDrag(placedDefault);
-        else                SpaceManager.Instance?.EndDrag(placedDefault);
+        else SpaceManager.Instance?.EndDrag(placedDefault);
     }
 
     // ===================== Animator State =====================
@@ -293,7 +333,7 @@ public class LetterTile : MonoBehaviour,
         bool inSpace = transform.parent && transform.parent.GetComponent<SpaceSlot>() != null;
         visualAnimator.updateMode = AnimatorUpdateMode.UnscaledTime; // กัน timeScale=0
         visualAnimator.SetBool(HASH_DRAGGING, false);
-        visualAnimator.SetBool(HASH_INSPACE,  inSpace);
+        visualAnimator.SetBool(HASH_INSPACE, inSpace);
 
         // 2) เล่น Settle สั้น ๆ
         visualAnimator.CrossFadeInFixedTime(STATE_SETTLE, 0.02f, 0, 0f);
@@ -362,7 +402,7 @@ public class LetterTile : MonoBehaviour,
         overrideLetter = char.ToUpperInvariant(ch).ToString();
 
         if (letterText) letterText.text = overrideLetter;
-        if (scoreText)  scoreText.text  = "0"; // Blank ให้ 0 เสมอ
+        if (scoreText) scoreText.text = "0"; // Blank ให้ 0 เสมอ
 
         // เปลี่ยนภาพ (sprite) ให้เป็นรูปตัวที่เลือก ถ้า TileBag มีข้อมูล
         var bag = TileBag.Instance;
@@ -414,17 +454,19 @@ public class LetterTile : MonoBehaviour,
         Vector3 startPosWorld = rectTf.position;
 
         // 2) ย้ายขึ้น Canvas
-        if (canvas != null) {
+        RefreshCanvasRef();
+        if (canvas != null)
+        {
             transform.SetParent(canvas.transform, true);
             transform.SetAsLastSibling();
         }
 
         // 3) ล็อก Rect ไม่ให้ stretch แล้วคง “ขนาดเท่าเดิม”
         rectTf.anchorMin = rectTf.anchorMax = new Vector2(0.5f, 0.5f);
-        rectTf.pivot     = new Vector2(0.5f, 0.5f);
+        rectTf.pivot = new Vector2(0.5f, 0.5f);
         rectTf.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, prevLocalSize.x);
-        rectTf.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,   prevLocalSize.y);
-        rectTf.position   = startPosWorld;
+        rectTf.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, prevLocalSize.y);
+        rectTf.position = startPosWorld;
         rectTf.localScale = Vector3.one;
 
 
@@ -446,12 +488,12 @@ public class LetterTile : MonoBehaviour,
         RectTransform srcForSize = rectTf;
         Vector2 startWS = Vector2.one, targetWS = Vector2.one;
         if (srcForSize) startWS = GetWorldSize(srcForSize);
-        if (targetRt)   targetWS = GetWorldSize(targetRt);
+        if (targetRt) targetWS = GetWorldSize(targetRt);
 
         // 3) คำนวณสเกลแบบกันค่าสุดโต่ง + มี fallback ปลอดภัย
         Transform scaleTarget = visualPivot ? (Transform)visualPivot : (Transform)rectTf;
         Vector3 startScale = scaleTarget.localScale;
-        Vector3 endScale   = startScale;
+        Vector3 endScale = startScale;
 
         if (startWS.x > 1e-3f && startWS.y > 1e-3f)
         {
@@ -606,12 +648,12 @@ public class LetterTile : MonoBehaviour,
     public void Setup(LetterData d)
     {
         data = d;
-        if (icon)       icon.sprite     = data?.sprite;
+        if (icon) icon.sprite = data?.sprite;
         if (letterText) letterText.text = data != null ? data.letter : "";
-        if (scoreText)  scoreText.text  = data != null ? data.score.ToString() : "0";
+        if (scoreText) scoreText.text = data != null ? data.score.ToString() : "0";
 
         isSpecialTile = data != null && data.isSpecial;
-        isBlankTile   = IsBlank; // sync flag ภายในให้ตรงกับกฎ Blank
+        isBlankTile = IsBlank; // sync flag ภายในให้ตรงกับกฎ Blank
         if (IsBlank && scoreText) scoreText.text = "0"; // คะแนน Blank = 0
 
         overrideLetter = null; // ยังไม่เลือกตัวอักษร
@@ -630,7 +672,7 @@ public class LetterTile : MonoBehaviour,
     /// <summary>ปรับขนาด Rect ให้พอดีช่องพาเรนต์</summary>
     public void AdjustSizeToParent()
     {
-        var rtTile   = GetComponent<RectTransform>();
+        var rtTile = GetComponent<RectTransform>();
         var parentRt = transform.parent as RectTransform;
         if (parentRt == null || rtTile == null) return;
 
@@ -638,7 +680,7 @@ public class LetterTile : MonoBehaviour,
         if (_inFlight || (canvas != null && transform.parent == canvas.transform))
         {
             rtTile.anchorMin = rtTile.anchorMax = new Vector2(0.5f, 0.5f);
-            rtTile.pivot     = new Vector2(0.5f, 0.5f);
+            rtTile.pivot = new Vector2(0.5f, 0.5f);
             rtTile.localScale = Vector3.one;
             return;
         }
@@ -663,5 +705,37 @@ public class LetterTile : MonoBehaviour,
         // (ระหว่างลาก OnBeginDrag จะปิด raycast เอง เพื่อให้ BoardSlot จับ OnDrop ได้)
         if (!dragging && !isBusy)
             canvasGroup.blocksRaycasts = true;
+    }
+    
+    public void SetBenchIssueOverlay(bool on, Color? col = null)
+    {
+        if (_benchIssueOverlay == null)
+        {
+            // สร้าง overlay เป็น Image ใสไว้บนสุด
+            var go = new GameObject("BenchIssueOverlay", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+            go.transform.SetParent(transform, false);
+            go.transform.SetAsLastSibling();
+
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            rt.localScale = Vector3.one;
+
+            var img = go.GetComponent<UnityEngine.UI.Image>();
+            img.raycastTarget = false;
+            img.color = new Color(0f, 0f, 0f, 0.55f); // สีเริ่มต้นเทาดำโปร่ง
+
+            _benchIssueOverlay = go;
+        }
+
+        if (col.HasValue)
+        {
+            var img = _benchIssueOverlay.GetComponent<UnityEngine.UI.Image>();
+            if (img) img.color = col.Value;
+        }
+
+        _benchIssueOverlay.SetActive(on);
     }
 }

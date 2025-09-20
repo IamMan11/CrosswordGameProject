@@ -35,7 +35,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 100, y: 50}
+  m_SizeDelta: {x: 300, y: 300}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1008936259211500352
 CanvasRenderer:
@@ -67,8 +67,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: ecaf0cb53ee8b914bbe3c3857b17256f, type: 2}
-  m_sharedMaterial: {fileID: 7368666561820961849, guid: ecaf0cb53ee8b914bbe3c3857b17256f, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -92,8 +92,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 46
-  m_fontSizeBase: 46
+  m_fontSize: 56
+  m_fontSizeBase: 56
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -212,9 +212,15 @@ MonoBehaviour:
   text: {fileID: 7239303322815244300}
   group: {fileID: 6150998898430941889}
   anim: {fileID: 6368069722835135582}
-  bounceDur: 0.12
-  scaleS: 1.06
-  scaleM: 1.12
+  popSParam: PopS
+  popMParam: PopM
+  popLParam: PopL
+  colorLetters: {r: 0.34901965, g: 0.8957375, b: 1, a: 1}
+  colorMults: {r: 0.33506075, g: 0.13389996, b: 0.5566038, a: 1}
+  colorTotal: {r: 0.58, g: 1, b: 0.65, a: 1}
+  bounceDur: 0.08
+  scaleS: 1.5
+  scaleM: 10
   scaleL: 1.22
 --- !u!225 &6150998898430941889
 CanvasGroup:

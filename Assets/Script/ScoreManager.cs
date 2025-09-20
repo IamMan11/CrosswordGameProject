@@ -69,6 +69,9 @@ public static class ScoreManager
         int total  = 0;
         int wordMul = 1;
 
+        // ✅ สะสมตัวคูณจาก Zone “ครั้งเดียวต่อคำ”
+        int zoneWordMulOnce = 1;
+
         int dr = (r1 == r0) ? 0 : (r1 > r0 ? 1 : -1);
         int dc = (c1 == c0) ? 0 : (c1 > c0 ? 1 : -1);
 
@@ -94,21 +97,20 @@ public static class ScoreManager
             if (IsGlobalLetterMulActive())
                 letter *= globalLetterMultiplier;
 
+            // คูณ DL/TL/DW/TW “ของบอร์ดจริง” (ยังคูณซ้อนกันได้ตามดีไซน์)
             switch (slot.type)
             {
-                case SlotType.DoubleLetter:
-                    letter *= (doubleLetterOverride > 0 ? doubleLetterOverride : 2);
-                    break;
-                case SlotType.TripleLetter:
-                    letter *= (doubleLetterOverride > 0 ? doubleLetterOverride : 3);
-                    break;
-                case SlotType.DoubleWord:
-                    wordMul *= (doubleWordOverride > 0 ? doubleWordOverride : 2);
-                    break;
-                case SlotType.TripleWord:
-                    wordMul *= (doubleWordOverride > 0 ? doubleWordOverride : 3);
-                    break;
+                case SlotType.DoubleLetter: letter *= (doubleLetterOverride > 0 ? doubleLetterOverride : 2); break;
+                case SlotType.TripleLetter: letter *= (doubleLetterOverride > 0 ? doubleLetterOverride : 3); break;
+                case SlotType.DoubleWord:   wordMul *= (doubleWordOverride   > 0 ? doubleWordOverride   : 2); break;
+                case SlotType.TripleWord:   wordMul *= (doubleWordOverride   > 0 ? doubleWordOverride   : 3); break;
             }
+
+            // ✅ Letter จาก Zone (ถ้าเป็น DL/TL โซน) ยังใช้รายตัวตามช่อง
+            letter *= Mathf.Max(1, slot.GetTempLetterMul());
+
+            // ✅ Word จาก Zone “เอาค่าสูงสุดครั้งเดียวต่อคำ” (เช่น x2)
+            zoneWordMulOnce = Mathf.Max(zoneWordMulOnce, slot.GetTempWordMul());
 
             total += letter;
 
@@ -120,8 +122,9 @@ public static class ScoreManager
         doubleLetterOverride = 0;
         doubleWordOverride   = 0;
 
-        return total * Mathf.Max(1, wordMul);
+        return total * Mathf.Max(1, wordMul * Mathf.Max(1, zoneWordMulOnce));
     }
+
 
     /* ===================== Helper สำหรับ UI FX ===================== */
 
