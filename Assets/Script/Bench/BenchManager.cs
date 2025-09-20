@@ -475,40 +475,38 @@ public class BenchManager : MonoBehaviour
 
         if (tileBagAnimator) tileBagAnimator.SetTrigger("Refill");
 
-        // กันของค้างใน Anchor จากรอบที่แล้ว (เผื่อมี)
-        for (int i = tileSpawnAnchor.childCount - 1; i >= 0; --i)
-            Destroy(tileSpawnAnchor.GetChild(i).gameObject);
-
         var data = TileBag.Instance.DrawRandomTile();
         if (data == null) yield break;
 
         var go = Instantiate(letterTilePrefab, tileSpawnAnchor, false);
         var tile = go.GetComponent<LetterTile>();
-        if (tile == null)
-        {
-            Destroy(go);
-            CreateTileInSlot(slotT, data);                 // fallback
-            yield break;
-        }
+        if (tile == null) { Destroy(go); CreateTileInSlot(slotT, data); yield break; }
 
         tile.Setup(data);
-        tile.AdjustSizeToParent();                         // ขนาด = TileSpawn
-        tile.PlaySpawnPop();                               // pop ก่อน
+        tile.AdjustSizeToParent();
+        tile.PlaySpawnPop();
 
         var rt = go.GetComponent<RectTransform>();
+        if (rt == null) { Destroy(go); CreateTileInSlot(slotT, data); yield break; }
+
+        // Hover เหนือถุง
         if (rt != null)
         {
             rt.anchoredPosition = new Vector2(0f, spawnHoverHeight);
             float t = 0f, dur = Mathf.Max(0.0001f, spawnHoverTime);
             while (t < dur)
             {
+                // ✅ กัน MissingReference: ถ้าโดนทำลาย/ปิดซีนกลางคัน ให้หยุดคอร์รุตีนนี้
+                if (this == null || !gameObject || tileSpawnAnchor == null || rt == null || go == null)
+                    yield break;
+
                 t += Time.unscaledDeltaTime;
                 float k = Mathf.Clamp01(t / dur);
                 float bob = Mathf.Sin(k * Mathf.PI) * 6f;
                 rt.anchoredPosition = new Vector2(0f, spawnHoverHeight + bob);
                 yield return null;
             }
-        }
+        }     
 
         SfxPlayer.Play(SfxId.TileTransfer);
         tile.FlyTo(slotT);
@@ -598,14 +596,49 @@ public class BenchManager : MonoBehaviour
 
     public void FullRerack()
     {
-        foreach (Transform slot in slotTransforms)
+        var tb = TileBag.Instance;
+        if (tb == null)
         {
-            if (slot == null) continue;
-            if (slot.childCount > 0)
-                Destroy(slot.GetChild(0).gameObject);
+            Debug.LogWarning("[BenchManager] FullRerack: TileBag.Instance is null");
+            return;
         }
-        RefillEmptySlots();
+
+        // กันเติมอัตโนมัติแทรกระหว่างคืนไทล์
+        PauseAutoRefill();
+
+        // 1) รวบรวม LetterData ของไทล์บน Bench + เคลียร์ช่องทันที
+        var toReturn = new List<LetterData>();
+        foreach (var slot in slotTransforms)
+        {
+            if (slot == null || slot.childCount == 0) continue;
+
+            var child = slot.GetChild(0);
+            var lt = child.GetComponent<LetterTile>();
+            if (lt != null)
+            {
+                var data = lt.GetData();
+                if (data != null) toReturn.Add(data);
+            }
+
+            // ทำให้ช่องว่างทันทีในเฟรมนี้ (Destroy จะลบปลายเฟรม)
+            child.SetParent(null, false);
+            Destroy(child.gameObject);
+        }
+
+        // 2) คืนตัวอักษรกลับเข้า TilePack (pool)
+        for (int i = 0; i < toReturn.Count; i++)
+            tb.ReturnTile(toReturn[i]);
+
+        // ปลดพักการเติมอัตโนมัติ
+        ResumeAutoRefill();
+
+        // 3) เติมกลับ "เท่าจำนวนที่คืนเข้าไป" แบบทันที (ไม่ใช้อนิเมชันเพื่อกันชนกัน)
+        for (int i = 0; i < toReturn.Count; i++)
+            RefillOneSlot(prefer: null, forceImmediate: true);
+
+        UIManager.Instance?.ShowMessage($"Rerack: สุ่มใหม่ {toReturn.Count} ตัว", 1.5f);
     }
+
 
     public void ReplaceRandomWithSpecial(int count)
     {

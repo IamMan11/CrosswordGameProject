@@ -3249,7 +3249,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   wordRequestTargetLevel1: 10
   levels:
-  - levelIndex: 1
+  - levelIndex: 2
     requiredScore: 100000
     requiredWords: 0
     timeLimit: 0
@@ -3426,7 +3426,7 @@ MonoBehaviour:
   level2_enableLockedBoard: 1
   level2_lockedCount: 3
   level2_requiredLenRange: {x: 3, y: 7}
-  level2_enableBenchIssue: 0
+  level2_enableBenchIssue: 1
   level2_benchIssueIntervalSec: 60
   level2_benchIssueDurationSec: 20
   level2_benchZeroPerMove: 0
@@ -15558,8 +15558,8 @@ MonoBehaviour:
   scoreText: {fileID: 1660760975}
   bagCounterText: {fileID: 992775574}
   messageText: {fileID: 427263724}
-  maxMana: 10
-  currentMana: 10
+  maxMana: 999
+  currentMana: 999
   manaText: {fileID: 2014620743}
   inputBlocker: {fileID: 516392972}
   scoreOverlayAnimator: {fileID: 1690410528}
