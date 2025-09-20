@@ -4,6 +4,7 @@ using UnityEngine.UI;
 using TMPro;
 using UnityEngine.SceneManagement;
 using System.Collections.Generic;
+using System.Collections;
 
 /// <summary>
 /// ShopManager
@@ -22,17 +23,42 @@ public class ShopManager : MonoBehaviour
     public static ShopManager Instance { get; private set; }
 
     #region UI refs (ลากจาก Inspector)
+    [Header("Upgrade UI (Texts)")]
+    [SerializeField] TMP_Text manaProgressText;
+    [SerializeField] TMP_Text tileProgressText;
+    [SerializeField] TMP_Text slotProgressText;
+
+    [SerializeField] TMP_Text manaPriceText;
+    [SerializeField] TMP_Text tilePriceText;
+    [SerializeField] TMP_Text slotPriceText;
+
+    [Header("Upgrade Buttons")]
+    [SerializeField] Button buyManaBtn;
+    [SerializeField] Button buyTileBtn;
+    [SerializeField] Button buySlotBtn;
+
+    [Header("Upgrade Caps & Prices")]
+    // จำนวนครั้งสูงสุดที่อัปเกรดได้ (กำหนดเองใน Inspector)
+    [SerializeField] int manaMaxUpgrades = 10;
+    [SerializeField] int tileMaxUpgrades = 10;
+    [SerializeField] int slotMaxUpgrades = 6;
+
+    // สูตรราคา: base + step * (จำนวนครั้งที่อัปเกรดไปแล้ว)
+    [SerializeField] int manaBasePrice = 50, manaStepPrice = 25;
+    [SerializeField] int tileBasePrice = 60, tileStepPrice = 30;
+    [SerializeField] int slotBasePrice = 80, slotStepPrice = 40;
+
+    // ====== helper อ่านจำนวนครั้งที่อัปเกรด (ดึงจาก SO ถ้ามี) ======
+    int ManaUpCount  => PlayerProgressSO.Instance?.data?.manaUpCount ?? PlayerPrefs.GetInt("ManaUpCount", 0);
+    int TileUpCount  => PlayerProgressSO.Instance?.data?.tileUpCount ?? PlayerPrefs.GetInt("TileUpCount", 0);
+    int SlotUpCount  => PlayerProgressSO.Instance?.data?.slotUpCount ?? PlayerPrefs.GetInt("SlotUpCount", 0);
+    int CalcPrice(int baseP, int step, int count) => baseP + step * count;
 
     [Header("UI")]
     [SerializeField] TMP_Text coinText;
     [SerializeField] Button manaBtn;
     [SerializeField] Button slotBtn;
     [SerializeField] Button tileBtn;
-
-    [Header("UI - Upgrade Progress (n/MAX or Max)")]
-    [SerializeField] TMP_Text manaProgressText;
-    [SerializeField] TMP_Text slotProgressText;
-    [SerializeField] TMP_Text tileProgressText;
 
     [Header("UI - Current Stats")]
     [SerializeField] TMP_Text manaStatText;  // data.maxMana
@@ -44,6 +70,8 @@ public class ShopManager : MonoBehaviour
 
     [Header("Shop Slots")]
     [SerializeField] ShopCardSlot[] shopSlots;
+    [Header("Reroll")]
+    [SerializeField] Button rerollButton;
 
     #endregion
 
@@ -93,14 +121,6 @@ public class ShopManager : MonoBehaviour
             prog.slotUpCount = slotBought;
             prog.tileUpCount = tileBought;
         }
-    }
-
-    void OnEnable() => RefreshUI();
-
-    void Start()
-    {
-        RefreshUI();
-        TryRerollAtStart();
     }
 
     #endregion
@@ -188,17 +208,94 @@ public class ShopManager : MonoBehaviour
     public void OnRerollPressed()
     {
         var cm = CurrencyManager.Instance;
-        if (cm == null) { Debug.LogWarning("[Shop] CurrencyManager ไม่พร้อม"); return; }
+        if (cm == null) { ShowMsg("CurrencyManager ไม่พร้อม"); return; }
 
-        if (!cm.Spend(rerollCost))
+        // ถ้าไม่มีอะไรเหลือให้สุ่มแล้ว → ปิดปุ่มและไม่ทำงาน
+        if (BuildPurchasablePool().Count == 0)
         {
-            Debug.Log("[Shop] เหรียญไม่พอสำหรับ reroll");
+            RefreshRerollInteractable();
+            ShowMsg("ไม่มีการ์ดเหลือในพูลที่ยังซื้อได้");
             return;
         }
 
-        RerollShop();
-        RefreshUI(); // อัปเดตตัวเลข coin
+        if (!cm.Spend(rerollCost)) { ShowMsg("เหรียญไม่พอสำหรับ reroll"); return; }
+        StartCoroutine(RerollSequenceAnimated_FillWithOwned());
     }
+
+    // เด้ง-เปลี่ยนไพ่ทีละช่อง (ซ้าย -> ขวา)
+    IEnumerator RerollSequenceAnimated_FillWithOwned()
+    {
+        if (shopSlots == null || shopSlots.Length == 0) yield break;
+
+        var buyable = BuildPurchasablePool();
+        var owned   = BuildOwnedPurchasablePool();
+
+        for (int i = 0; i < shopSlots.Length; i++)
+        {
+            CardData pick = null;
+            bool showAsPurchased = false;
+
+            if (buyable.Count > 0)
+            {
+                int idx = Random.Range(0, buyable.Count);
+                pick = buyable[idx];
+                buyable.RemoveAt(idx);
+                showAsPurchased = false;
+            }
+            else if (owned.Count > 0)
+            {
+                int idx = Random.Range(0, owned.Count);
+                pick = owned[idx];
+                // ไม่ต้องลบออกก็ได้ จะได้สุ่มซ้ำได้
+                showAsPurchased = true; // ← โชว์แบบซื้อแล้ว
+            }
+            else
+            {
+                // ไม่มีอะไรให้แสดงเลย
+                pick = null;
+                showAsPurchased = true;
+            }
+
+            yield return shopSlots[i].AnimateSwap(pick, showAsPurchased, 0.12f, 0.14f);
+            yield return new WaitForSecondsRealtime(0.05f);
+        }
+
+        RefreshUI();
+        RefreshRerollInteractable();
+    }
+    List<CardData> BuildOwnedPurchasablePool()
+    {
+        var all = Resources.LoadAll<CardData>("Cards");
+        var pso = PlayerProgressSO.Instance;
+        // เฉพาะใบที่ requirePurchase และ "ผู้เล่นมีแล้ว"
+        var owned = all.Where(c =>
+                    c != null &&
+                    c.requirePurchase &&
+                    (pso != null && pso.HasCard(c.id))
+                ).ToList();
+        return owned;
+    }
+
+    // เรียกทุกครั้งที่ต้องอัปเดตสถานะปุ่ม reroll
+    void RefreshRerollInteractable()
+    {
+        var pool = BuildPurchasablePool();
+        bool hasBuyable = pool.Count > 0;
+        if (rerollButton) rerollButton.interactable = hasBuyable && (CurrencyManager.Instance?.Coins >= rerollCost);
+    }
+
+    // ใน Awake/Start/OnEnable (หลัง RefreshUI()) ให้เรียก:
+    void OnEnable() { RefreshUI(); RefreshRerollInteractable(); }
+    void Start()    { RefreshUI(); TryRerollAtStart(); RefreshRerollInteractable(); }
+
+    // เมื่อซื้อการ์ดเสร็จจาก slot ให้เรียกเมธอดนี้ (จะเขียนไว้ด้านล่าง)
+    public void OnCardPurchased(ShopCardSlot slot, CardData card)
+    {
+        RefreshUI();
+        RefreshRerollInteractable();
+        ShowToast($"ซื้อ {card.displayName} สำเร็จ");
+    }
+
 
     public void OnBuyMana()
     {
@@ -268,27 +365,45 @@ public class ShopManager : MonoBehaviour
     /// <summary>อัปเดตตัวเลขเหรียญ/ปุ่ม/สถานะ และค่าปัจจุบันของผู้เล่น</summary>
     public void RefreshUI()
     {
-        // เหรียญ
         var cm = CurrencyManager.Instance;
-        if (coinText) coinText.text = $"Coins : {((cm != null) ? cm.Coins : 0)}";
+        if (coinText)
+        {
+            // ถ้าอยากมีศูนย์นำหน้า 5 หลัก ใช้ :D5 แทน
+            // coinText.text = $"coin: {(cm ? cm.Coins : 0):D5}";
+            coinText.text = $"coin: {(cm ? cm.Coins : 0):N0}";
+        }
+        int manaCount = ManaUpCount, tileCount = TileUpCount, slotCount = SlotUpCount;
 
-        // เปิด/ปิดปุ่มตามเพดานอัปเกรด
-        if (manaBtn) manaBtn.interactable = manaBought < manaUpgradeMaxTimes;
-        if (slotBtn) slotBtn.interactable = slotBought < slotUpgradeMaxTimes;
-        if (tileBtn) tileBtn.interactable = tileBought < tileUpgradeMaxTimes;
+        bool manaMax = manaCount >= manaMaxUpgrades;
+        bool tileMax = tileCount >= tileMaxUpgrades;
+        bool slotMax = slotCount >= slotMaxUpgrades;
 
-        // แถบความคืบหน้า
-        if (manaProgressText) manaProgressText.text = ProgressText(manaBought, manaUpgradeMaxTimes);
-        if (slotProgressText) slotProgressText.text = ProgressText(slotBought, slotUpgradeMaxTimes);
-        if (tileProgressText) tileProgressText.text = ProgressText(tileBought, tileUpgradeMaxTimes);
+        // ----- Progress -----
+        if (manaProgressText) manaProgressText.text = manaMax ? "Max" : $"Progress : {manaCount}/{manaMaxUpgrades}";
+        if (tileProgressText) tileProgressText.text = tileMax ? "Max" : $"Progress : {tileCount}/{tileMaxUpgrades}";
+        if (slotProgressText) slotProgressText.text = slotMax ? "Max" : $"Progress : {slotCount}/{slotMaxUpgrades}";
+
+        // ----- Price -----
+        int manaPrice = manaMax ? 0 : CalcPrice(manaBasePrice, manaStepPrice, manaCount);
+        int tilePrice = tileMax ? 0 : CalcPrice(tileBasePrice, tileStepPrice, tileCount);
+        int slotPrice = slotMax ? 0 : CalcPrice(slotBasePrice, slotStepPrice, slotCount);
+
+        if (manaPriceText) manaPriceText.text = manaMax ? "Price : —" : $"Price : {manaPrice}";
+        if (tilePriceText) tilePriceText.text = tileMax ? "Price : —" : $"Price : {tilePrice}";
+        if (slotPriceText) slotPriceText.text = slotMax ? "Price : —" : $"Price : {slotPrice}";
+
+        // ----- ปุ่มซื้อ -----
+        if (buyManaBtn) buyManaBtn.interactable = !manaMax && (cm == null || cm.Coins >= manaPrice);
+        if (buyTileBtn) buyTileBtn.interactable = !tileMax && (cm == null || cm.Coins >= tilePrice);
+        if (buySlotBtn) buySlotBtn.interactable = !slotMax && (cm == null || cm.Coins >= slotPrice);
 
         // สถานะปัจจุบัน
         var so = PlayerProgressSO.Instance?.data;
         if (so != null)
         {
-            if (manaStatText) manaStatText.text = so.maxMana.ToString();
-            if (slotStatText) slotStatText.text = so.maxCardSlots.ToString();
-            if (tileStatText) tileStatText.text = GetTileBackCapacity().ToString();
+            if (manaStatText) manaStatText.text = $"Max Mana : {so.maxMana}";
+            if (slotStatText) slotStatText.text = $"Card Slot : {so.maxCardSlots}";
+            if (tileStatText) tileStatText.text = $"TilePack : {GetTileBackCapacity()}";
         }
     }
 

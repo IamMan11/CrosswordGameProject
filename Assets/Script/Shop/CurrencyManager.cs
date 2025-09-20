@@ -30,16 +30,31 @@ public class CurrencyManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
 
-        // พฤติกรรมเดิม: ตั้งจาก startCoins ทุกครั้ง
-        coins = Mathf.Max(0, startCoins);
-
-        // NOTE:
-        // ถ้าอยาก “โหลดจำนวนเหรียญที่บันทึกไว้” แทนที่จะรีเซ็ตทุกครั้ง
-        // สามารถใช้โค้ดนี้ (จะทำให้พฤติกรรมเปลี่ยน):
-        // if (PlayerPrefs.HasKey(PREF_KEY)) coins = Mathf.Max(0, PlayerPrefs.GetInt(PREF_KEY));
+        // ถ้าเคยมีเซฟ ให้ใช้ค่าที่เซฟไว้; ถ้ายังไม่เคย ให้ใช้ startCoins เป็นเงินเริ่มต้น
+        coins = PlayerPrefs.HasKey(PREF_KEY) ? PlayerPrefs.GetInt(PREF_KEY) : startCoins;
+        Save(); // เขียนกลับกันพลาด + sync ไป SO ถ้ามี
     }
 
-    /* ---------- API ---------- */
+    void Save()
+    {
+        coins = Mathf.Max(0, coins);
+        PlayerPrefs.SetInt(PREF_KEY, coins);
+        if (PlayerProgressSO.Instance?.data != null)
+            PlayerProgressSO.Instance.data.coins = coins;
+    }
+    // <<< ใช้อันนี้ตอนกด NewPlay
+    public void ResetToStart()
+    {
+        coins = Mathf.Max(0, startCoins);
+        Save();
+    }
+
+    // เผื่ออยากตั้งค่าเหรียญตรงๆ ตอน NewPlay
+    public void SetCoins(int amount)
+    {
+        coins = Mathf.Max(0, amount);
+        Save();
+    }
 
     /// <summary>มีเงินพอหรือไม่</summary>
     public bool Has(int amount) => amount <= 0 || coins >= amount;
@@ -59,9 +74,4 @@ public class CurrencyManager : MonoBehaviour
         coins += Mathf.Max(0, amount);
         Save();
     }
-
-    /* ---------- Helper ---------- */
-
-    /// <summary>บันทึกลง PlayerPrefs (ปัจจุบันยังไม่อ่านคืนตอนเริ่ม)</summary>
-    void Save() => PlayerPrefs.SetInt(PREF_KEY, Mathf.Max(0, coins));
 }

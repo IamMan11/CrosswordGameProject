@@ -1408,7 +1408,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   optionsPanel: {fileID: 1708467204}
-  playSceneName: Shop
+  startSceneName: Shop
 --- !u!4 &1249364244
 Transform:
   m_ObjectHideFlags: 0
@@ -3012,6 +3012,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 4505266695746796307, guid: d649ff90d1409c74d883490fa830a36c, type: 3}
+      propertyPath: startCoins
+      value: 9999
+      objectReference: {fileID: 0}
     - target: {fileID: 6424686999464177413, guid: d649ff90d1409c74d883490fa830a36c, type: 3}
       propertyPath: m_Name
       value: Gamemanager

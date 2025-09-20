@@ -4,15 +4,16 @@ using UnityEngine.SceneManagement;
 public class MainMenuManager : MonoBehaviour
 {
     [Header("Options Panel")]
-    public GameObject optionsPanel;  // ชี้ไปที่ Panel ตั้งค่า
+    public GameObject optionsPanel;
+
     [Header("Scene Names")]
-    [SerializeField] private string playSceneName = "Shop";   // ตั้งชื่อซีนที่ต้องการ
+    [SerializeField] private string startSceneName = "Shop"; // ซีนเริ่มเกม
+    // ถ้าไม่มี last scene จะ fallback มาซีนนี้
 
-
-    // เรียกตอนกดปุ่ม Play (เริ่มเกมใหม่): รีเซ็ตข้อมูลทั้งหมดแล้วโหลด Scene เกมหลัก
-    public void OnPlayButtonClicked()
+    // ===== New Play: รีเซ็ตทุกอย่าง แล้วเริ่มที่ซีนเริ่มเกม =====
+    public void OnNewPlayClicked()
     {
-        // ทำลาย GameObject ของ Managers ที่ไม่ถูกทำลายข้าม Scene
+        // ทำลายตัวที่ค้างข้ามซีน (ถ้ามี)
         DestroyIfExists(CardManager.Instance?.gameObject);
 #if UNITY_2023_1_OR_NEWER
         DestroyIfExists(UnityEngine.Object.FindFirstObjectByType<ShopManager>()?.gameObject);
@@ -23,36 +24,29 @@ public class MainMenuManager : MonoBehaviour
         DestroyIfExists(TurnManager.Instance?.gameObject);
         DestroyIfExists(TileBag.Instance?.gameObject);
 
-        // รีเซ็ตค่าใน ScriptableObject หรือ Manager ที่เก็บข้อมูลหลัก
+        // รีเซ็ต progress + last scene
         if (PlayerProgressSO.Instance != null)
+        {
             PlayerProgressSO.Instance.ResetProgress();
+            PlayerProgressSO.Instance.ClearLastScene();
+        }
+        CurrencyManager.Instance?.ResetToStart();
 
-        // โหลด Scene เกมหลัก (เปลี่ยนชื่อ Scene ตามจริง)
-        SceneManager.LoadScene("Shop");
-    }
-    public void OnNewPlayClicked()
-    {
-        // ---- ทำความสะอาดของค้างข้ามซีน (ถ้ามี) ----
-        DestroyIfExists(CardManager.Instance?.gameObject);
-
-        #if UNITY_2023_1_OR_NEWER
-        DestroyIfExists(UnityEngine.Object.FindFirstObjectByType<ShopManager>()?.gameObject);
-        #else
-        var shopMgr = FindObjectOfType<ShopManager>();
-        if (shopMgr) Destroy(shopMgr.gameObject);
-        #endif
-
-        // ---- โหลดซีนผ่านทรานซิชัน (ถ้ามี) ----
-        if (SceneTransitioner.I != null)
-            SceneTransitioner.LoadScene(playSceneName); // fade ดำ → โหลด → เผยจากกลางจอ
-        else
-            SceneManager.LoadScene(playSceneName);       // fallback ถ้ายังไม่ได้วาง _SceneTransitioner
+        // โหลดซีนเริ่มเกม
+        if (SceneTransitioner.I != null) SceneTransitioner.LoadScene(startSceneName);
+        else SceneManager.LoadScene(startSceneName);
     }
 
-    // เรียกตอนกดปุ่ม Continue (เล่นต่อ): ไม่รีเซ็ตข้อมูล, โหลด Scene เกมหลัก
+    // ===== Continue: ไปซีนล่าสุดที่เคยอยู่ พร้อม progress เดิม =====
     public void OnContinueButtonClicked()
     {
-        SceneManager.LoadScene("Try");
+        // ให้แน่ใจว่าโหลด progress มาก่อน (เผื่อเปิดเกมใหม่)
+        PlayerProgressSO.Instance?.LoadFromPrefs();
+
+        string last = PlayerProgressSO.Instance?.GetLastSceneOrDefault(startSceneName) ?? startSceneName;
+
+        if (SceneTransitioner.I != null) SceneTransitioner.LoadScene(last);
+        else SceneManager.LoadScene(last);
     }
 
     public void OnHistoryButtonClicked()
@@ -60,15 +54,8 @@ public class MainMenuManager : MonoBehaviour
         SceneManager.LoadScene("UIHistoryScene");
     }
 
-    // เรียกตอนกดปุ่ม Options
-    public void OnOptionsButtonClicked()
-    {
-        optionsPanel.SetActive(true);
-    }
-
-    // เรียกตอนคลิกปุ่มปิดใน Options Panel
-    public void OnCloseOptionsClicked() => optionsPanel.SetActive(false);
+    public void OnOptionsButtonClicked() => optionsPanel.SetActive(true);
+    public void OnCloseOptionsClicked()  => optionsPanel.SetActive(false);
 
     private void DestroyIfExists(GameObject obj) { if (obj) Destroy(obj); }
-
 }

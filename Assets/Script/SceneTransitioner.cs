@@ -11,17 +11,17 @@ public class SceneTransitioner : MonoBehaviour
     public static SceneTransitioner I { get; private set; }
 
     [Header("Overlay (สร้างอัตโนมัติถ้าไม่ใส่)")]
-    [SerializeField] private CanvasGroup fadeGroup;   // ม่านดำเต็มจอ (คุมด้วย alpha)
+    [SerializeField] private CanvasGroup fadeGroup;
 
     [Header("Timings (sec)")]
-    [SerializeField] private float fadeOutTime = 0.40f; // เวลาดำเข้า
-    [SerializeField] private float fadeInTime  = 0.40f; // เวลาเฟดออกหลังโหลด
+    [SerializeField] private float fadeOutTime = 0.40f;
+    [SerializeField] private float fadeInTime  = 0.40f;
 
     [Header("Block Input While Transition")]
     [SerializeField] private bool blockRaycastsDuringTransition = true;
 
     [Header("Sorting")]
-    [SerializeField] private bool autoRaiseOrder = true;  // ยก overlay ให้อยู่บนสุดเสมอ
+    [SerializeField] private bool autoRaiseOrder = true;
     [SerializeField] private int fixedSortingOrder = 32760;
 
     Canvas _canvas;
@@ -29,31 +29,36 @@ public class SceneTransitioner : MonoBehaviour
 
     void Awake()
     {
-        // singleton + ค้างข้ามซีน
         if (I != null && I != this) { Destroy(gameObject); return; }
         I = this;
-        if (transform.parent != null) transform.SetParent(null, true); // ต้องเป็น root
+        if (transform.parent != null) transform.SetParent(null, true);
         DontDestroyOnLoad(gameObject);
 
-        EnsureOverlayReady(); // มี Canvas/CanvasGroup/ภาพดำครบแน่
+        EnsureOverlayReady();
         BringToFront();
 
-        // เริ่มโปร่งและไม่บังคลิก
         fadeGroup.alpha = 0f;
         fadeGroup.blocksRaycasts = false;
         fadeGroup.interactable = false;
 
-        SceneManager.activeSceneChanged += (_, __) => BringToFront();
+        SceneManager.activeSceneChanged += OnActiveSceneChanged;
         SceneManager.sceneLoaded += (_, __) => BringToFront();
     }
 
     void OnDestroy()
     {
-        SceneManager.activeSceneChanged -= (_, __) => BringToFront();
+        SceneManager.activeSceneChanged -= OnActiveSceneChanged;
         SceneManager.sceneLoaded -= (_, __) => BringToFront();
     }
 
-    // ===== API =====
+    void OnActiveSceneChanged(Scene oldS, Scene newS)
+    {
+        BringToFront();
+        // บันทึกชื่อซีนล่าสุด + เซฟ progress เมื่อมีการเปลี่ยนซีน
+        PlayerProgressSO.Instance?.SetLastScene(newS.name);
+        PlayerProgressSO.Instance?.SaveToPrefs();
+    }
+
     public static void LoadScene(string sceneName)
     {
         if (I == null) { Debug.LogError("[SceneTransitioner] No instance."); return; }
@@ -62,7 +67,6 @@ public class SceneTransitioner : MonoBehaviour
     }
     public void LoadSceneButton(string sceneName) => LoadScene(sceneName);
 
-    // ===== Flow หลัก: เฟดดำ -> โหลด -> เฟดออก =====
     IEnumerator LoadRoutine(string sceneName)
     {
         _busy = true;
@@ -74,21 +78,20 @@ public class SceneTransitioner : MonoBehaviour
             fadeGroup.interactable = true;
         }
 
-        // 1) เฟดดำเต็มจอ
         yield return FadeAlpha(1f, fadeOutTime);   // 0 -> 1
 
-        // 2) โหลดซีนใต้ม่านดำ
+        // เซฟ progress ก่อนย้ายซีน เผื่อเกมปิดระหว่างโหลด
+        PlayerProgressSO.Instance?.SaveToPrefs();
+
         var op = SceneManager.LoadSceneAsync(sceneName);
         op.allowSceneActivation = false;
         while (op.progress < 0.9f) yield return null;
         op.allowSceneActivation = true;
         while (!op.isDone) yield return null;
 
-        // ให้ซีนใหม่วาด 1 เฟรม โดยยังมืดสนิท
         yield return new WaitForEndOfFrame();
         BringToFront();
 
-        // 3) เฟดออกจนเห็นทั้งซีน
         yield return FadeAlpha(0f, fadeInTime);    // 1 -> 0
 
         if (blockRaycastsDuringTransition)
@@ -100,20 +103,15 @@ public class SceneTransitioner : MonoBehaviour
         _busy = false;
     }
 
-    // ===== Helpers =====
     IEnumerator FadeAlpha(float target, float duration)
     {
-        if (duration <= 0f)
-        {
-            fadeGroup.alpha = target;
-            yield break;
-        }
+        if (duration <= 0f) { fadeGroup.alpha = target; yield break; }
 
         float start = fadeGroup.alpha;
         float t = 0f;
         while (t < duration)
         {
-            t += Time.unscaledDeltaTime; // ไม่ขึ้นกับ Time.timeScale
+            t += Time.unscaledDeltaTime;
             float k = Mathf.SmoothStep(0f, 1f, t / duration);
             fadeGroup.alpha = Mathf.Lerp(start, target, k);
             yield return null;
@@ -123,7 +121,6 @@ public class SceneTransitioner : MonoBehaviour
 
     void EnsureOverlayReady()
     {
-        // หา/สร้าง Canvas ลูก + CanvasGroup + ภาพดำเต็มจอ
         _canvas = GetComponentInChildren<Canvas>(true);
         if (_canvas == null) _canvas = gameObject.AddComponent<Canvas>();
         _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -131,7 +128,6 @@ public class SceneTransitioner : MonoBehaviour
 
         if (fadeGroup == null)
         {
-            // สร้างโครง UI
             var go = new GameObject("FadeOverlay", typeof(RectTransform), typeof(CanvasGroup), typeof(Image));
             go.transform.SetParent(transform, false);
             var rt = go.GetComponent<RectTransform>();
@@ -140,8 +136,8 @@ public class SceneTransitioner : MonoBehaviour
 
             fadeGroup = go.GetComponent<CanvasGroup>();
             var img = go.GetComponent<Image>();
-            img.color = Color.black;      // ดำทึบ
-            img.raycastTarget = false;    // ภาพไม่ต้องรับคลิก (ให้ CanvasGroup จัดการ)
+            img.color = Color.black;
+            img.raycastTarget = false;
         }
     }
 
