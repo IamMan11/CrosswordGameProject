@@ -75,6 +75,7 @@ public class LetterTile : MonoBehaviour,
     private void Awake()
     {
         rectTf = GetComponent<RectTransform>();
+        RefreshCanvasRef(); 
 
         canvas = GetComponentInParent<Canvas>();
         if (canvas == null)
@@ -121,6 +122,43 @@ public class LetterTile : MonoBehaviour,
         var slot = GetComponentInParent<BoardSlot>();
         return Level1GarbledIT.Instance != null && Level1GarbledIT.Instance.IsGarbledSlot(slot);
     }
+    // ==== Canvas resolver (กันถูกย้ายไปอยู่ใต้ _SceneTransitioner) ====
+    bool IsTransitionerCanvas(Canvas c) =>
+        c != null && c.GetComponentInParent<SceneTransitioner>() != null;
+
+    Canvas ResolveGameplayCanvas()
+    {
+        // 1) เอา Canvas บนสายพ่อแม่ตัวเองก่อน ถ้าไม่ใช่ของ SceneTransitioner
+        var c = GetComponentInParent<Canvas>();
+        if (c && !IsTransitionerCanvas(c)) return c.rootCanvas;
+
+        // 2) หา Canvas ใน "ซีนเดียวกัน" ที่ไม่ใช่ SceneTransitioner
+        Canvas best = null;
+        var myScene = gameObject.scene;
+        foreach (var ca in FindObjectsOfType<Canvas>(false))
+        {
+            if (IsTransitionerCanvas(ca)) continue;
+            if (ca.gameObject.scene != myScene) continue;
+            if (best == null || ca.sortingOrder > best.sortingOrder) best = ca;
+        }
+        if (best) return best.rootCanvas;
+
+        // 3) เผื่อกรณีสุดท้าย: เอา Canvas ไหนก็ได้ที่ไม่ใช่ SceneTransitioner
+        foreach (var ca in FindObjectsOfType<Canvas>(false))
+            if (!IsTransitionerCanvas(ca)) return ca.rootCanvas;
+
+        return null;
+    }
+
+    void RefreshCanvasRef()
+    {
+        var c = ResolveGameplayCanvas();
+        if (c != null)
+        {
+            canvas = c;
+            rootCanvasRect = c.transform as RectTransform;
+        }
+    }
 
     // ===================== Drag Handlers =====================
     public void OnBeginDrag(PointerEventData e)
@@ -164,6 +202,7 @@ public class LetterTile : MonoBehaviour,
         }
 
         wasInSpaceAtDragStart = IsInSpace;
+        RefreshCanvasRef();
 
         if (canvas != null)
         {
@@ -415,6 +454,7 @@ public class LetterTile : MonoBehaviour,
         Vector3 startPosWorld = rectTf.position;
 
         // 2) ย้ายขึ้น Canvas
+        RefreshCanvasRef();
         if (canvas != null)
         {
             transform.SetParent(canvas.transform, true);

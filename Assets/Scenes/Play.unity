@@ -3250,9 +3250,9 @@ MonoBehaviour:
   wordRequestTargetLevel1: 10
   levels:
   - levelIndex: 1
-    requiredScore: 1
+    requiredScore: 100000
     requiredWords: 0
-    timeLimit: 900
+    timeLimit: 0
     level1_enableGarbledIT: 1
     level1_garbledCount: 1
     level1_minGapBetweenSets: 2

@@ -5095,6 +5095,7 @@ MonoBehaviour:
   - {fileID: 68622249}
   - {fileID: 1378940652}
   - {fileID: 2051263118}
+  rerollButton: {fileID: 0}
   manaUpgradeCost: 50
   slotUpgradeCost: 75
   tilepackCost: 40
@@ -6181,51 +6182,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1842570086}
   m_CullTransparentMesh: 1
---- !u!1 &1863471569
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1863471571}
-  - component: {fileID: 1863471572}
-  m_Layer: 0
-  m_Name: curencymanager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1863471571
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1863471569}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 694.0846, y: 590.1362, z: -3.7719193}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1863471572
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1863471569}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 20531dad03fa272479208c6277d04dd8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  startCoins: 100
 --- !u!1 &1867443429
 GameObject:
   m_ObjectHideFlags: 0
@@ -7056,6 +7012,5 @@ SceneRoots:
   - {fileID: 1251931466}
   - {fileID: 597798333}
   - {fileID: 594602014}
-  - {fileID: 1863471571}
   - {fileID: 1106602476}
   - {fileID: 436763426}

@@ -410,6 +410,15 @@ public class LevelManager : MonoBehaviour
         StopAllLoops();
 
         var result = BuildStageResult(cfg);
+
+        // ✅ บวกเหรียญเข้ากระเป๋าผู้เล่นจริง ๆ (และจะเซฟลง PlayerPrefs ในตัว)
+        if (result.totalCoins > 0)
+        {
+            CurrencyManager.Instance?.Add(result.totalCoins);
+            // (ออปชัน) โชว์ toast เล็ก ๆ
+            UIManager.Instance?.ShowFloatingToast($"+{result.totalCoins} coins", Color.yellow, 1.2f);
+        }
+
         stageClearPanel?.Show(result, next: () =>
         {
             StageResultBus.LastResult = result;

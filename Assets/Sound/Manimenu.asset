@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Manimenu
   m_EditorClassIdentifier: 
   sceneName: Mainmenu
-  bgmBase: {fileID: 8300000, guid: cb311b45ff95b5741bab2cbae0cc7c31, type: 3}
+  bgmBase: {fileID: 0}
   bgmMid: {fileID: 0}
   bgmHigh: {fileID: 0}
   bgmLocalGain: 1
