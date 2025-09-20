@@ -55,6 +55,8 @@ public class TurnManager : MonoBehaviour
     public RectTransform anchorTotal;
     public RectTransform scoreHud;
     public ScorePopUI scorePopPrefab;
+    public bool IsConfirmInProgress => inConfirmProcess;
+    public bool IsConfirmLockedNow  => inConfirmProcess || IsScoringAnimation;
 
     [Header("Score Pop Settings")]
     public int tier2Min = 3;
@@ -128,11 +130,20 @@ public class TurnManager : MonoBehaviour
 
     void Update()
     {
-        if (!inConfirmProcess && confirmBtn != null)
+        if (confirmBtn == null) return;
+
+        bool busy = inConfirmProcess || IsScoringAnimation;
+        if (!busy)
         {
             bool can = BoardHasAnyTile();
-            confirmBtn.interactable = can;   // ของเดิม
-            SetButtonVisual(confirmBtn, can); // เพิ่มบรรทัดนี้ให้จาง/สว่างตามสถานะ
+            confirmBtn.interactable = can;
+            SetButtonVisual(confirmBtn, can);
+        }
+        else
+        {
+            // ล็อกปุ่มระหว่างยืนยัน/แอนิเมชันคิดคะแนน
+            confirmBtn.interactable = false;
+            SetButtonVisual(confirmBtn, false);
         }
     }
 
@@ -476,7 +487,7 @@ public class TurnManager : MonoBehaviour
     {
         inConfirmProcess = false;
         if (confirmBtn == null) return;
-        bool can = BoardHasAnyTile();
+        bool can = !IsScoringAnimation && BoardHasAnyTile();
         confirmBtn.interactable = can;
         SetButtonVisual(confirmBtn, can);
     }
@@ -870,6 +881,7 @@ public class TurnManager : MonoBehaviour
             EnableConfirm();
             return;
         }
+        if (inConfirmProcess || IsScoringAnimation) return;
 
         if (inConfirmProcess) return;
         inConfirmProcess = true;

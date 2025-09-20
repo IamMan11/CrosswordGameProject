@@ -34,6 +34,8 @@ public class BgmPlayer : MonoBehaviour {
         b = gameObject.AddComponent<AudioSource>();
         SetupSrc(a);
         SetupSrc(b);
+
+        DontDestroyOnLoad(gameObject);   // ✅ อยู่ข้ามซีน
     }
 
     void SetupSrc(AudioSource s) {

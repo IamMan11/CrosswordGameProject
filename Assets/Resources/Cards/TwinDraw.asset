@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 24
   displayName: Twin Draw
   description: Can Chose 2 Card
-  icon: {fileID: 0}
+  icon: {fileID: 8197598144310477267, guid: 927e3f9e1dbe0dc4d823b79e0873bcc6, type: 3}
   effectType: 5
   Mana: 5
   maxUsagePerTurn: 3

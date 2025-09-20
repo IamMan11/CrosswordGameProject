@@ -1,6 +1,7 @@
 
 using UnityEngine;
 using UnityEngine.Audio;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// AudioMixerController
@@ -38,28 +39,42 @@ public class AudioMixerController : MonoBehaviour
         if (I && I != this) { Destroy(gameObject); return; }
         I = this;
         if (dontDestroyOnLoad) DontDestroyOnLoad(gameObject);
+
+        // โหลดค่าเดิมแล้วอัปไลทันที
         ApplyAll( Load(KEY_MASTER, defaultMaster),
                   Load(KEY_MUSIC,  defaultMusic),
                   Load(KEY_SFX,    defaultSfx) );
+
+        // ✅ รีอัปไลทุกครั้งที่เปลี่ยนซีน (กันสคริปต์อื่นไปแตะค่า)
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+    void OnDestroy() {
+        if (I == this)
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    void OnSceneLoaded(Scene s, LoadSceneMode m) {
+        ApplyAll(GetMaster(), GetMusic(), GetSfx()); // ✅ ตอกค่าเดิมกลับ
     }
 
     // ===== Public API (เรียกจาก UI) =====
-    public void SetMaster(float v) { SetLinear(masterParam, v); Save(KEY_MASTER, v); }
-    public void SetMusic (float v) { SetLinear(musicParam,  v); Save(KEY_MUSIC,  v); }
-    public void SetSfx   (float v) { SetLinear(sfxParam,    v); Save(KEY_SFX,    v); }
+    public void SetMaster(float v) { SetLinear(masterParam, v); Save(KEY_MASTER, v); PlayerPrefs.Save(); } // ✅ เซฟทันที
+    public void SetMusic (float v) { SetLinear(musicParam,  v); Save(KEY_MUSIC,  v); PlayerPrefs.Save(); } // ✅
+    public void SetSfx   (float v) { SetLinear(sfxParam,    v); Save(KEY_SFX,    v); PlayerPrefs.Save(); } // ✅
 
     public float GetMaster() => Load(KEY_MASTER, defaultMaster);
     public float GetMusic () => Load(KEY_MUSIC,  defaultMusic);
     public float GetSfx   () => Load(KEY_SFX,    defaultSfx);
+    
 
     public void ApplyAll(float master, float music, float sfx)
     {
         SetLinear(masterParam, master);
-        SetLinear(musicParam,  music);
-        SetLinear(sfxParam,    sfx);
+        SetLinear(musicParam, music);
+        SetLinear(sfxParam, sfx);
         Save(KEY_MASTER, master);
-        Save(KEY_MUSIC,  music);
-        Save(KEY_SFX,    sfx);
+        Save(KEY_MUSIC, music);
+        Save(KEY_SFX, sfx);
     }
 
     // ===== Helpers =====

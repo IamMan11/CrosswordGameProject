@@ -366,7 +366,11 @@ public class LevelManager : MonoBehaviour
 
         // ด่าน 2: seed/ธีม/เริ่มโซน x2
         if (currentLevelConfig?.levelIndex == 2)
-            Level2Controller.Instance?.Setup();
+        {
+            Level2_ClearLockedSegments();
+            Level2Controller.Instance?.Setup();   // ← สร้าง Triangle ก่อน
+            Level2_SpawnLockedSegments();         // ← แล้วค่อยวางล็อก
+        }
 
         Debug.Log($"▶ เริ่มด่าน {currentLevelConfig.levelIndex} | Time: {currentLevelConfig.timeLimit}s | Score target: {currentLevelConfig.requiredScore}");
         LevelTaskUI.I?.Refresh();    // <-- เพิ่ม
@@ -905,7 +909,12 @@ public class LevelManager : MonoBehaviour
     {
         if (level2_lockedSegmentSlots.Count == 0) return;
         foreach (var s in level2_lockedSegmentSlots)
-            if (s) s.SetLockedVisual(false);
+            if (s)
+            {
+                s.IsLocked = false;                            // ✅ ล้างสถานะล็อก
+                s.SetLockedVisual(false);
+                s.ApplyVisual();                               // รีเฟรชหน้าตาเผื่อมีผลสี/ไอคอน
+            }
         level2_lockedSegmentSlots.Clear();
     }
 
@@ -931,6 +940,17 @@ public class LevelManager : MonoBehaviour
             new Vector2Int(-1,-1), new Vector2Int(-1, 1),
             new Vector2Int( 1,-1), new Vector2Int( 1, 1),
         };
+        bool NearTriangle8(int r, int c)
+        {
+            if (Level2Controller.IsTriangleCell(r, c)) return true;
+            for (int i = 0; i < ADJ8.Length; i++)
+            {
+                int nr = r + ADJ8[i].x, nc = c + ADJ8[i].y;
+                if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+                if (Level2Controller.IsTriangleCell(nr, nc)) return true;
+            }
+            return false;
+        }
 
         bool HasLockedNeighbor8(int r, int c)
         {
@@ -969,8 +989,13 @@ public class LevelManager : MonoBehaviour
 
                     var s = bm.grid[r, c];
                     // เงื่อนไข: ต้องอยู่นอกกลาง 3×3, ยังไม่ล็อก, ไม่มีตัวอักษร, และ "ไม่มีเพื่อนล็อก" 8 ทิศ
-                    if (!s || InCenter3x3(r, c) || s.IsLocked || s.HasLetterTile() || HasLockedNeighbor8(r, c))
-                    { candidates.Clear(); break; }
+                    if (!s || InCenter3x3(r, c) || s.IsLocked || s.HasLetterTile()
+                        || Level2Controller.IsTriangleCell(r, c)       // ✅ กันวางทับ Triangle
+                        || HasLockedNeighbor8(r, c)
+                        || NearTriangle8(r, c))
+                    {
+                        candidates.Clear(); break;
+                    }
 
                     candidates.Add(s);
                 }
@@ -979,6 +1004,7 @@ public class LevelManager : MonoBehaviour
                 {
                     foreach (var s in candidates)
                     {
+                        s.IsLocked = true;                                 // ✅ ต้องตั้งสถานะล็อกจริง
                         s.SetLockedVisual(true, level2_lockedOverlayColor);
                         level2_lockedSegmentSlots.Add(s);
                     }

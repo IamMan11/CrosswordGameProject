@@ -10,15 +10,19 @@ public enum SfxId
     SlotShift,
     TileDrop,
     TileSnap,
-    TileTransfer,      // ✅ ย้าย Bench <-> Space
+    TileTransfer,
 
-    // ✅ ชุดเสียงนับคะแนน
-    ScoreLetterTick,   // ฝั่งตัวอักษร (A)
-    ScoreMultTick,     // ฝั่งตัวคูณ (B)
-    ScoreJoin,         // ตอนรวม A+B
-    ScorePenalty,      // ตอนหัก % Dictionary
-    ScoreCommit,        // ตอนส่งเข้า Score HUD (รวมเข้าคะแนนรวม)
-    StreakBreak      // เสีย Streak
+    // ===== ชุดคะแนน =====
+    ScoreLetterTick,
+    ScoreMultTick,
+    ScoreJoin,
+    ScorePenalty,
+    ScoreCommit,
+    StreakBreak,
+
+    // ===== เพิ่มใหม่: ชุด UI =====
+    UI_Hover,   // ชี้เมาส์เข้า
+    UI_Click    // กดปุ่ม (ตอน PointerDown)
 }
 
 [Serializable]
@@ -163,23 +167,23 @@ public class SfxPlayer : MonoBehaviour
         if (!_map.TryGetValue(id, out var e) || e.clips == null || e.clips.Length == 0) yield break;
 
         var clip = e.clips[UnityEngine.Random.Range(0, e.clips.Length)];
-        var go   = new GameObject($"SFX_{id}_temp");
-        var src  = go.AddComponent<AudioSource>();
+        var go = new GameObject($"SFX_{id}_temp");
+        var src = go.AddComponent<AudioSource>();
 
         // route ไป Mixer Group SFX เพื่อให้สไลเดอร์ SFX คุมได้
         if (outputGroup) src.outputAudioMixerGroup = outputGroup;
 
-        src.playOnAwake  = false;
+        src.playOnAwake = false;
         src.spatialBlend = 0f;
-        src.loop         = false;
+        src.loop = false;
 
         float pitch = 1f;
         if (stretchPitch && clip && clip.length > 0.001f)
             pitch = Mathf.Clamp(clip.length / Mathf.Max(0.001f, duration), pitchMin, pitchMax);
 
-        src.pitch  = pitch;
+        src.pitch = pitch;
         src.volume = e.volume * Mathf.Clamp(volumeMul, 0f, 1.75f);
-        src.clip   = clip;
+        src.clip = clip;
 
         // ถ้าคลิป (หลังยืด/เร่ง) สั้นกว่า duration มาก ให้ loop เติมเวลา
         float effectiveLen = (clip ? clip.length : 0f) / Mathf.Max(0.001f, pitch);
@@ -189,5 +193,15 @@ public class SfxPlayer : MonoBehaviour
         yield return new WaitForSecondsRealtime(Mathf.Max(0.001f, duration));
         if (src) src.Stop();
         Destroy(go);
+    }
+    public void LoadBank(SfxEntry[] bank, bool replaceAll = true)
+    {
+        if (replaceAll) _map.Clear();
+        if (bank == null) return;
+        foreach (var e in bank)
+        {
+            if (e == null) continue;
+            _map[e.id] = e; // override ถ้ามี id เดิม
+        }
     }
 }

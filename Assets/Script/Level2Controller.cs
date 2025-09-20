@@ -136,23 +136,25 @@ public class Level2Controller : MonoBehaviour
         var bm = BoardManager.Instance; if (bm?.grid == null) return;
         int rows = bm.rows, cols = bm.cols;
         size = Mathf.Max(1, size);
-        int gap  = Mathf.Max(1, minManhattanGap);
+        int gap = Mathf.Max(0, minManhattanGap);
 
-        triNodes.Clear(); triAllCells.Clear();
-        var chosen = new List<Vector2Int>();
-        int safety = 800;
+        triNodes.Clear();
+        triAllCells.Clear();
 
-        int centerR = rows / 2;
-        int centerC = cols / 2;
-        bool InCenter3x3(int r, int c) => Mathf.Abs(r - centerR) <= 1 && Mathf.Abs(c - centerC) <= 1;
+        var chosen = new List<Vector2Int>();   // top-left ของแต่ละก้อน
+        var taken  = new HashSet<Vector2Int>(); // เซลล์ที่ถูกใช้แล้ว (กันทับ/กันแตะ)
 
-        // 8 ทิศ (กันแตะท่อนล็อกทั้งข้าง/ชนมุม)
+        // กันแตะ 8 ทิศ
         Vector2Int[] ADJ8 = new Vector2Int[] {
             new Vector2Int(-1, 0), new Vector2Int(1, 0),
             new Vector2Int(0, -1), new Vector2Int(0, 1),
             new Vector2Int(-1,-1), new Vector2Int(-1, 1),
             new Vector2Int( 1,-1), new Vector2Int( 1, 1),
         };
+
+        // ห้ามลงกลาง 3x3
+        int centerR = rows / 2, centerC = cols / 2;
+        bool InCenter3x3(int r, int c) => Mathf.Abs(r - centerR) <= 1 && Mathf.Abs(c - centerC) <= 1;
 
         bool BlockOk(int topR, int leftC)
         {
@@ -161,14 +163,12 @@ public class Level2Controller : MonoBehaviour
             {
                 int rr = topR + dr, cc = leftC + dc;
                 if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) return false;
-
-                if (InCenter3x3(rr, cc)) return false;                   // ❌ ห้ามทับกลาง 3×3
+                if (InCenter3x3(rr, cc)) return false;
 
                 var s = bm.grid[rr, cc];
-                if (s == null) return false;
+                if (s == null || s.IsLocked) return false;      // ห้ามลงบนท่อนล็อก
 
-                // ❌ ห้ามทับและห้าม "ติด" ท่อนล็อก (8 ทิศ)
-                if (s.IsLocked) return false;
+                // ห้าม “ติด” ท่อนล็อก 8 ทิศ
                 for (int i = 0; i < ADJ8.Length; i++)
                 {
                     int nr = rr + ADJ8[i].x, nc = cc + ADJ8[i].y;
@@ -180,29 +180,55 @@ public class Level2Controller : MonoBehaviour
             return true;
         }
 
+        // ห้ามทับ/ห้ามแตะก้อนที่เลือกไว้ก่อนหน้า (เช็กเป็นรายเซลล์)
+        bool NoOverlapOrTouch(int topR, int leftC)
+        {
+            for (int dr = 0; dr < size; dr++)
+            for (int dc = 0; dc < size; dc++)
+            {
+                var v = new Vector2Int(topR + dr, leftC + dc);
+                if (taken.Contains(v)) return false; // ทับ
+
+                for (int i = 0; i < ADJ8.Length; i++)           // แตะ 8 ทิศ
+                    if (taken.Contains(v + ADJ8[i])) return false;
+            }
+            return true;
+        }
+
+        // สุ่มหาก้อนให้ครบ 3
+        int safety = 1200;
         while (chosen.Count < 3 && safety-- > 0)
         {
             int r = UnityEngine.Random.Range(0, rows - size + 1);
             int c = UnityEngine.Random.Range(0, cols - size + 1);
 
-            // ต้องห่างกันตาม gap เดิม + ผ่านเงื่อนไข BlockOk
+            // กระจายตัวแบบแมนฮัตตันด้วย top-left (กันกระจุก)
             bool farEnough = chosen.All(p => Mathf.Abs(p.x - r) + Mathf.Abs(p.y - c) >= gap);
             if (!farEnough) continue;
+
             if (!BlockOk(r, c)) continue;
+            if (!NoOverlapOrTouch(r, c)) continue;
 
+            // ผ่านทั้งหมด → ยอมรับ
             chosen.Add(new Vector2Int(r, c));
+            for (int dr = 0; dr < size; dr++)
+                for (int dc = 0; dc < size; dc++)
+                    taken.Add(new Vector2Int(r + dr, c + dc));
         }
 
-        if (chosen.Count < 3)
-        {
-            // fallback เดิม (ไม่ลงกลาง 3×3 อยู่แล้วเพราะตำแหน่งนี้หลบกลาง)
-            chosen.Clear();
-            chosen.Add(new Vector2Int(0, 0));
-            chosen.Add(new Vector2Int(0, Mathf.Max(0, cols - size)));
-            chosen.Add(new Vector2Int(Mathf.Max(0, rows - size), Mathf.Max(0, cols / 2 - size / 2)));
-        }
+        // ถ้ายังไม่ครบ 3 → กวาดทั้งกริดหาแบบเป็นระบบ
+        for (int r = 0; chosen.Count < 3 && r <= rows - size; r++)
+            for (int c = 0; chosen.Count < 3 && c <= cols - size; c++)
+                if (BlockOk(r, c) && NoOverlapOrTouch(r, c))
+                {
+                    chosen.Add(new Vector2Int(r, c));
+                    for (int dr = 0; dr < size; dr++)
+                        for (int dc = 0; dc < size; dc++)
+                            taken.Add(new Vector2Int(r + dr, c + dc));
+                }
 
-        foreach (var tl in chosen)
+        // ประกอบชุดเซลล์จริง
+        foreach (var tl in chosen.Take(3))
         {
             var set = new HashSet<Vector2Int>();
             for (int dr = 0; dr < size; dr++)
@@ -215,7 +241,6 @@ public class Level2Controller : MonoBehaviour
             triNodes.Add(set);
         }
     }
-
 
     void PaintTriangleNodesIdle(Color idleColor)
     {

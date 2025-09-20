@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 7
   displayName: Free Pass
   description: Dictionary Not 50% anymore
-  icon: {fileID: 0}
+  icon: {fileID: -8912421012223148036, guid: 1634bcf3ef70c3741950a1bfb254c44a, type: 3}
   effectType: 12
   Mana: 2
   maxUsagePerTurn: 10

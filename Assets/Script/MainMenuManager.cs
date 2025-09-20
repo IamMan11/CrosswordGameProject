@@ -5,17 +5,20 @@ public class MainMenuManager : MonoBehaviour
 {
     [Header("Options Panel")]
     public GameObject optionsPanel;  // ชี้ไปที่ Panel ตั้งค่า
+    [Header("Scene Names")]
+    [SerializeField] private string playSceneName = "Shop";   // ตั้งชื่อซีนที่ต้องการ
+
 
     // เรียกตอนกดปุ่ม Play (เริ่มเกมใหม่): รีเซ็ตข้อมูลทั้งหมดแล้วโหลด Scene เกมหลัก
     public void OnPlayButtonClicked()
     {
         // ทำลาย GameObject ของ Managers ที่ไม่ถูกทำลายข้าม Scene
         DestroyIfExists(CardManager.Instance?.gameObject);
-        #if UNITY_2023_1_OR_NEWER
+#if UNITY_2023_1_OR_NEWER
         DestroyIfExists(UnityEngine.Object.FindFirstObjectByType<ShopManager>()?.gameObject);
-        #else
+#else
         DestroyIfExists(FindObjectOfType<ShopManager>()?.gameObject);
-        #endif
+#endif
         DestroyIfExists(CurrencyManager.Instance?.gameObject);
         DestroyIfExists(TurnManager.Instance?.gameObject);
         DestroyIfExists(TileBag.Instance?.gameObject);
@@ -26,6 +29,24 @@ public class MainMenuManager : MonoBehaviour
 
         // โหลด Scene เกมหลัก (เปลี่ยนชื่อ Scene ตามจริง)
         SceneManager.LoadScene("Shop");
+    }
+    public void OnNewPlayClicked()
+    {
+        // ---- ทำความสะอาดของค้างข้ามซีน (ถ้ามี) ----
+        DestroyIfExists(CardManager.Instance?.gameObject);
+
+        #if UNITY_2023_1_OR_NEWER
+        DestroyIfExists(UnityEngine.Object.FindFirstObjectByType<ShopManager>()?.gameObject);
+        #else
+        var shopMgr = FindObjectOfType<ShopManager>();
+        if (shopMgr) Destroy(shopMgr.gameObject);
+        #endif
+
+        // ---- โหลดซีนผ่านทรานซิชัน (ถ้ามี) ----
+        if (SceneTransitioner.I != null)
+            SceneTransitioner.LoadScene(playSceneName); // fade ดำ → โหลด → เผยจากกลางจอ
+        else
+            SceneManager.LoadScene(playSceneName);       // fallback ถ้ายังไม่ได้วาง _SceneTransitioner
     }
 
     // เรียกตอนกดปุ่ม Continue (เล่นต่อ): ไม่รีเซ็ตข้อมูล, โหลด Scene เกมหลัก
@@ -46,15 +67,8 @@ public class MainMenuManager : MonoBehaviour
     }
 
     // เรียกตอนคลิกปุ่มปิดใน Options Panel
-    public void OnCloseOptionsClicked()
-    {
-        optionsPanel.SetActive(false);
-    }
+    public void OnCloseOptionsClicked() => optionsPanel.SetActive(false);
 
-    // ช่วยเมธอด: ถ้ามี GameObject อยู่ ก็ทำการทำลาย
-    private void DestroyIfExists(GameObject obj)
-    {
-        if (obj != null)
-            Destroy(obj);
-    }
+    private void DestroyIfExists(GameObject obj) { if (obj) Destroy(obj); }
+
 }

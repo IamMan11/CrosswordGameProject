@@ -181,7 +181,7 @@ public class ShopManager : MonoBehaviour
         TileBag.Instance?.ResetPool();
 
         // เข้าฉากเกม
-        SceneManager.LoadScene("Try");
+        SceneManager.LoadScene("Play");
     }
 
     /// <summary>กด Reroll — หักเหรียญ แล้วสุ่มของใหม่</summary>

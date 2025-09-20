@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 8
   displayName: Full Rerack
   description: Random All Letter in Bench
-  icon: {fileID: 0}
+  icon: {fileID: -1918661940657944203, guid: 5349023ac793ade4c9e895166bc2d6e5, type: 3}
   effectType: 9
   Mana: 2
   maxUsagePerTurn: 10
