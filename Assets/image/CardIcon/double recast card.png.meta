@@ -222,7 +222,11 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      double recast card_0: -6664470572883296045
+      double recast card_1: 9212680261280605689
+      double recast card_2: 4688595469045170800
+      double recast card_3: 7847728960439851527
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

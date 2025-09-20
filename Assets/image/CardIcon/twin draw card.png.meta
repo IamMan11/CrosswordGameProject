@@ -272,7 +272,13 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      twin draw card_0: 8197598144310477267
+      twin draw card_1: 8717889060116049354
+      twin draw card_2: -91689923519468390
+      twin draw card_3: 7024925166067561096
+      twin draw card_4: 88739671948596366
+      twin draw card_5: -7716240811234881596
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

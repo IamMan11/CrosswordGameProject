@@ -197,7 +197,10 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      bench blitz card_0: 9155445815080071039
+      bench blitz card_1: -8654656606625273412
+      bench blitz card_2: 5402394167901236798
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

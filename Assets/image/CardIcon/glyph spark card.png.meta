@@ -147,7 +147,8 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      glyph spark card_0: 7970043500296465006
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

@@ -147,7 +147,8 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      minor infusion card_0: 8391756266262009408
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

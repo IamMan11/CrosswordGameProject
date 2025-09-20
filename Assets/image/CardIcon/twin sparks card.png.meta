@@ -147,7 +147,8 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      twin sparks card_0: -2712216614129409070
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
