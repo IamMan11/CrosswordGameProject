@@ -64,6 +64,14 @@ public class TurnManager : MonoBehaviour
     public float stepDelay = 0.08f;
     public float sectionDelay = 0.20f;
     public float flyDur = 0.6f;
+    [Header("Total Wave FX")]
+    public bool  totalWaveEnabled   = true;
+    public int   totalWaveThreshold = 120; // เริ่มเล่นคลื่นเมื่อ total >= ค่านี้ (ก่อนหักโทษ)
+    public float waveAmplitude      = 24f;
+    public float waveCharPhase      = 0.55f;
+    public float waveSpeed          = 7f;
+    public float waveHoldTail       = 0.15f;
+    public float waveSettleDur      = 0.20f;
     [Header("Scoring SFX Pitch")]
     public float letterPitchStart = 1.00f;
     public float letterPitchMax   = 1.60f;
@@ -132,7 +140,9 @@ public class TurnManager : MonoBehaviour
     {
         if (confirmBtn == null) return;
 
-        bool busy = inConfirmProcess || IsScoringAnimation;
+        // เดิม: bool busy = inConfirmProcess || IsScoringAnimation;
+        bool busy = inConfirmProcess || IsScoringAnimation || UiGuard.IsBusy; // ✅ เพิ่ม UiGuard
+
         if (!busy)
         {
             bool can = BoardHasAnyTile();
@@ -141,7 +151,6 @@ public class TurnManager : MonoBehaviour
         }
         else
         {
-            // ล็อกปุ่มระหว่างยืนยัน/แอนิเมชันคิดคะแนน
             confirmBtn.interactable = false;
             SetButtonVisual(confirmBtn, false);
         }
@@ -714,7 +723,12 @@ public class TurnManager : MonoBehaviour
             uiC.transform.localScale = uiA.transform.localScale;
             uiC.SetColor(uiC.colorTotal);
             uiC.PopByDelta(displayedTotal, tier2Min, tier3Min);
-            yield return new WaitForSecondsRealtime(0.8f);
+            if (totalWaveEnabled && displayedTotal >= totalWaveThreshold)
+            {
+                yield return StartCoroutine(uiC.WaveDigits(
+                    waveAmplitude, waveCharPhase, waveSpeed, waveHoldTail, waveSettleDur
+                ));
+            }
 
             // โทษพจนานุกรม
             if (dictPenaltyPercent > 0)
@@ -741,10 +755,9 @@ public class TurnManager : MonoBehaviour
                     yield return null;
                 }
                 uiC.SetValue(penalized);
-                uiC.PopByDelta(Mathf.Max(1, displayedTotal - penalized), tier2Min, tier3Min);
 
                 displayedTotal = penalized;
-                yield return new WaitForSecondsRealtime(0.8f);
+                yield return new WaitForSecondsRealtime(0.3f);
             }
 
             // ลอยเข้าหา HUD + อัปเดต HUD ชั่วคราว
@@ -773,14 +786,21 @@ public class TurnManager : MonoBehaviour
                 if (!bounced.Contains(t)) t.Lock();
 
             Level2Controller.Instance?.OnAfterLettersLocked();
+            //---------------------------------------------------------------------------------
+            EndScoreSequence();
+            UiGuard.Push();
             BenchManager.Instance.RefillEmptySlots();
+            while (BenchManager.Instance.IsRefilling())   // ถ้า Bench มีตัวนี้อยู่แล้ว
+                yield return null;
+            UiGuard.Pop();
+
             LevelTaskUI.I?.Refresh();
             UpdateBagUI();
             EnableConfirm();
+            
             if (Level1GarbledIT.Instance != null)
                 yield return Level1GarbledIT.Instance.ProcessAfterMainScoring();
-
-            EndScoreSequence();
+            
             BoardManager.Instance?.RevertTempSpecialsThisTurn();
             ResetOncePerTurnEffects();
             // >>> NEW: สุ่ม Bench Issue สำหรับเทิร์นถัดไป (หลังเติม Bench เสร็จแล้ว)

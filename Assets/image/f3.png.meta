@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 7cb16462d1265d24c8a12c9fcfb41b7a
+guid: f328684b6d80eb44589844131ecf67f3
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 8391756266262009408
-    second: minor infusion card_0
+      213: -3379463121690889879
+    second: f3_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: minor infusion card_0
+      name: f3_0
       rect:
         serializedVersion: 2
         x: 0
-        y: 8
-        width: 1024
-        height: 1478
+        y: 0
+        width: 1536
+        height: 1024
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 046943cdcd1857470800000000000000
-      internalID: 8391756266262009408
+      spriteID: 961f41c223cb911d0800000000000000
+      internalID: -3379463121690889879
       vertices: []
       indices: 
       edges: []
@@ -147,8 +147,7 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable:
-      minor infusion card_0: 8391756266262009408
+    nameFileIdTable: {}
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

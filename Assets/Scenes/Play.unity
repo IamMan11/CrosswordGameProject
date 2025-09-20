@@ -15578,6 +15578,13 @@ MonoBehaviour:
   stepDelay: 0.13
   sectionDelay: 0.25
   flyDur: 0.25
+  totalWaveEnabled: 1
+  totalWaveThreshold: 1
+  waveAmplitude: 35
+  waveCharPhase: 0.25
+  waveSpeed: 15
+  waveHoldTail: 0.15
+  waveSettleDur: 0.2
   letterPitchStart: 1
   letterPitchMax: 1.6
   multPitchStart: 1

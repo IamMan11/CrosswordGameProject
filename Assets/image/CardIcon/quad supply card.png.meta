@@ -147,7 +147,8 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      quad supply card_0: -8268889977658006730
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

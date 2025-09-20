@@ -127,5 +127,99 @@ public class ScorePopUI : MonoBehaviour
         if (group) group.alpha = 0f;
         Destroy(gameObject);
     }
+    // ===== Total Wave FX (TMP sine-per-digit) =====
+    public System.Collections.IEnumerator WaveDigits(
+        float amplitude = 24f,     // ระยะแกว่งแนวตั้ง (พิกเซล)
+        float charPhase = 0.55f,   // ระยะเฟสระหว่างตัวอักษรถัดไป (เรเดียน)
+        float speed     = 7f,      // ความเร็วเดินคลื่น (เรเดียน/วินาที)
+        float holdTail  = 0.15f,   // หน่วงให้เห็นหลังจบคลื่น
+        float settleDur = 0.20f    // เวลาเก็บกลับให้นิ่ง
+    )
+    {
+        if (text == null) yield break;
+        text.ForceMeshUpdate();
+        var ti = text.textInfo;
+        int charCount = ti.characterCount;
+        if (charCount <= 0) yield break;
+
+        // เก็บตำแหน่ง vertex ต้นฉบับไว้เป็นฐาน
+        var cached = new Vector3[ti.meshInfo.Length][];
+        for (int m = 0; m < ti.meshInfo.Length; m++)
+            cached[m] = (Vector3[])ti.meshInfo[m].vertices.Clone();
+
+        // ให้คลื่นเริ่มจากตัวซ้ายสุด เคลื่อนไปจนขวาสุดครบหนึ่งคาบ
+        float phase = 0f;
+        float endPhase = Mathf.Max(0f, (charCount - 1) * charPhase) + (Mathf.PI * 2f);
+
+        while (phase < endPhase)
+        {
+            // เริ่มจากฐานทุกเฟรม
+            for (int m = 0; m < ti.meshInfo.Length; m++)
+                System.Array.Copy(cached[m], ti.meshInfo[m].vertices, ti.meshInfo[m].vertices.Length);
+
+            // ขยับทีละตัว
+            for (int i = 0; i < charCount; i++)
+            {
+                var ci = ti.characterInfo[i];
+                if (!ci.isVisible) continue;
+
+                int mi = ci.materialReferenceIndex;
+                int vi = ci.vertexIndex;
+                var verts = ti.meshInfo[mi].vertices;
+
+                float y = Mathf.Sin(phase - i * charPhase) * amplitude;
+                verts[vi + 0].y += y;
+                verts[vi + 1].y += y;
+                verts[vi + 2].y += y;
+                verts[vi + 3].y += y;
+            }
+
+            // อัปเดตเมช
+            for (int m = 0; m < ti.meshInfo.Length; m++)
+            {
+                var mi = ti.meshInfo[m];
+                mi.mesh.vertices = mi.vertices;
+                text.UpdateGeometry(mi.mesh, m);
+            }
+
+            phase += Time.unscaledDeltaTime * speed;
+            yield return null;
+        }
+
+        // หน่วงให้เห็นค่าชัด ๆ
+        if (holdTail > 0f) yield return new WaitForSecondsRealtime(holdTail);
+
+        // เก็บกลับให้นิ่ง (ease สั้น ๆ)
+        float t = 0f;
+        while (t < 1f)
+        {
+            t += Time.unscaledDeltaTime / Mathf.Max(0.0001f, settleDur);
+            float k = 1f - t; // 1 -> 0
+
+            // ไล่ลดความแกว่งลงสู่ฐาน
+            for (int m = 0; m < ti.meshInfo.Length; m++)
+            {
+                var verts = ti.meshInfo[m].vertices;
+                for (int v = 0; v < verts.Length; v++)
+                    verts[v] = Vector3.Lerp(verts[v], cached[m][v], 1f);
+            }
+            for (int m = 0; m < ti.meshInfo.Length; m++)
+            {
+                var mi = ti.meshInfo[m];
+                mi.mesh.vertices = mi.vertices;
+                text.UpdateGeometry(mi.mesh, m);
+            }
+            yield return null;
+        }
+
+        // รีเซ็ตเป็นฐาน 100%
+        for (int m = 0; m < ti.meshInfo.Length; m++)
+        {
+            var verts = ti.meshInfo[m].vertices;
+            System.Array.Copy(cached[m], verts, verts.Length);
+            ti.meshInfo[m].mesh.vertices = verts;
+            text.UpdateGeometry(ti.meshInfo[m].mesh, m);
+        }
+    }
     float EaseOutCubic(float x) => 1 - Mathf.Pow(1 - x, 3);
 }
