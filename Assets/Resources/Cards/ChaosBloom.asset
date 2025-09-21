@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 3
   displayName: Chaos Bloom
   description: Random 25 Special Board Slot
-  icon: {fileID: 0}
+  icon: {fileID: 6669023837851377473, guid: 56f173177fcea7d44b8f5484ba1d017b, type: 3}
   effectType: 17
   Mana: 7
   maxUsagePerTurn: 2

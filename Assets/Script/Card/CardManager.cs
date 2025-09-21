@@ -269,11 +269,17 @@ public class CardManager : MonoBehaviour
 
         if (cardsInCategory.Count == 0)
         {
-            // fallback: เลือกจาก pool ทั้งหมดที่ไม่ใช่ FusionCard
-            var pool = allCards.Where(cd => cd.category != CardCategory.FusionCard).ToList();
+            // Fallback: เลือกจาก pool ทั้งหมดที่ "ไม่ใช่ FusionCard" และ "ไม่ติด requirePurchase หรือผู้เล่นมีแล้ว"
+            bool canOwnsCheck = PlayerProgressSO.Instance != null;
+            var pool = allCards.Where(cd =>
+                cd.category != CardCategory.FusionCard &&
+                (!cd.requirePurchase || (canOwnsCheck && PlayerProgressSO.Instance.HasCard(cd.id)))
+            ).ToList();
+
             if (pool.Count == 0) return null;
             return pool[Random.Range(0, pool.Count)];
         }
+
 
         // 4) สุ่มเลือกการ์ดในหมวด
         int totalCardWeight = cardsInCategory.Sum(cd => cd.weight);
@@ -293,7 +299,6 @@ public class CardManager : MonoBehaviour
     {
         var opts = new List<CardData>();
         int attempts = 0;
-
         while (opts.Count < 3 && attempts < 20)
         {
             var candidate = GetWeightedRandomCard();
@@ -302,16 +307,22 @@ public class CardManager : MonoBehaviour
             attempts++;
         }
 
-        // ถ้ายังไม่ครบ 3 ใบ ให้สุ่มจาก pool ทั้งหมด (ยกเว้น FusionCard)
+        // เติมสำรองให้ครบ 3 ใบ แต่ต้อง “เคารพ requirePurchase” เช่นกัน
+        bool canCheckOwns = PlayerProgressSO.Instance != null;
         while (opts.Count < 3)
         {
-            var fallbackPool = allCards.Where(cd => cd.category != CardCategory.FusionCard).ToList();
+            var fallbackPool = allCards.Where(cd =>
+                cd.category != CardCategory.FusionCard &&
+                (!cd.requirePurchase || (canCheckOwns && PlayerProgressSO.Instance.HasCard(cd.id)))
+            ).ToList();
             if (fallbackPool.Count == 0) break;
-            var fallback = fallbackPool[Random.Range(0, fallbackPool.Count)];
-            if (!opts.Contains(fallback)) opts.Add(fallback);
+
+            var pick = fallbackPool[Random.Range(0, fallbackPool.Count)];
+            if (!opts.Contains(pick)) opts.Add(pick);
         }
         return opts;
     }
+
 
     /// <summary>เปิดหน้าต่าง MasterDraft (เลือกจาก allCards ทั้งหมด)</summary>
     private void OnUseMasterDraft()
@@ -476,7 +487,8 @@ public class CardManager : MonoBehaviour
         var card = heldCards[index];
         if (card == null) return;
 
-        // popup ยืนยัน (ยังไม่หัก mana)
+        // ❌ อย่าเช็กลิมิตตรงนี้แล้ว block — ให้ไปเช็กหลังผู้เล่นกดยืนยันแทน
+
         UIConfirmPopup.Show(
             $"ใช้การ์ด '{card.displayName}' ({card.Mana} Mana)?",
             () =>
@@ -488,16 +500,17 @@ public class CardManager : MonoBehaviour
                     return;
                 }
 
-                if (TurnManager.Instance != null &&
-                    !TurnManager.Instance.CanTriggerOncePerTurn(card.effectType))
-                {
-                    UIManager.Instance?.ShowMessage("เอฟเฟกต์นี้ใช้ได้ครั้งเดียวต่อเทิร์น", 2f);
-                    return;
-                }
 
-                if (!TurnManager.Instance.CanUseCard(card))
+                if (TurnManager.Instance != null &&
+                    (
+                        !TurnManager.Instance.CanTriggerOncePerTurn(card.effectType) ||
+                        !TurnManager.Instance.CanUseCard(card)
+                    ))
                 {
-                    UIManager.Instance?.ShowMessage("เกินจำนวนที่ใช้ได้", 2f);
+                    UIManager.Instance?.ShowMessage("ถึงขีดจำกัดแล้ว", 2f);
+
+                    // ❗ ลบการ์ดออกจากช่องด้วยอนิเมชัน และไม่แสดงเอฟเฟกต์
+                    StartCoroutine(RemoveCardWithoutEffect(index, card));
                     return;
                 }
 
@@ -508,32 +521,28 @@ public class CardManager : MonoBehaviour
                     return;
                 }
 
-                // ✅ ผ่านหมดแล้ว ค่อยเล่นคลิปหดจนหาย แล้วค่อย Apply จริง
+                // ผ่านทุกอย่าง → ใช้งานจริง
                 StartCoroutine(UseCardAfterAnim(index, card));
             },
-            () => { /* NO: ไม่ทำอะไร การ์ดยังอยู่ */ }
+            () => { /* Cancel */ }
         );
-
     }
-    private IEnumerator UseCardAfterAnim(int index, CardData card)
+    private IEnumerator RemoveCardWithoutEffect(int index, CardData card)
     {
-        // หา CardSlotUI ของช่องนี้เพื่อเล่นคลิป Use/Hide
+        // หา CardSlotUI เพื่อเล่นคลิป Use/Hide ให้หายสวย ๆ
         CardSlotUI slotUI = null;
-#if UNITY_2023_1_OR_NEWER
+        #if UNITY_2023_1_OR_NEWER
         foreach (var s in Object.FindObjectsByType<CardSlotUI>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             if (s.slotIndex == index) { slotUI = s; break; }
-#else
+        #else
         foreach (var s in GameObject.FindObjectsOfType<CardSlotUI>(true))
             if (s.slotIndex == index) { slotUI = s; break; }
-#endif
+        #endif
 
         if (slotUI != null)
-            yield return slotUI.PlayUseThen(null); // รอคลิปจบ
-        // ใช้เอฟเฟกต์ + จดการใช้งาน
-        ApplyEffect(card);
-        TurnManager.Instance?.OnCardUsed(card);
+            yield return slotUI.PlayUseThen(null); // รอคลิปหดจนหาย
 
-        // ★ แก้จุดนี้: ห้าม RemoveAt เพราะจะทำให้ช่องขยับ
+        // ❗ ไม่เรียก ApplyEffect / ไม่เรียก OnCardUsed / ไม่หักมานา
         EnsureHeldSize();
         if (index >= 0 && index < heldCards.Count && heldCards[index] == card)
             heldCards[index] = null;
@@ -545,6 +554,74 @@ public class CardManager : MonoBehaviour
 
         UIManager.Instance?.UpdateCardSlots(heldCards);
     }
+
+
+    private IEnumerator UseCardAfterAnim(int index, CardData card)
+    {
+        CardSlotUI slotUI = null;
+#if UNITY_2023_1_OR_NEWER
+        foreach (var s in Object.FindObjectsByType<CardSlotUI>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            if (s.slotIndex == index) { slotUI = s; break; }
+#else
+        foreach (var s in GameObject.FindObjectsOfType<CardSlotUI>(true))
+            if (s.slotIndex == index) { slotUI = s; break; }
+#endif
+
+        if (slotUI != null)
+            yield return slotUI.PlayUseThen(null); // เล่นคลิปหดจนหาย
+
+        // ⬇⬇⬇ ย้าย “ลบการ์ดจากมือ + อัปเดต UI” มาก่อนเอฟเฟกต์ ⬇⬇⬇
+        EnsureHeldSize();
+        if (index >= 0 && index < heldCards.Count && heldCards[index] == card)
+            heldCards[index] = null;
+        else
+        {
+            int cur = heldCards.IndexOf(card);
+            if (cur >= 0) heldCards[cur] = null;
+        }
+        UIManager.Instance?.UpdateCardSlots(heldCards);
+        // ⬆⬆⬆ ตอนนี้มือมี “ช่องว่าง” แล้ว → GiveRandomCard จะไม่เข้า Replace Mode ⬆⬆⬆
+
+        // ค่อย ApplyEffect (เช่น DoubleRecast → GiveRandomCard 2 ครั้ง)
+        ApplyEffect(card);
+
+        // จดการใช้งาน (คงไว้หลัง ApplyEffect หรือจะย้ายมาก่อนก็ได้)
+        TurnManager.Instance?.OnCardUsed(card);
+    }
+
+    private IEnumerator CleanSlateExcludeGarbled()
+    {
+        UiGuard.Push();   // กันผู้ใช้กดระหว่างเคลียร์ (ใช้รูปแบบเดียวกับระบบอื่นในโปรเจกต์)
+        try
+        {
+            // เก็บ LetterTile ทั้งหมด แล้วเลือกเฉพาะที่อยู่บนกระดาน (มี BoardSlot เป็นพาเรนต์)
+            var tiles = GameObject.FindObjectsOfType<LetterTile>(includeInactive: false);
+            int cleared = 0;
+
+            foreach (var t in tiles)
+            {
+                if (t == null) continue;
+
+                var onBoard = t.GetComponentInParent<BoardSlot>() != null;
+                if (!onBoard) continue; // ข้าม Bench/Space
+
+                bool isGarbled = (Level1GarbledIT.Instance != null) &&
+                                Level1GarbledIT.Instance.IsGarbledTile(t); // ตัวช่วยมีให้ใช้อยู่แล้ว
+
+                if (isGarbled) continue; // ❗ ไม่ล้างตัวที่มาจาก Garbled
+
+                Destroy(t.gameObject);
+                cleared++;
+                // yield return null; // ถ้าบอร์ดใหญ่แล้วเฟรมสะดุด ค่อยปลดคอมเมนต์เพื่อกระจายงานหลายเฟรม
+            }
+
+            UIManager.Instance?.ShowMessage(
+                $"Clean Slate — ล้าง {cleared} ตัว (ยกเว้น Garbled)!", 2f);
+        }
+        finally { UiGuard.Pop(); }
+        yield break;
+    }
+
 
     /// <summary>ลองฟิวชันการ์ดจากช่อง A → B; ถ้าสำเร็จจะเขียนผลทับช่อง B และลบ A</summary>
     public bool TryFuseByIndex(int fromIndex, int toIndex)
@@ -648,21 +725,83 @@ public class CardManager : MonoBehaviour
 
             // 5) เติม Bench 2
             case CardEffectType.TwinDraw:
-                for (int i = 0; i < 2; i++) BenchManager.Instance?.RefillOneSlot();
-                UIManager.Instance?.ShowMessage("Twin Draw – เติม 2 ตัวอักษร!", 2);
-                break;
+            {
+                var bm = BenchManager.Instance;
+                var tb = TileBag.Instance;
 
+                // คำนวณจำนวนที่ยังขาดในมือ (Bench + Space)
+                int handCap    = bm ? bm.handCapacity : 10;
+                int benchCount = bm != null ? bm.GetAllBenchTiles().Count() : 0;
+                int spaceCount = (SpaceManager.Instance != null) ? (SpaceManager.Instance.GetPreparedTiles()?.Count ?? 0) : 0;
+                int missing    = Mathf.Max(0, handCap - (benchCount + spaceCount));
+
+                int want   = 2;
+                int toFill = Mathf.Min(want, missing);  // เติมลง Bench ได้สูงสุดเท่าที่ขาด
+                int toBag  = want - toFill;             // ส่วนเกิน → บวกกลับเข้า tilepack (Remaining++)
+
+                // เติมแบบทันที (forceImmediate:true) กันคอร์รุตีนซ้อน
+                for (int i = 0; i < toFill; i++)
+                    bm?.RefillOneSlot(prefer: null, forceImmediate: true);
+
+                if (toBag > 0)
+                    tb?.AddRandomToPool(toBag);         // บวกเข้า “ถุง” เฉพาะ Remaining (70/100 → 74/100)
+
+                UIManager.Instance?.ShowMessage($"Quad Supply – เติม {toFill} ตัว และเข้าถุง {toBag} ตัว", 2f);
+                break;
+            }
             // 6) เติม Bench 4
             case CardEffectType.QuadSupply:
-                for (int i = 0; i < 4; i++) BenchManager.Instance?.RefillOneSlot();
-                UIManager.Instance?.ShowMessage("Quad Supply – เติม 4 ตัวอักษร!", 2);
+            {
+                var bm = BenchManager.Instance;
+                var tb = TileBag.Instance;
+
+                // คำนวณจำนวนที่ยังขาดในมือ (Bench + Space)
+                int handCap    = bm ? bm.handCapacity : 10;
+                int benchCount = bm != null ? bm.GetAllBenchTiles().Count() : 0;
+                int spaceCount = (SpaceManager.Instance != null) ? (SpaceManager.Instance.GetPreparedTiles()?.Count ?? 0) : 0;
+                int missing    = Mathf.Max(0, handCap - (benchCount + spaceCount));
+
+                int want   = 4;
+                int toFill = Mathf.Min(want, missing);  // เติมลง Bench ได้สูงสุดเท่าที่ขาด
+                int toBag  = want - toFill;             // ส่วนเกิน → บวกกลับเข้า tilepack (Remaining++)
+
+                // เติมแบบทันที (forceImmediate:true) กันคอร์รุตีนซ้อน
+                for (int i = 0; i < toFill; i++)
+                    bm?.RefillOneSlot(prefer: null, forceImmediate: true);
+
+                if (toBag > 0)
+                    tb?.AddRandomToPool(toBag);         // บวกเข้า “ถุง” เฉพาะ Remaining (70/100 → 74/100)
+
+                UIManager.Instance?.ShowMessage($"Quad Supply – เติม {toFill} ตัว และเข้าถุง {toBag} ตัว", 2f);
                 break;
+            }
 
             // 7) เติม Bench ทุกช่องว่าง Done
             case CardEffectType.BenchBlitz:
-                BenchManager.Instance?.RefillEmptySlots();
-                UIManager.Instance?.ShowMessage("Bench Blitz – เติมครบทุกช่องว่าง!", 2);
+            {
+                var bm = BenchManager.Instance;
+                var tb = TileBag.Instance;
+
+                // คำนวณจำนวนที่ยังขาดในมือ
+                int handCap    = bm ? bm.handCapacity : 10;
+                int benchCount = bm != null ? bm.GetAllBenchTiles().Count() : 0;
+                int spaceCount = (SpaceManager.Instance != null) ? (SpaceManager.Instance.GetPreparedTiles()?.Count ?? 0) : 0;
+                int missing    = Mathf.Max(0, handCap - (benchCount + spaceCount));
+
+                int toFill = Mathf.Min(10, missing);
+                int toPool = 10 - toFill;
+
+                // เติมลง Bench แบบทันที (ไม่ใช้อนิเมชัน → ตัดปัญหาคอร์รุตีนซ้อน)
+                for (int i = 0; i < toFill; i++)
+                    bm?.RefillOneSlot(prefer: null, forceImmediate: true);
+
+                // ส่วนเกินเพิ่มกลับเข้า TilePack (Remaining++)
+                if (toPool > 0)
+                    tb?.AddRandomToPool(toPool);
+
+                UIManager.Instance?.ShowMessage($"Bench Blitz – เติม {toFill} ตัว และเข้าถุง {toPool} ตัว", 2f);
                 break;
+            }
 
             // 8) จั่วการ์ดเพิ่ม 2 ใบ
             case CardEffectType.DoubleRecast:
@@ -737,9 +876,10 @@ public class CardManager : MonoBehaviour
 
             // 20) Clean Slate – ล้างตัวอักษรทั้งหมดบนบอร์ด
             case CardEffectType.CleanSlate:
-                BoardManager.Instance?.CleanSlate();
-                UIManager.Instance?.ShowMessage("Clean Slate — ล้างตัวอักษรทั้งหมดบนกระดาน!", 2f);
+            {
+                StartCoroutine(CleanSlateExcludeGarbled());
                 break;
+            }
 
             // 21) Global Echo – ตัวอักษรทั้งหมด x2 ชั่วคราว (1 นาที)
             case CardEffectType.GlobalEcho:

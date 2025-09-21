@@ -12,6 +12,7 @@ using UnityEngine.SceneManagement;
 public class AudioMixerController : MonoBehaviour
 {
     public static AudioMixerController I { get; private set; }
+    public bool reapplyOnSceneLoaded = false;  // ปิดการตอกค่าตอนเปลี่ยนซีน
 
     [Header("Mixer Asset + Exposed Params")]
     public AudioMixer mixer;
@@ -40,21 +41,24 @@ public class AudioMixerController : MonoBehaviour
         I = this;
         if (dontDestroyOnLoad) DontDestroyOnLoad(gameObject);
 
-        // โหลดค่าเดิมแล้วอัปไลทันที
+        // โหลดค่าล่าสุดแล้ว APPLY ครั้งเดียวตอนเริ่มโปรแกรม
         ApplyAll( Load(KEY_MASTER, defaultMaster),
-                  Load(KEY_MUSIC,  defaultMusic),
-                  Load(KEY_SFX,    defaultSfx) );
+                Load(KEY_MUSIC,  defaultMusic),
+                Load(KEY_SFX,    defaultSfx) );
 
-        // ✅ รีอัปไลทุกครั้งที่เปลี่ยนซีน (กันสคริปต์อื่นไปแตะค่า)
-        SceneManager.sceneLoaded += OnSceneLoaded;
+        // สมัครเฉพาะถ้าต้องการให้ตอกค่าเวลาเปลี่ยนซีน (ดีฟอลต์ = ไม่ตอก)
+        if (reapplyOnSceneLoaded)
+            SceneManager.sceneLoaded += OnSceneLoaded;
     }
+
     void OnDestroy() {
-        if (I == this)
-            SceneManager.sceneLoaded -= OnSceneLoaded;
+    if (I == this && reapplyOnSceneLoaded)
+        SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 
     void OnSceneLoaded(Scene s, LoadSceneMode m) {
-        ApplyAll(GetMaster(), GetMusic(), GetSfx()); // ✅ ตอกค่าเดิมกลับ
+        if (!reapplyOnSceneLoaded) return;
+        ApplyAll(GetMaster(), GetMusic(), GetSfx());
     }
 
     // ===== Public API (เรียกจาก UI) =====

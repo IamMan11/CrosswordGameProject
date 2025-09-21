@@ -524,6 +524,7 @@ public class LetterTile : MonoBehaviour,
         {
             while (t < 1f)
             {
+                while (PauseManager.IsPaused) { yield return null; }
                 t += Time.unscaledDeltaTime / dur;
                 float a = flyEase.Evaluate(Mathf.Clamp01(t));
                 rectTf.position = Vector3.LerpUnclamped(startPos, endPos, a);
