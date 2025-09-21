@@ -17,6 +17,32 @@ using UnityEngine.SceneManagement;
 /// </summary>
 public class CardManager : MonoBehaviour
 {
+    private IEnumerator ApplyProgressWhenReady()
+    {
+        // รองรับทั้งกรณีมี/ไม่มี WaitUntilReady (ถ้าไม่มีจะข้ามไปที่ event ด้านล่าง)
+#if UNITY_2021_3_OR_NEWER
+    if (PlayerProgressSO.Instance == null || !PlayerProgressSO.Instance.IsReady)
+    {
+        // ถ้ามี helper
+        var wait = PlayerProgressSO.WaitUntilReady();
+        if (wait != null) yield return wait;
+    }
+#endif
+        ApplyProgressSettings();
+    }
+
+    private void ApplyProgressSettings()
+    {
+        var prog = PlayerProgressSO.Instance;
+        if (prog != null && prog.data != null)
+        {
+            maxHeldCards = Mathf.Max(1, prog.data.maxCardSlots);
+            EnsureHeldSize();
+            UIManager.Instance?.UpdateCardSlots(heldCards);
+            Debug.Log($"[CardManager] Applied progress: maxHeldCards = {maxHeldCards}");
+        }
+    }
+
     public static CardManager Instance { get; private set; }
 
     // ====== UI Hold (กัน UI เลือกการ์ดเด้งขึ้นระหว่างอนิเมชันอื่น) ======
@@ -28,7 +54,7 @@ public class CardManager : MonoBehaviour
     public void HoldUI(bool on)
     {
         if (on) _uiHoldCount++;
-        else    _uiHoldCount = Mathf.Max(0, _uiHoldCount - 1);
+        else _uiHoldCount = Mathf.Max(0, _uiHoldCount - 1);
 
         if (_uiHoldCount == 0) TryOpenNextSelection(); // ปลด hold แล้วค่อยเปิดคิวต่อ
     }
@@ -72,14 +98,14 @@ public class CardManager : MonoBehaviour
     public UICardSelect uiSelect; // หน้าต่างเลือกการ์ด 3 ใบ
 
     // ====== เส้นทาง Resources (สลับโหมดทดสอบได้) ======
-    [SerializeField] string cardsFolder        = "Cards";         // Resources/Cards
-    [SerializeField] string cardsFolder_Test   = "Card_Tests";    // Resources/Card_Tests
-    [SerializeField] string fusionPath         = "CardFusions/Fusions";
-    [SerializeField] string fusionPath_Test    = "CardFusions/Fusions";
-    [SerializeField] bool   useTestInThisScene = false;
+    [SerializeField] string cardsFolder = "Cards";         // Resources/Cards
+    [SerializeField] string cardsFolder_Test = "Card_Tests";    // Resources/Card_Tests
+    [SerializeField] string fusionPath = "CardFusions/Fusions";
+    [SerializeField] string fusionPath_Test = "CardFusions/Fusions";
+    [SerializeField] bool useTestInThisScene = false;
 
     // ค่าที่คงอยู่ข้ามซีน (static)
-    static bool   sInited;
+    static bool sInited;
     static string sActiveCardsFolder;
     static string sActiveFusionPath;
 
@@ -91,38 +117,56 @@ public class CardManager : MonoBehaviour
         if (Instance == null) Instance = this; else { Destroy(gameObject); return; }
         DontDestroyOnLoad(gameObject);
 
-        // จำนวนช่องการ์ดสูงสุดอ่านจากโปรเกรส (ถ้ามี)
-        maxHeldCards = 2;
-        var prog = PlayerProgressSO.Instance;
-        if (prog != null && prog.data != null)
-            maxHeldCards = Mathf.Max(1, prog.data.maxCardSlots);
-        else
-            Debug.LogWarning("[CardManager] PlayerProgressSO ยังไม่พร้อม ใช้ค่า default 2 ชั่วคราว");
+        // อย่าอ่าน PlayerProgress ที่นี่ (ยังเสี่ยงไม่พร้อม)
+        // ตั้งค่าเริ่มต้นพอประมาณ แล้วค่อยไป "ApplyProgressSettings()" เมื่อพร้อม
+        maxHeldCards = Mathf.Max(1, maxHeldCards); // คงค่าใน Inspector (หรือ 2 ถ้าตั้งไว้)
 
         // ตั้ง active paths ครั้งเดียวต่อแอป (ซีนแรก)
         if (!sInited)
         {
             bool useTest = useTestInThisScene;
             sActiveCardsFolder = useTest ? cardsFolder_Test : cardsFolder;
-            sActiveFusionPath  = useTest ? fusionPath_Test  : fusionPath;
+            sActiveFusionPath = useTest ? fusionPath_Test : fusionPath;
             sInited = true;
         }
 
         LoadAllCards();
         LoadFusionTable();
+
+        EnsureHeldSize();
+
+        // รอ PlayerProgress พร้อมแล้วค่อยดึงค่าจริง
+        StartCoroutine(ApplyProgressWhenReady());
     }
 
-    void OnEnable()  => SceneManager.sceneLoaded += OnSceneLoaded;
-    void OnDisable() => SceneManager.sceneLoaded -= OnSceneLoaded;
+    void OnEnable()
+    {
+        SceneManager.sceneLoaded += OnSceneLoaded;
+
+        // สมัคร event เพื่อรองรับกรณี PlayerProgress เพิ่งพร้อมภายหลัง
+        PlayerProgressSO.OnReady -= OnProgressReady; // กันซ้ำ
+        PlayerProgressSO.OnReady += OnProgressReady;
+    }
+
+    void OnDisable()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        PlayerProgressSO.OnReady -= OnProgressReady;
+    }
+
+    private void OnProgressReady()
+    {
+        ApplyProgressSettings();
+    }
 
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         // หา UICardSelect ในซีนใหม่ (รวม inactive)
-        #if UNITY_2023_1_OR_NEWER
+#if UNITY_2023_1_OR_NEWER
         uiSelect = FindFirstObjectByType<UICardSelect>(FindObjectsInactive.Include);
-        #else
+#else
         uiSelect = FindObjectOfType<UICardSelect>(true);
-        #endif
+#endif
     }
 
     #endregion
@@ -161,7 +205,7 @@ public class CardManager : MonoBehaviour
     public void UseTestMode(bool on)
     {
         sActiveCardsFolder = on ? cardsFolder_Test : cardsFolder;
-        sActiveFusionPath  = on ? fusionPath_Test  : fusionPath;
+        sActiveFusionPath = on ? fusionPath_Test : fusionPath;
 
         LoadAllCards();
         fusionTable = null;   // บังคับให้โหลดใหม่
@@ -299,7 +343,7 @@ public class CardManager : MonoBehaviour
         EnsureHeldSize();
         int i = FirstEmptySlot();
         if (i >= 0) heldCards[i] = selected;
-        else        heldCards[0] = selected; // เต็มจริง ๆ ค่อยทับ 0
+        else heldCards[0] = selected; // เต็มจริง ๆ ค่อยทับ 0
 
         UIManager.Instance?.UpdateCardSlots(heldCards);
     }
@@ -332,7 +376,7 @@ public class CardManager : MonoBehaviour
     void TryOpenNextSelection()
     {
         if (_uiHoldCount > 0) { Debug.Log("Hold UI"); return; }
-        if (isReplaceMode)    { Debug.Log("Replace mode pending"); return; }
+        if (isReplaceMode) { Debug.Log("Replace mode pending"); return; }
         if (optionsQueue.Count == 0) { Debug.Log("No options queued"); return; }
         if (uiSelect == null) { Debug.Log("No UICardSelect in scene"); return; }
 
@@ -449,7 +493,14 @@ public class CardManager : MonoBehaviour
             $"ใช้การ์ด '{card.displayName}' ({card.Mana} Mana)?",
             () =>
             {
-                // ✅ เช็กลิมิต "หลังยืนยัน"
+                // ✅ ตรวจเงื่อนไขให้ผ่านก่อน แล้วค่อยเล่นอนิเมชัน
+                if (TurnManager.Instance == null)
+                {
+                    UIManager.Instance?.ShowMessage("TurnManager ไม่พร้อม", 1.2f);
+                    return;
+                }
+
+
                 if (TurnManager.Instance != null &&
                     (
                         !TurnManager.Instance.CanTriggerOncePerTurn(card.effectType) ||
@@ -508,13 +559,13 @@ public class CardManager : MonoBehaviour
     private IEnumerator UseCardAfterAnim(int index, CardData card)
     {
         CardSlotUI slotUI = null;
-        #if UNITY_2023_1_OR_NEWER
+#if UNITY_2023_1_OR_NEWER
         foreach (var s in Object.FindObjectsByType<CardSlotUI>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             if (s.slotIndex == index) { slotUI = s; break; }
-        #else
+#else
         foreach (var s in GameObject.FindObjectsOfType<CardSlotUI>(true))
             if (s.slotIndex == index) { slotUI = s; break; }
-        #endif
+#endif
 
         if (slotUI != null)
             yield return slotUI.PlayUseThen(null); // เล่นคลิปหดจนหาย
@@ -612,7 +663,7 @@ public class CardManager : MonoBehaviour
     {
         if (fromIndex == toIndex) return;
         if (fromIndex < 0 || fromIndex >= heldCards.Count) return;
-        if (toIndex   < 0 || toIndex   >= maxHeldCards)    return;
+        if (toIndex < 0 || toIndex >= maxHeldCards) return;
 
         EnsureHeldSize();
 

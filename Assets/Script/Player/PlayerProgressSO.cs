@@ -1,14 +1,23 @@
 // PlayerProgressSO.cs
-using UnityEngine;
+using System;
+using System.Collections;
 using System.Linq;
 using System.Collections.Generic;
+using UnityEngine;
 
 /// <summary>
 /// Singletons สำหรับเข้าถึง/จัดการ PlayerProgress + บันทึก/โหลดผ่าน PlayerPrefs
 /// </summary>
+[DefaultExecutionOrder(-1000)] // ให้ Awake ของตัวนี้รันก่อนระบบอื่น (เช่น CardManager)
 public class PlayerProgressSO : MonoBehaviour
 {
     public static PlayerProgressSO Instance { get; private set; }
+
+    /// <summary>ยิงเมื่อโหลด/พร้อมใช้งานเสร็จ</summary>
+    public static event Action OnReady;
+
+    /// <summary>บอกสถานะว่า Progress พร้อมให้คนอื่นอ่านหรือยัง</summary>
+    public bool IsReady { get; private set; }
 
     [Tooltip("อ้างถึง PlayerProgress asset; ถ้าเว้นว่าง ระบบจะโหลดจาก Resources/PlayerProgress")]
     public PlayerProgress data;
@@ -31,7 +40,9 @@ public class PlayerProgressSO : MonoBehaviour
         DontDestroyOnLoad(gameObject);
 
         EnsureDataLoaded();
-        LoadFromPrefs(); // โหลด progress ที่เคยเซฟไว้
+        LoadFromPrefs();   // โหลด progress ที่เคยเซฟไว้
+
+        MarkReady();       // 🔔 บอกทุกคนว่าอ่านค่าได้แล้ว
     }
 
     // ====== PUBLIC API ======
@@ -127,6 +138,9 @@ public class PlayerProgressSO : MonoBehaviour
         PlayerPrefs.Save();
 
         Debug.Log("[PlayerProgressSO] Reset all progress done.");
+
+        // ✅ หลังรีเซ็ตก็ถือว่า “พร้อม” เช่นกัน เพื่อปลดล็อกคนที่รอ
+        MarkReady();
     }
 
     // ====== Last Scene ======
@@ -157,5 +171,18 @@ public class PlayerProgressSO : MonoBehaviour
         }
         if (data != null && data.ownedCardIds == null)
             data.ownedCardIds = new List<string>();
+    }
+
+    private void MarkReady()
+    {
+        IsReady = true;
+        OnReady?.Invoke();
+        //Debug.Log("[PlayerProgressSO] Ready");
+    }
+
+    /// <summary>ให้คนอื่นใช้รอแบบ coroutine ได้</summary>
+    public static IEnumerator WaitUntilReady()
+    {
+        yield return new WaitUntil(() => Instance != null && Instance.IsReady);
     }
 }
