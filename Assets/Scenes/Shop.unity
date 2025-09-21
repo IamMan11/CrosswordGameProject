@@ -374,6 +374,7 @@ GameObject:
   - component: {fileID: 86121359}
   - component: {fileID: 86121358}
   - component: {fileID: 86121360}
+  - component: {fileID: 86121361}
   m_Layer: 5
   m_Name: play
   m_TagString: Untagged
@@ -543,6 +544,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ignoreWhenNotInteractable: 1
   useUnscaledTime: 1
+--- !u!114 &86121361
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 86121353}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d36535841ea3f5649a50f3b275632958, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hoverSfx: 10
+  clickSfx: 11
+  ignoreWhenNotInteractable: 1
+  playClickOnDown: 1
 --- !u!1 &169620439
 GameObject:
   m_ObjectHideFlags: 0
@@ -670,6 +687,7 @@ GameObject:
   - component: {fileID: 199574887}
   - component: {fileID: 199574886}
   - component: {fileID: 199574885}
+  - component: {fileID: 199574891}
   m_Layer: 5
   m_Name: CardSlotBtn
   m_TagString: Untagged
@@ -839,6 +857,22 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 199574883}
   m_CullTransparentMesh: 1
+--- !u!114 &199574891
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 199574883}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d36535841ea3f5649a50f3b275632958, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hoverSfx: 10
+  clickSfx: 11
+  ignoreWhenNotInteractable: 1
+  playClickOnDown: 1
 --- !u!1 &231942221
 GameObject:
   m_ObjectHideFlags: 0
@@ -1161,6 +1195,7 @@ GameObject:
   - component: {fileID: 261740406}
   - component: {fileID: 261740410}
   - component: {fileID: 261740411}
+  - component: {fileID: 261740413}
   - component: {fileID: 261740412}
   m_Layer: 5
   m_Name: buy
@@ -1331,6 +1366,22 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!114 &261740413
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 261740404}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d36535841ea3f5649a50f3b275632958, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hoverSfx: 10
+  clickSfx: 11
+  ignoreWhenNotInteractable: 1
+  playClickOnDown: 1
 --- !u!1 &303729184
 GameObject:
   m_ObjectHideFlags: 0
@@ -1822,6 +1873,7 @@ GameObject:
   - component: {fileID: 468804487}
   - component: {fileID: 468804486}
   - component: {fileID: 468804485}
+  - component: {fileID: 468804491}
   m_Layer: 5
   m_Name: TilePackBtn
   m_TagString: Untagged
@@ -1991,6 +2043,22 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 468804483}
   m_CullTransparentMesh: 1
+--- !u!114 &468804491
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 468804483}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d36535841ea3f5649a50f3b275632958, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hoverSfx: 10
+  clickSfx: 11
+  ignoreWhenNotInteractable: 1
+  playClickOnDown: 1
 --- !u!1 &468817465
 GameObject:
   m_ObjectHideFlags: 0
@@ -2141,6 +2209,7 @@ GameObject:
   - component: {fileID: 508194222}
   - component: {fileID: 508194226}
   - component: {fileID: 508194227}
+  - component: {fileID: 508194229}
   - component: {fileID: 508194228}
   m_Layer: 5
   m_Name: buy
@@ -2311,6 +2380,22 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!114 &508194229
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 508194220}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d36535841ea3f5649a50f3b275632958, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hoverSfx: 10
+  clickSfx: 11
+  ignoreWhenNotInteractable: 1
+  playClickOnDown: 1
 --- !u!1 &521027998
 GameObject:
   m_ObjectHideFlags: 0
@@ -2930,6 +3015,7 @@ GameObject:
   - component: {fileID: 732229850}
   - component: {fileID: 732229854}
   - component: {fileID: 732229855}
+  - component: {fileID: 732229857}
   - component: {fileID: 732229856}
   m_Layer: 5
   m_Name: buy
@@ -3100,6 +3186,22 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!114 &732229857
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 732229848}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d36535841ea3f5649a50f3b275632958, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hoverSfx: 10
+  clickSfx: 11
+  ignoreWhenNotInteractable: 1
+  playClickOnDown: 1
 --- !u!1 &755704062
 GameObject:
   m_ObjectHideFlags: 0
@@ -4401,6 +4503,7 @@ GameObject:
   - component: {fileID: 1076809294}
   - component: {fileID: 1076809298}
   - component: {fileID: 1076809299}
+  - component: {fileID: 1076809301}
   - component: {fileID: 1076809300}
   m_Layer: 5
   m_Name: reroll
@@ -4571,6 +4674,22 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!114 &1076809301
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1076809292}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d36535841ea3f5649a50f3b275632958, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hoverSfx: 10
+  clickSfx: 11
+  ignoreWhenNotInteractable: 1
+  playClickOnDown: 1
 --- !u!1 &1089834883
 GameObject:
   m_ObjectHideFlags: 0
@@ -5343,6 +5462,7 @@ GameObject:
   - component: {fileID: 1350240994}
   - component: {fileID: 1350240993}
   - component: {fileID: 1350240992}
+  - component: {fileID: 1350240998}
   m_Layer: 5
   m_Name: MaxManaBtn
   m_TagString: Untagged
@@ -5512,6 +5632,22 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1350240990}
   m_CullTransparentMesh: 1
+--- !u!114 &1350240998
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1350240990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d36535841ea3f5649a50f3b275632958, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hoverSfx: 10
+  clickSfx: 11
+  ignoreWhenNotInteractable: 1
+  playClickOnDown: 1
 --- !u!1 &1378940650
 GameObject:
   m_ObjectHideFlags: 0

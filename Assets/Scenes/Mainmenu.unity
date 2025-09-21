@@ -150,6 +150,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bd2546bc278c6324e8373be4bc1d4c78, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  reapplyOnSceneLoaded: 0
   mixer: {fileID: 24100000, guid: d7a17b2647eb42d45ab86f976abfcd76, type: 2}
   masterParam: MasterVol
   musicParam: MusicVol
@@ -233,6 +234,18 @@ MonoBehaviour:
     volume: 1
     pitch: {x: 0.98, y: 1.1}
     cooldown: 0
+  - id: 10
+    clips:
+    - {fileID: 8300000, guid: ec45ea99d90f4394c87ad4e83863d4e4, type: 3}
+    volume: 1
+    pitch: {x: 1, y: 1}
+    cooldown: 0
+  - id: 11
+    clips:
+    - {fileID: 8300000, guid: 468a164073e293c48bb33fb42304a4d0, type: 3}
+    volume: 1
+    pitch: {x: 1, y: 1}
+    cooldown: 0
   pitchMin: 0.5
   pitchMax: 2
 --- !u!114 &39049930
@@ -254,6 +267,12 @@ MonoBehaviour:
   localGain: 1
   crossfade: 1.5
   playOnStart: 1
+  _minSwitchGap: 0.1
+  preloadClips: 1
+  prepareTimeoutSec: 0.35
+  usePlayScheduled: 1
+  scheduleLeadSec: 0.05
+  panicClip: {fileID: 8300000, guid: 4c96139637a911d42baf057e4a9a60be, type: 3}
 --- !u!224 &39049931
 RectTransform:
   m_ObjectHideFlags: 0
@@ -5725,7 +5744,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &2096289934
 RectTransform:
   m_ObjectHideFlags: 0

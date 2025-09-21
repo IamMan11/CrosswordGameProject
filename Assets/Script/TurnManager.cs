@@ -242,8 +242,12 @@ public class TurnManager : MonoBehaviour
     void ResetBgmStreak(bool playSfx)
     {
         bgmStreak = 0;
-        BgmPlayer.I?.SetTier(BgmTier.Base);
-        if (playSfx) SfxPlayer.Play(SfxId.StreakBreak);   // <-- ใช้เสียงสตรีคแตกใหม่
+
+        // ดับเพลงอย่างเนียนและเร็ว (เฟดลง ~0.18s แล้วหยุด)
+        BgmPlayer.I?.DuckAndStop(0.18f);
+
+        // เล่นเสียงแตกสตรีค “ดังเป็นพิเศษ”
+        if (playSfx) SfxPlayer.PlayVolPitch(SfxId.StreakBreak, 1.6f, 1.0f);
     }
     void ApplyBgmStreakAfterConfirm(bool dictPenaltyApplied)
     {
@@ -822,6 +826,7 @@ public class TurnManager : MonoBehaviour
             LevelTaskUI.I?.Refresh();
             UpdateBagUI();
             EnableConfirm();
+            LevelManager.Instance?.TryFailAfterConfirm();
             
             if (Level1GarbledIT.Instance != null)
                 yield return Level1GarbledIT.Instance.ProcessAfterMainScoring();
@@ -951,7 +956,7 @@ public class TurnManager : MonoBehaviour
             EnableConfirm();
             return;
         }
-
+        LevelManager.Instance?.MarkPrepareFailCheckIfActive();
         try
         {
             var bm = BoardManager.Instance;

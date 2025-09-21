@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 21
   displayName: Pandemonium
   description: Turn All Slot in Borad to special Slot in 1 Minute
-  icon: {fileID: 0}
+  icon: {fileID: 6932011448153779203, guid: 49d12ded398165543b1901d3151e7825, type: 3}
   effectType: 22
   Mana: 16
   maxUsagePerTurn: 1

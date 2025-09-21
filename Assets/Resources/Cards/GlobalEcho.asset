@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 9
   displayName: Global Echo
   description: All Letter x2 in 1 Min
-  icon: {fileID: 0}
+  icon: {fileID: -9103892803109093012, guid: 3ad62dfb56aaa544eb42fbad95eaed33, type: 3}
   effectType: 20
   Mana: 10
   maxUsagePerTurn: 2

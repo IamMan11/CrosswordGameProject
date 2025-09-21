@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 19
   displayName: Omni Spark
   description: Turn All Letter in Bench to Special Letter
-  icon: {fileID: 0}
+  icon: {fileID: -6853455484669104716, guid: a73bac0643ee6aa4c9d6fa2825824e1c, type: 3}
   effectType: 24
   Mana: 1
   maxUsagePerTurn: 1

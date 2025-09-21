@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 11
   displayName: Infinite Tiles
   description: Infinite Tilepack 1 Minute
-  icon: {fileID: 0}
+  icon: {fileID: 2413410967127152232, guid: 0b03e29b34e00a54887061933f6c00e8, type: 3}
   effectType: 26
   Mana: 10
   maxUsagePerTurn: 2
