@@ -1,0 +1,247 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fd4e3234aa9b8444ab673f1040ac9548, type: 3}
+  m_Name: TutorialConfig
+  m_EditorClassIdentifier: 
+  runOnFirstLaunch: 1
+  seenKey: TUTORIAL_SEEN
+  steps:
+  - id: 
+    title: Shop
+    body: "\u0E17\u0E35\u0E48\u0E19\u0E35\u0E48\u0E43\u0E0A\u0E49 coin \u0E0B\u0E37\u0E49\u0E2D\u0E2D\u0E31\u0E1B\u0E40\u0E01\u0E23\u0E14\u0E41\u0E25\u0E30\u0E44\u0E2D\u0E40\u0E17\u0E21\u0E2A\u0E38\u0E48\u0E21"
+    icon: {fileID: 0}
+    blockInput: 1
+    advanceOnAnyKey: 1
+    waitForEvent: 0
+    trigger: 0
+    focus: 8
+    focusPadding: {x: 0, y: 0}
+    style:
+      anchor: 0
+      stackOffset: {x: 0, y: 0}
+      dimAlpha: 0
+      showSkip: 0
+      nextLabel: 
+      backLabel: 
+      skipLabel: 
+      cardLeftVertical: 
+      cardRightVertical: 
+      cardTiltDeg: 0
+    highlightOneCell: 0
+    highlightByCoordinate: 0
+    highlightRow: 0
+    highlightCol: 0
+    highlightType: 0
+    highlightCardSlot: 0
+    cardSlotIndex: 0
+  - id: 
+    title: Coin
+    body: "\u0E40\u0E2B\u0E23\u0E35\u0E22\u0E0D\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19\u0E02\u0E2D\u0E07\u0E04\u0E38\u0E13
+      \u0E41\u0E2A\u0E14\u0E07\u0E08\u0E33\u0E19\u0E27\u0E19\u0E17\u0E35\u0E48\u0E43\u0E0A\u0E49\u0E08\u0E48\u0E32\u0E22\u0E44\u0E14\u0E49"
+    icon: {fileID: 0}
+    blockInput: 1
+    advanceOnAnyKey: 1
+    waitForEvent: 0
+    trigger: 0
+    focus: 9
+    focusPadding: {x: 0, y: 0}
+    style:
+      anchor: 0
+      stackOffset: {x: 0, y: 0}
+      dimAlpha: 0
+      showSkip: 0
+      nextLabel: 
+      backLabel: 
+      skipLabel: 
+      cardLeftVertical: 
+      cardRightVertical: 
+      cardTiltDeg: 0
+    highlightOneCell: 0
+    highlightByCoordinate: 0
+    highlightRow: 0
+    highlightCol: 0
+    highlightType: 0
+    highlightCardSlot: 0
+    cardSlotIndex: 0
+  - id: 
+    title: MAX MANA
+    body: "\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E04\u0E48\u0E32\u0E2A\u0E39\u0E07\u0E2A\u0E38\u0E14\u0E02\u0E2D\u0E07\u0E21\u0E32\u0E19\u0E32
+      \u0E43\u0E0A\u0E49\u0E40\u0E2B\u0E23\u0E35\u0E22\u0E0D\u0E15\u0E32\u0E21\u0E23\u0E32\u0E04\u0E32"
+    icon: {fileID: 0}
+    blockInput: 1
+    advanceOnAnyKey: 1
+    waitForEvent: 0
+    trigger: 0
+    focus: 10
+    focusPadding: {x: 0, y: 0}
+    style:
+      anchor: 0
+      stackOffset: {x: 0, y: 0}
+      dimAlpha: 0
+      showSkip: 0
+      nextLabel: 
+      backLabel: 
+      skipLabel: 
+      cardLeftVertical: 
+      cardRightVertical: 
+      cardTiltDeg: 0
+    highlightOneCell: 0
+    highlightByCoordinate: 0
+    highlightRow: 0
+    highlightCol: 0
+    highlightType: 0
+    highlightCardSlot: 0
+    cardSlotIndex: 0
+  - id: 
+    title: TILE PACK
+    body: "\u0E0B\u0E37\u0E49\u0E2D\u0E41\u0E1E\u0E47\u0E01\u0E15\u0E31\u0E27\u0E2D\u0E31\u0E01\u0E29\u0E23
+      \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E08\u0E33\u0E19\u0E27\u0E19100/100 \u0E40\u0E1B\u0E47\u0E19
+      200/200"
+    icon: {fileID: 0}
+    blockInput: 1
+    advanceOnAnyKey: 1
+    waitForEvent: 0
+    trigger: 0
+    focus: 11
+    focusPadding: {x: 0, y: 0}
+    style:
+      anchor: 0
+      stackOffset: {x: 0, y: 0}
+      dimAlpha: 0
+      showSkip: 0
+      nextLabel: 
+      backLabel: 
+      skipLabel: 
+      cardLeftVertical: 
+      cardRightVertical: 
+      cardTiltDeg: 0
+    highlightOneCell: 0
+    highlightByCoordinate: 0
+    highlightRow: 0
+    highlightCol: 0
+    highlightType: 0
+    highlightCardSlot: 0
+    cardSlotIndex: 0
+  - id: 
+    title: MAX CARD
+    body: "\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E08\u0E33\u0E19\u0E27\u0E19\u0E0A\u0E48\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E4C\u0E14\u0E17\u0E35\u0E48\u0E16\u0E37\u0E2D\u0E44\u0E14\u0E49"
+    icon: {fileID: 0}
+    blockInput: 1
+    advanceOnAnyKey: 1
+    waitForEvent: 0
+    trigger: 0
+    focus: 12
+    focusPadding: {x: 0, y: 0}
+    style:
+      anchor: 0
+      stackOffset: {x: 0, y: 0}
+      dimAlpha: 0
+      showSkip: 0
+      nextLabel: 
+      backLabel: 
+      skipLabel: 
+      cardLeftVertical: 
+      cardRightVertical: 
+      cardTiltDeg: 0
+    highlightOneCell: 0
+    highlightByCoordinate: 0
+    highlightRow: 0
+    highlightCol: 0
+    highlightType: 0
+    highlightCardSlot: 0
+    cardSlotIndex: 0
+  - id: 
+    title: "\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E2A\u0E38\u0E48\u0E21"
+    body: "\u0E27\u0E32\u0E07\u0E40\u0E21\u0E49\u0E32\u0E2A\u0E4C\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E14\u0E39\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14
+      \u0E01\u0E14\u0E0B\u0E37\u0E49\u0E2D\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E23\u0E31\u0E1A\u0E17\u0E31\u0E19\u0E17\u0E35"
+    icon: {fileID: 0}
+    blockInput: 1
+    advanceOnAnyKey: 1
+    waitForEvent: 0
+    trigger: 0
+    focus: 13
+    focusPadding: {x: 0, y: 0}
+    style:
+      anchor: 0
+      stackOffset: {x: 0, y: 0}
+      dimAlpha: 0
+      showSkip: 0
+      nextLabel: 
+      backLabel: 
+      skipLabel: 
+      cardLeftVertical: 
+      cardRightVertical: 
+      cardTiltDeg: 0
+    highlightOneCell: 0
+    highlightByCoordinate: 0
+    highlightRow: 0
+    highlightCol: 0
+    highlightType: 0
+    highlightCardSlot: 0
+    cardSlotIndex: 0
+  - id: 
+    title: Reroll
+    body: "\u0E2A\u0E38\u0E48\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E0A\u0E38\u0E14\u0E43\u0E2B\u0E21\u0E48
+      (\u0E21\u0E35\u0E04\u0E48\u0E32\u0E43\u0E0A\u0E49\u0E08\u0E48\u0E32\u0E22)"
+    icon: {fileID: 0}
+    blockInput: 1
+    advanceOnAnyKey: 1
+    waitForEvent: 0
+    trigger: 0
+    focus: 17
+    focusPadding: {x: 0, y: 0}
+    style:
+      anchor: 0
+      stackOffset: {x: 0, y: 0}
+      dimAlpha: 0
+      showSkip: 0
+      nextLabel: 
+      backLabel: 
+      skipLabel: 
+      cardLeftVertical: 
+      cardRightVertical: 
+      cardTiltDeg: 0
+    highlightOneCell: 0
+    highlightByCoordinate: 0
+    highlightRow: 0
+    highlightCol: 0
+    highlightType: 0
+    highlightCardSlot: 0
+    cardSlotIndex: 0
+  - id: 
+    title: "\u0E25\u0E2D\u0E07\u0E0B\u0E37\u0E49\u0E2D\u0E2A\u0E31\u0E01\u0E0A\u0E34\u0E49\u0E19"
+    body: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E0B\u0E37\u0E49\u0E2D\u0E2A\u0E34\u0E19\u0E04\u0E49\u0E32\u0E2A\u0E31\u0E01\u0E0A\u0E34\u0E49\u0E19\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E08\u0E1A\u0E01\u0E32\u0E23\u0E2A\u0E2D\u0E19"
+    icon: {fileID: 0}
+    blockInput: 1
+    advanceOnAnyKey: 1
+    waitForEvent: 0
+    trigger: 0
+    focus: 11
+    focusPadding: {x: 0, y: 0}
+    style:
+      anchor: 0
+      stackOffset: {x: 0, y: 0}
+      dimAlpha: 0
+      showSkip: 0
+      nextLabel: 
+      backLabel: 
+      skipLabel: 
+      cardLeftVertical: 
+      cardRightVertical: 
+      cardTiltDeg: 0
+    highlightOneCell: 0
+    highlightByCoordinate: 0
+    highlightRow: 0
+    highlightCol: 0
+    highlightType: 0
+    highlightCardSlot: 0
+    cardSlotIndex: 0
