@@ -17,7 +17,7 @@ MonoBehaviour:
   description: Turn All Letter in Bench to Special Letter
   icon: {fileID: -6853455484669104716, guid: a73bac0643ee6aa4c9d6fa2825824e1c, type: 3}
   effectType: 24
-  Mana: 1
+  Mana: 16
   maxUsagePerTurn: 1
   category: 3
   weight: 7

@@ -225,11 +225,17 @@ public class CardManager : MonoBehaviour
 
         if (cardsInCategory.Count == 0)
         {
-            // fallback: เลือกจาก pool ทั้งหมดที่ไม่ใช่ FusionCard
-            var pool = allCards.Where(cd => cd.category != CardCategory.FusionCard).ToList();
+            // Fallback: เลือกจาก pool ทั้งหมดที่ "ไม่ใช่ FusionCard" และ "ไม่ติด requirePurchase หรือผู้เล่นมีแล้ว"
+            bool canOwnsCheck = PlayerProgressSO.Instance != null;
+            var pool = allCards.Where(cd =>
+                cd.category != CardCategory.FusionCard &&
+                (!cd.requirePurchase || (canOwnsCheck && PlayerProgressSO.Instance.HasCard(cd.id)))
+            ).ToList();
+
             if (pool.Count == 0) return null;
             return pool[Random.Range(0, pool.Count)];
         }
+
 
         // 4) สุ่มเลือกการ์ดในหมวด
         int totalCardWeight = cardsInCategory.Sum(cd => cd.weight);
@@ -249,7 +255,6 @@ public class CardManager : MonoBehaviour
     {
         var opts = new List<CardData>();
         int attempts = 0;
-
         while (opts.Count < 3 && attempts < 20)
         {
             var candidate = GetWeightedRandomCard();
@@ -258,16 +263,22 @@ public class CardManager : MonoBehaviour
             attempts++;
         }
 
-        // ถ้ายังไม่ครบ 3 ใบ ให้สุ่มจาก pool ทั้งหมด (ยกเว้น FusionCard)
+        // เติมสำรองให้ครบ 3 ใบ แต่ต้อง “เคารพ requirePurchase” เช่นกัน
+        bool canCheckOwns = PlayerProgressSO.Instance != null;
         while (opts.Count < 3)
         {
-            var fallbackPool = allCards.Where(cd => cd.category != CardCategory.FusionCard).ToList();
+            var fallbackPool = allCards.Where(cd =>
+                cd.category != CardCategory.FusionCard &&
+                (!cd.requirePurchase || (canCheckOwns && PlayerProgressSO.Instance.HasCard(cd.id)))
+            ).ToList();
             if (fallbackPool.Count == 0) break;
-            var fallback = fallbackPool[Random.Range(0, fallbackPool.Count)];
-            if (!opts.Contains(fallback)) opts.Add(fallback);
+
+            var pick = fallbackPool[Random.Range(0, fallbackPool.Count)];
+            if (!opts.Contains(pick)) opts.Add(pick);
         }
         return opts;
     }
+
 
     /// <summary>เปิดหน้าต่าง MasterDraft (เลือกจาก allCards ทั้งหมด)</summary>
     private void OnUseMasterDraft()
@@ -496,23 +507,19 @@ public class CardManager : MonoBehaviour
 
     private IEnumerator UseCardAfterAnim(int index, CardData card)
     {
-        // หา CardSlotUI ของช่องนี้เพื่อเล่นคลิป Use/Hide
         CardSlotUI slotUI = null;
-#if UNITY_2023_1_OR_NEWER
+        #if UNITY_2023_1_OR_NEWER
         foreach (var s in Object.FindObjectsByType<CardSlotUI>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             if (s.slotIndex == index) { slotUI = s; break; }
-#else
+        #else
         foreach (var s in GameObject.FindObjectsOfType<CardSlotUI>(true))
             if (s.slotIndex == index) { slotUI = s; break; }
-#endif
+        #endif
 
         if (slotUI != null)
-            yield return slotUI.PlayUseThen(null); // รอคลิปจบ
-        // ใช้เอฟเฟกต์ + จดการใช้งาน
-        ApplyEffect(card);
-        TurnManager.Instance?.OnCardUsed(card);
+            yield return slotUI.PlayUseThen(null); // เล่นคลิปหดจนหาย
 
-        // ★ แก้จุดนี้: ห้าม RemoveAt เพราะจะทำให้ช่องขยับ
+        // ⬇⬇⬇ ย้าย “ลบการ์ดจากมือ + อัปเดต UI” มาก่อนเอฟเฟกต์ ⬇⬇⬇
         EnsureHeldSize();
         if (index >= 0 && index < heldCards.Count && heldCards[index] == card)
             heldCards[index] = null;
@@ -521,9 +528,16 @@ public class CardManager : MonoBehaviour
             int cur = heldCards.IndexOf(card);
             if (cur >= 0) heldCards[cur] = null;
         }
-
         UIManager.Instance?.UpdateCardSlots(heldCards);
+        // ⬆⬆⬆ ตอนนี้มือมี “ช่องว่าง” แล้ว → GiveRandomCard จะไม่เข้า Replace Mode ⬆⬆⬆
+
+        // ค่อย ApplyEffect (เช่น DoubleRecast → GiveRandomCard 2 ครั้ง)
+        ApplyEffect(card);
+
+        // จดการใช้งาน (คงไว้หลัง ApplyEffect หรือจะย้ายมาก่อนก็ได้)
+        TurnManager.Instance?.OnCardUsed(card);
     }
+
     private IEnumerator CleanSlateExcludeGarbled()
     {
         UiGuard.Push();   // กันผู้ใช้กดระหว่างเคลียร์ (ใช้รูปแบบเดียวกับระบบอื่นในโปรเจกต์)

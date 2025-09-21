@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 0c1ac7ab6c6c1f74b8e5ebc474c228de
+guid: bf43e785eb90e214e8ee6eafc5c0c90d
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -6838227121100322594
-    second: ManaOverflow_0
+      213: 283390726869302643
+    second: "ChatGPT Image 22 \u0E01.\u0E22. 2568 02_48_27_0"
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -96,40 +96,27 @@ TextureImporter:
     ignorePlatformSupport: 0
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
-  - serializedVersion: 4
-    buildTarget: WebGL
-    maxTextureSize: 2048
-    resizeAlgorithm: 0
-    textureFormat: -1
-    textureCompression: 1
-    compressionQuality: 50
-    crunchedCompression: 0
-    allowsAlphaSplitting: 0
-    overridden: 0
-    ignorePlatformSupport: 0
-    androidETC2FallbackOverride: 0
-    forceMaximumCompressionQuality_BC6H_BC7: 0
   spriteSheet:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: ManaOverflow_0
+      name: "ChatGPT Image 22 \u0E01.\u0E22. 2568 02_48_27_0"
       rect:
         serializedVersion: 2
-        x: 0
-        y: 8
-        width: 1024
-        height: 1523
+        x: 307
+        y: 405
+        width: 420
+        height: 186
       alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 186}
       customData: 
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: ed88f51f9acb911a0800000000000000
-      internalID: -6838227121100322594
+      spriteID: 37d3fa75d5ecee300800000000000000
+      internalID: 283390726869302643
       vertices: []
       indices: 
       edges: []
@@ -138,7 +125,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 9bfcab7bbea4db44fb0ffd46276b6b83
     internalID: 0
     vertices: []
     indices: 
@@ -148,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      ManaOverflow_0: -6838227121100322594
+      "ChatGPT Image 22 \u0E01.\u0E22. 2568 02_48_27_0": 283390726869302643
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

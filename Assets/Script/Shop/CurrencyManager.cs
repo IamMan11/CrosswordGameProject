@@ -16,7 +16,7 @@ public class CurrencyManager : MonoBehaviour
 
     [Header("Initial Coins (สำหรับผู้เล่นใหม่)")]
     [Tooltip("เหรียญตั้งต้นเมื่อเริ่มแอป (ปัจจุบันยังไม่โหลดคืนจาก PlayerPrefs)")]
-    [SerializeField] int startCoins = 9999;
+    [SerializeField] int startCoins = 1000;
 
     const string PREF_KEY = "CC_COINS";
 

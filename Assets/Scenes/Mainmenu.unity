@@ -746,8 +746,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 7076692058446383260, guid: 676ce7c7a6ae8274e898487d4c9b8174, type: 3}
-  m_Type: 0
+  m_Sprite: {fileID: 283390726869302643, guid: bf43e785eb90e214e8ee6eafc5c0c90d, type: 3}
+  m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -6121,7 +6121,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 4505266695746796307, guid: d649ff90d1409c74d883490fa830a36c, type: 3}
       propertyPath: startCoins
-      value: 9999
+      value: 1000
       objectReference: {fileID: 0}
     - target: {fileID: 6424686999464177413, guid: d649ff90d1409c74d883490fa830a36c, type: 3}
       propertyPath: m_Name

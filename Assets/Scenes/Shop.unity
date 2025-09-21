@@ -5196,12 +5196,12 @@ MonoBehaviour:
   manaMaxUpgrades: 5
   tileMaxUpgrades: 10
   slotMaxUpgrades: 2
-  manaBasePrice: 50
-  manaStepPrice: 25
-  tileBasePrice: 60
-  tileStepPrice: 30
-  slotBasePrice: 80
-  slotStepPrice: 40
+  manaBasePrice: 200
+  manaStepPrice: 0
+  tileBasePrice: 100
+  tileStepPrice: 0
+  slotBasePrice: 1000
+  slotStepPrice: 0
   coinText: {fileID: 1603311207}
   manaBtn: {fileID: 1350240995}
   slotBtn: {fileID: 468804488}
@@ -5215,9 +5215,9 @@ MonoBehaviour:
   - {fileID: 1378940652}
   - {fileID: 2051263118}
   rerollButton: {fileID: 0}
-  manaUpgradeCost: 50
-  slotUpgradeCost: 75
-  tilepackCost: 40
+  manaUpgradeCost: 200
+  slotUpgradeCost: 1000
+  tilepackCost: 100
   rerollCost: 50
   manaUpgradeMaxTimes: 5
   slotUpgradeMaxTimes: 2

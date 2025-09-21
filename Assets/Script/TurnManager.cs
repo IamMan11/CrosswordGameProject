@@ -774,12 +774,12 @@ public class TurnManager : MonoBehaviour
                 yield return StartCoroutine(uiPenalty.FlyTo(anchorTotal, 0.8f));
 
                 int penalized = Mathf.CeilToInt(displayedTotal * (100 - dictPenaltyPercent) / 100f);
-                float t = 0f, dur = 0.8f;
+                float penaltyT = 0f, penaltyDur = 0.8f; 
                 int last = displayedTotal;
-                while (t < 1f)
+                while (penaltyT < 1f)
                 {
-                    t += Time.unscaledDeltaTime / Mathf.Max(0.0001f, dur);
-                    int v = Mathf.RoundToInt(Mathf.Lerp(displayedTotal, penalized, 1 - Mathf.Pow(1 - t, 3)));
+                    penaltyT += Time.unscaledDeltaTime / Mathf.Max(0.0001f, penaltyDur);
+                    int v = Mathf.RoundToInt(Mathf.Lerp(displayedTotal, penalized, 1 - Mathf.Pow(1 - penaltyT, 3)));
                     if (v != last) { uiC.SetValue(v); last = v; }
                     yield return null;
                 }
@@ -819,9 +819,20 @@ public class TurnManager : MonoBehaviour
             EndScoreSequence();
             UiGuard.Push();
             BenchManager.Instance.RefillEmptySlots();
-            while (BenchManager.Instance.IsRefilling())   // ถ้า Bench มีตัวนี้อยู่แล้ว
+
+            // เปลี่ยนชื่อกันชนกับข้อ 1
+            float waitElapsed = 0f, waitTimeout = 3f; 
+            while (BenchManager.Instance.IsRefilling() && waitElapsed < waitTimeout)
+            {
+                waitElapsed += Time.unscaledDeltaTime;
                 yield return null;
+            }
             UiGuard.Pop();
+
+            if (BenchManager.Instance.IsRefilling())
+            {
+                Debug.LogWarning("[TurnManager] Refill timeout – forced continue.");
+            }
 
             LevelTaskUI.I?.Refresh();
             UpdateBagUI();

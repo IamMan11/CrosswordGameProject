@@ -147,7 +147,8 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      ChaosBloom_0: 6669023837851377473
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

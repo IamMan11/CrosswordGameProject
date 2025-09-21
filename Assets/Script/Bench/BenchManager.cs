@@ -80,15 +80,13 @@ public class BenchManager : MonoBehaviour
 
     private void OnDisable()
     {
-        foreach (var kv in _moving)
-            if (kv.Value != null) StopCoroutine(kv.Value);
+        foreach (var kv in _moving) if (kv.Value != null) StopCoroutine(kv.Value);
         _moving.Clear();
 
         while (_uiGuardDepth-- > 0) UiGuard.Pop();
         _uiGuardDepth = 0;
 
-        // >>> NEW
-        if (_refillCo != null) { StopCoroutine(_refillCo); _refillCo = null; }
+        if (_refillCo != null) { StopCoroutine(_refillCo); _refillCo = null; } // ← เพิ่ม null
         _refillQueued = false;
     }
     public void PauseAutoRefill() { _refillPause++; }
@@ -351,75 +349,90 @@ public class BenchManager : MonoBehaviour
     /// </summary>
     private IEnumerator RefillAnimatedCo()
     {
-        if (letterTilePrefab == null || TileBag.Instance == null) yield break;
-        if (tileSpawnAnchor == null) { RefillImmediate(); yield break; }
-        if (!CanAutoRefill()) { _refillCo = null; yield break; }
-
-        if (tileBagAnimator) tileBagAnimator.SetTrigger("Refill");
-
-        // ลบเศษจากรอบก่อน
-        for (int i = tileSpawnAnchor.childCount - 1; i >= 0; --i)
-            Destroy(tileSpawnAnchor.GetChild(i).gameObject);
-
-        // รวมช่องว่างทั้งหมด
-        var emptySlots = new List<Transform>();
-        foreach (var slot in slotTransforms)
-            if (slot != null && slot.childCount == 0) emptySlots.Add(slot);
-
-        int missing = MissingToCapacity();
-        if (missing <= 0) { _refillCo = null; yield break; }
-
-        int filled = 0;
-        foreach (var slot in emptySlots)
+        try
         {
-            if (!CanAutoRefill()) { _refillCo = null; yield break; }
-            if (filled >= missing) break;
-
-            var data = TileBag.Instance.DrawRandomTile();
-            if (data == null) break;
-
-            // (โค้ดสร้าง go/tile + hover + FlyTo เดิมตามที่มีอยู่)
-            var go = Instantiate(letterTilePrefab, tileSpawnAnchor, false);
-            var tile = go.GetComponent<LetterTile>();
-            if (tile == null)
+            if (letterTilePrefab == null || TileBag.Instance == null)
             {
-                Destroy(go);
-                CreateTileInSlot(slot, data);
-                yield return new WaitForSecondsRealtime(refillStagger);
-                filled++;
-                continue;
+                Debug.LogWarning("[BenchManager] RefillAnimatedCo aborted (prefab/bag null)");
+                yield break; // finally จะรันและเคลียร์ให้
             }
 
-            tile.Setup(data);
-            tile.AdjustSizeToParent();                     // ขนาด = TileSpawn
-            tile.PlaySpawnPop();                           // pop ก่อน
-
-            // ลอยนิ่ง/โยกสั้น ๆ เหนือ anchor
-            var rt = go.GetComponent<RectTransform>();
-            if (rt != null)
+            if (tileSpawnAnchor == null)
             {
-                rt.anchoredPosition = new Vector2(0f, spawnHoverHeight);
-                float t = 0f, dur = Mathf.Max(0.0001f, spawnHoverTime);
-                while (t < dur)
+                // ถ้าเงื่อนไขเปลี่ยนระหว่างทาง ให้ fallback ทันที
+                RefillImmediate();
+                yield break; // finally จะรันและเคลียร์ให้
+            }
+            if (!CanAutoRefill()) yield break;
+
+            if (tileBagAnimator) tileBagAnimator.SetTrigger("Refill");
+
+            // ลบเศษจากรอบก่อน
+            for (int i = tileSpawnAnchor.childCount - 1; i >= 0; --i)
+                Destroy(tileSpawnAnchor.GetChild(i).gameObject);
+
+            // รวมช่องว่างทั้งหมด
+            var emptySlots = new List<Transform>();
+            foreach (var slot in slotTransforms)
+                if (slot != null && slot.childCount == 0) emptySlots.Add(slot);
+
+            int missing = MissingToCapacity();
+            if (missing <= 0) { _refillCo = null; yield break; }
+
+            int filled = 0;
+            foreach (var slot in emptySlots)
+            {
+                if (!CanAutoRefill()) { _refillCo = null; yield break; }
+                if (filled >= missing) break;
+
+                var data = TileBag.Instance.DrawRandomTile();
+                if (data == null) break;
+
+                // (โค้ดสร้าง go/tile + hover + FlyTo เดิมตามที่มีอยู่)
+                var go = Instantiate(letterTilePrefab, tileSpawnAnchor, false);
+                var tile = go.GetComponent<LetterTile>();
+                if (tile == null)
                 {
-                    if (PauseManager.IsPaused) { yield return null; continue; }
-                    t += Time.unscaledDeltaTime;
-                    float k = Mathf.Clamp01(t / dur);
-                    float bob = Mathf.Sin(k * Mathf.PI) * 6f;
-                    rt.anchoredPosition = new Vector2(0f, spawnHoverHeight + bob);
-                    yield return null;
+                    Destroy(go);
+                    CreateTileInSlot(slot, data);
+                    yield return new WaitForSecondsRealtime(refillStagger);
+                    filled++;
+                    continue;
                 }
+
+                tile.Setup(data);
+                tile.AdjustSizeToParent();                     // ขนาด = TileSpawn
+                tile.PlaySpawnPop();                           // pop ก่อน
+
+                // ลอยนิ่ง/โยกสั้น ๆ เหนือ anchor
+                var rt = go.GetComponent<RectTransform>();
+                if (rt != null)
+                {
+                    rt.anchoredPosition = new Vector2(0f, spawnHoverHeight);
+                    float t = 0f, dur = Mathf.Max(0.0001f, spawnHoverTime);
+                    while (t < dur)
+                    {
+                        if (PauseManager.IsPaused) { yield return null; continue; }
+                        t += Time.unscaledDeltaTime;
+                        float k = Mathf.Clamp01(t / dur);
+                        float bob = Mathf.Sin(k * Mathf.PI) * 6f;
+                        rt.anchoredPosition = new Vector2(0f, spawnHoverHeight + bob);
+                        yield return null;
+                    }
+                }
+
+                // บินเข้า "ช่องปลายทาง" (เหลือ Bench แค่ 10 ช่องตามจริง)
+                SfxPlayer.Play(SfxId.TileTransfer);
+                tile.FlyTo(slot);
+                yield return new WaitForSecondsRealtime(refillStagger);
+
+                filled++;
             }
-
-            // บินเข้า "ช่องปลายทาง" (เหลือ Bench แค่ 10 ช่องตามจริง)
-            SfxPlayer.Play(SfxId.TileTransfer);
-            tile.FlyTo(slot);
-            yield return new WaitForSecondsRealtime(refillStagger);
-
-            filled++;
         }
-
-        _refillCo = null;
+        finally
+        {
+            _refillCo = null;
+        }
     }
 
     // เติม 1 ช่อง (ถ้าไม่ส่ง prefer จะหา First Empty ให้เอง)
