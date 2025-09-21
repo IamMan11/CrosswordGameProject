@@ -57,8 +57,17 @@ public class BgmPlayer : MonoBehaviour {
 
     AudioClip ClipOf(BgmTier t)
         => t == BgmTier.High ? highClip : (t == BgmTier.Mid ? midClip : baseClip);
+    
+    public void StopImmediateAndClear()
+    {
+        StopAllCoroutines();
+        if (a) { a.Stop(); a.clip = null; a.volume = 0f; }
+        if (b) { b.Stop(); b.clip = null; b.volume = 0f; }
+        CurrentTier = BgmTier.Base;
+    }
 
-    public void SetTier(BgmTier tier, bool immediate = false) {
+    public void SetTier(BgmTier tier, bool immediate = false)
+    {
         var next = ClipOf(tier);
         if (next == null) return;
 
@@ -66,23 +75,28 @@ public class BgmPlayer : MonoBehaviour {
         var ina = Inactive();
 
         // ✅ ถ้าอยู่ tier นี้และ clip เดิมกำลังเล่นอยู่แล้ว → ไม่ต้องครอสเฟดซ้ำ
-        if (tier == CurrentTier && act != null && act.clip == next && act.isPlaying) {
+        if (tier == CurrentTier && act != null && act.clip == next && act.isPlaying)
+        {
             act.volume = localGain;     // เผื่อเคยลดไว้
             if (ina) ina.volume = 0f;
             return;
         }
         // เผื่อกำลัง crossfade ไป clip นี้อยู่แล้ว
-        if (tier == CurrentTier && ina != null && ina.clip == next && ina.isPlaying) {
+        if (tier == CurrentTier && ina != null && ina.clip == next && ina.isPlaying)
+        {
             return;
         }
 
-        if (immediate || !act.isPlaying) {
+        if (immediate || !act.isPlaying)
+        {
             act.Stop(); ina.Stop();
             act.clip = next;
             act.volume = localGain;
             act.Play();
             aActive = (act == a);
-        } else {
+        }
+        else
+        {
             StopAllCoroutines();
             StartCoroutine(CrossfadeTo(next, crossfade));
         }

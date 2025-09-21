@@ -3,6 +3,7 @@ using UnityEngine.SceneManagement;
 
 public class MainMenuManager : MonoBehaviour
 {
+    [SerializeField] string playSceneName = "Play"; // ชื่อซีนเล่น
     [Header("Options Panel")]
     public GameObject optionsPanel;
 
@@ -13,6 +14,7 @@ public class MainMenuManager : MonoBehaviour
     // ===== New Play: รีเซ็ตทุกอย่าง แล้วเริ่มที่ซีนเริ่มเกม =====
     public void OnNewPlayClicked()
     {
+        Time.timeScale = 1f;
         // ทำลายตัวที่ค้างข้ามซีน (ถ้ามี)
         DestroyIfExists(CardManager.Instance?.gameObject);
 #if UNITY_2023_1_OR_NEWER
@@ -20,9 +22,6 @@ public class MainMenuManager : MonoBehaviour
 #else
         DestroyIfExists(FindObjectOfType<ShopManager>()?.gameObject);
 #endif
-        DestroyIfExists(CurrencyManager.Instance?.gameObject);
-        DestroyIfExists(TurnManager.Instance?.gameObject);
-        DestroyIfExists(TileBag.Instance?.gameObject);
 
         // รีเซ็ต progress + last scene
         if (PlayerProgressSO.Instance != null)
@@ -52,6 +51,15 @@ public class MainMenuManager : MonoBehaviour
     public void OnHistoryButtonClicked()
     {
         SceneManager.LoadScene("UIHistoryScene");
+    }
+        public void Btn_QuitGame()
+    {
+        SfxPlayer.Play(SfxId.UI_Click);
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
     }
 
     public void OnOptionsButtonClicked() => optionsPanel.SetActive(true);

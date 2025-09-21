@@ -199,6 +199,7 @@ public class LevelManager : MonoBehaviour
 
     private void Update()
     {
+        if (PauseManager.IsPaused) return;  // << หยุดทั้งเลเวลขณะ Pause
         if (phase != GamePhase.Running || levels == null || levels.Length == 0) return;
 
         var cfg = currentLevelConfig;
@@ -411,24 +412,31 @@ public class LevelManager : MonoBehaviour
 
         var result = BuildStageResult(cfg);
 
-        // ✅ บวกเหรียญเข้ากระเป๋าผู้เล่นจริง ๆ (และจะเซฟลง PlayerPrefs ในตัว)
+        // บวกเหรียญเข้ากระเป๋าผู้เล่นจริง ๆ
         if (result.totalCoins > 0)
         {
             CurrencyManager.Instance?.Add(result.totalCoins);
-            // (ออปชัน) โชว์ toast เล็ก ๆ
             UIManager.Instance?.ShowFloatingToast($"+{result.totalCoins} coins", Color.yellow, 1.2f);
         }
 
         stageClearPanel?.Show(result, next: () =>
         {
-            StageResultBus.LastResult = result;
-            StageResultBus.NextLevelIndex = Mathf.Clamp(currentLevel + 1, 0, levels.Length - 1);
-            StageResultBus.GameplaySceneName = SceneManager.GetActiveScene().name;
+            // ส่งข้อมูลไปฝั่งถัดไป
+            StageResultBus.LastResult        = result;
+            StageResultBus.NextLevelIndex    = Mathf.Clamp(currentLevel + 1, 0, levels.Length - 1);
+            StageResultBus.GameplaySceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
 
+            // คืนเวลา/เสียง + เคลียร์เสียงของซีนปัจจุบันก่อนเปลี่ยน
             Time.timeScale = 1f;
-            SceneManager.LoadScene(shopSceneName);
+            AudioListener.pause = false;
+            BgmPlayer.I?.StopImmediateAndClear();
+            SfxPlayer.I?.StopAllAndClearBank();
+
+            // โหลดผ่าน SceneTransitioner (มีเฟด)
+            SceneTransitioner.LoadScene(shopSceneName); // <- เดิมเคยใช้ SceneManager.LoadScene
         });
     }
+
 
     private bool CheckWinConditions(LevelConfig cfg)
     {

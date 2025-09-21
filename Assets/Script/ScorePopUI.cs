@@ -99,6 +99,7 @@ public class ScorePopUI : MonoBehaviour
         float t = 0f;
         while (t < 1f)
         {
+            while (PauseManager.IsPaused) { yield return null; }
             t += Time.unscaledDeltaTime / dur;
             float k = t < .5f ? t/.5f : 1f-(t-.5f)/.5f; // up then down
             transform.localScale = Vector3.LerpUnclamped(_baseScale, _baseScale*target, k);
@@ -117,6 +118,7 @@ public class ScorePopUI : MonoBehaviour
         float t = 0f;
         while (t < 1f)
         {
+            while (PauseManager.IsPaused) { yield return null; }
             t += Time.unscaledDeltaTime / Mathf.Max(0.001f, dur);
             float e = EaseOutCubic(t);
             rt.anchoredPosition = Vector2.LerpUnclamped(startPos, endPos, e);
@@ -193,6 +195,7 @@ public class ScorePopUI : MonoBehaviour
         float t = 0f;
         while (t < 1f)
         {
+            while (PauseManager.IsPaused) { yield return null; }
             t += Time.unscaledDeltaTime / Mathf.Max(0.0001f, settleDur);
             float k = 1f - t; // 1 -> 0
 

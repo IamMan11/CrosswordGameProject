@@ -34,6 +34,10 @@ public class TurnManager : MonoBehaviour
     [SerializeField] private TMP_Text manaText;
     private bool infiniteManaMode = false;
     private Coroutine manaInfiniteCoroutine = null;
+    // ===================== Fire Stack (per turn) =====================
+    [Header("Fire Stack (per turn)")]
+    public LineOfFireAnimatorDriver fireFx;   // ลากตัวที่มี Animator Driver มาใส่ Inspector
+    public int fireStack = 0;                 // สะสมตามเทิร์น
 
     private readonly Dictionary<string, int> usageCountThisTurn = new Dictionary<string, int>();
 
@@ -285,6 +289,8 @@ public class TurnManager : MonoBehaviour
         nextWordMul = 1;
 
         ConfirmsThisLevel = 0;
+        fireStack = 0;
+        fireFx?.ResetFx();
 
         LevelManager.Instance?.OnScoreOrWordProgressChanged();
     }
@@ -329,6 +335,25 @@ public class TurnManager : MonoBehaviour
         UpdateManaUI();
         ShowMessage("Mana Infinity – ใช้มานาไม่จำกัด!", Color.cyan);
         manaInfiniteCoroutine = StartCoroutine(DeactivateInfiniteManaAfter(duration));
+    }
+    // รีเซ็ตเมื่อสตรีคแตก
+    void ResetFireStack()
+    {
+        fireStack = 0;
+        if (fireFx) fireFx.OnStackChanged(fireStack);
+    }
+
+    // เรียกตอนจบเทิร์น: ถ้าไม่มีการ “หักคะแนนจริง” (ไม่รวม Dictionary) → +1
+    void ApplyFireStackAfterTurn(bool scoreDeductedThisTurn)
+    {
+        if (scoreDeductedThisTurn)
+        {
+            ResetFireStack();
+            return;
+        }
+
+        fireStack = Mathf.Max(0, fireStack + 1);
+        if (fireFx) fireFx.OnStackChanged(fireStack);
     }
 
     IEnumerator DeactivateInfiniteManaAfter(float duration)
@@ -647,9 +672,9 @@ public class TurnManager : MonoBehaviour
                 float p = PitchAtStep(letterIdx++, totalLetterSteps, letterPitchStart, letterPitchMax);
                 SfxPlayer.PlayPitch(SfxId.ScoreLetterTick, p);    // ✅ ไล่โทนสูงขึ้น
 
-                yield return new WaitForSecondsRealtime(stepDelay);
+                yield return DelayRealtime_PauseAware(stepDelay);
             }
-            yield return new WaitForSecondsRealtime(sectionDelay);
+            yield return DelayRealtime_PauseAware(stepDelay);
 
             // B) รวมตัวคูณ
             var uiB = SpawnPop(anchorMults, 0);
@@ -887,11 +912,24 @@ public class TurnManager : MonoBehaviour
 
         string msg = applyPenalty ? $"{reason}  -{penalty}" : reason;
         ShowMessage(msg, Color.red);
+        ResetFireStack();
         UpdateBagUI();
         EnableConfirm();
         ResetBgmStreak(playSfx: true);
         BoardManager.Instance?.RevertTempSpecialsThisTurn();
         ResetOncePerTurnEffects();
+    }
+    // หน่วงเวลาแบบ Realtime แต่จะหยุดนับถ้า Pause
+    static IEnumerator DelayRealtime_PauseAware(float dur) {
+        float t = 0f;
+        while (t < dur) {
+            if (!PauseManager.IsPaused) t += Time.unscaledDeltaTime;
+            yield return null;
+        }
+    }
+    // รอค้างไว้เฉย ๆ จนกว่าจะเลิก Pause
+    static IEnumerator WaitWhilePaused() {
+        while (PauseManager.IsPaused) yield return null;
     }
 
     void OnConfirm()
@@ -1042,6 +1080,7 @@ public class TurnManager : MonoBehaviour
                     LevelManager.Instance?.OnScoreOrWordProgressChanged();
                 }
                 ShowMessage("คำหลักไม่ผ่าน – เสียเทิร์น", Color.red);
+                ResetFireStack();
                 StartCoroutine(SkipTurnAfterBounce());
                 return;
             }
@@ -1083,6 +1122,7 @@ public class TurnManager : MonoBehaviour
 
             LevelManager.Instance?.RegisterConfirmedWords(correct.Select(w => w.word));
             ApplyBgmStreakAfterConfirm(dictPenaltyApplied);
+            ApplyFireStackAfterTurn(scoreDeductedThisTurn: false);
 
             StartCoroutine(AnimateAndFinalizeScoring(
                 placed,

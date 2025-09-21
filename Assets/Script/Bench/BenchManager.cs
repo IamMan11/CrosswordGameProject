@@ -233,7 +233,7 @@ public class BenchManager : MonoBehaviour
                 CleanupMove(tile);
                 yield break;
             }
-
+            if (PauseManager.IsPaused) { yield return null; continue; }
             t += Time.unscaledDeltaTime / dur;
             float a = ease.Evaluate(Mathf.Clamp01(t));
             rt.localPosition = Vector3.LerpUnclamped(startLocal, endLocal, a);
@@ -402,6 +402,7 @@ public class BenchManager : MonoBehaviour
                 float t = 0f, dur = Mathf.Max(0.0001f, spawnHoverTime);
                 while (t < dur)
                 {
+                    if (PauseManager.IsPaused) { yield return null; continue; }
                     t += Time.unscaledDeltaTime;
                     float k = Mathf.Clamp01(t / dur);
                     float bob = Mathf.Sin(k * Mathf.PI) * 6f;
@@ -499,7 +500,7 @@ public class BenchManager : MonoBehaviour
                 // ✅ กัน MissingReference: ถ้าโดนทำลาย/ปิดซีนกลางคัน ให้หยุดคอร์รุตีนนี้
                 if (this == null || !gameObject || tileSpawnAnchor == null || rt == null || go == null)
                     yield break;
-
+                if (PauseManager.IsPaused) { yield return null; continue; }
                 t += Time.unscaledDeltaTime;
                 float k = Mathf.Clamp01(t / dur);
                 float bob = Mathf.Sin(k * Mathf.PI) * 6f;
