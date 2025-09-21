@@ -39,14 +39,14 @@ public class ShopManager : MonoBehaviour
 
     [Header("Upgrade Caps & Prices")]
     // จำนวนครั้งสูงสุดที่อัปเกรดได้ (กำหนดเองใน Inspector)
-    [SerializeField] int manaMaxUpgrades = 10;
+    [SerializeField] int manaMaxUpgrades = 5;
     [SerializeField] int tileMaxUpgrades = 10;
-    [SerializeField] int slotMaxUpgrades = 6;
+    [SerializeField] int slotMaxUpgrades = 2;
 
     // สูตรราคา: base + step * (จำนวนครั้งที่อัปเกรดไปแล้ว)
-    [SerializeField] int manaBasePrice = 50, manaStepPrice = 25;
-    [SerializeField] int tileBasePrice = 60, tileStepPrice = 30;
-    [SerializeField] int slotBasePrice = 80, slotStepPrice = 40;
+    [SerializeField] int manaBasePrice = 200, manaStepPrice = 25;
+    [SerializeField] int tileBasePrice = 100, tileStepPrice = 30;
+    [SerializeField] int slotBasePrice = 1000, slotStepPrice = 40;
 
     // ====== helper อ่านจำนวนครั้งที่อัปเกรด (ดึงจาก SO ถ้ามี) ======
     int ManaUpCount  => PlayerProgressSO.Instance?.data?.manaUpCount ?? PlayerPrefs.GetInt("ManaUpCount", 0);
@@ -78,9 +78,9 @@ public class ShopManager : MonoBehaviour
     #region Costs / Limits
 
     [Header("Upgrade Cost / ครั้ง")]
-    [SerializeField] int manaUpgradeCost = 50;
-    [SerializeField] int slotUpgradeCost = 75;
-    [SerializeField] int tilepackCost   = 40;
+    [SerializeField] int manaUpgradeCost = 200;
+    [SerializeField] int slotUpgradeCost = 1000;
+    [SerializeField] int tilepackCost   = 100;
     [SerializeField] int rerollCost     = 50;
 
     [Header("Upgrade Limits (ครั้ง)")]
@@ -201,7 +201,7 @@ public class ShopManager : MonoBehaviour
         TileBag.Instance?.ResetPool();
 
         // เข้าฉากเกม
-        SceneManager.LoadScene("Play");
+        if (SceneTransitioner.I != null) SceneTransitioner.LoadScene("Play");
     }
 
     /// <summary>กด Reroll — หักเหรียญ แล้วสุ่มของใหม่</summary>

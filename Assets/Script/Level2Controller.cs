@@ -366,6 +366,7 @@ public class Level2Controller : MonoBehaviour
             float remain = Mathf.Max(1f, intervalSec);
             while (remain > 0f)
             {
+                while (PauseManager.IsPaused) yield return null;
                 if (!IsZoneTimerFrozen())
                     remain -= Time.unscaledDeltaTime;  // หยุดเดินเมื่อกำลังคิดคะแนน/ถูก freeze
                 yield return null;

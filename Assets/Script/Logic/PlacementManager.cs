@@ -315,6 +315,14 @@ public class PlacementManager : MonoBehaviour
     private IEnumerator PlacePairsSequentially(List<(LetterTile tile, BoardSlot slot)> pairs)
     {
         var turnMgr = TurnManager.Instance;
+
+        // ✅ ปิดปุ่มไว้ทันทีตั้งแต่จะเริ่มวาง
+        if (turnMgr && turnMgr.confirmBtn)
+        {
+            turnMgr.confirmBtn.interactable = false;
+            var cg = turnMgr.confirmBtn.GetComponent<CanvasGroup>();
+            if (cg) { cg.interactable = false; cg.blocksRaycasts = false; cg.alpha = 0.45f; }
+        }
         lastPlacedTiles.Clear();
 
         for (int i = 0; i < pairs.Count; i++)

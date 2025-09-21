@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 20
   displayName: Pack Renewal
   description: Reset tilepack to full again
-  icon: {fileID: 0}
+  icon: {fileID: -8745198916182227653, guid: 9d127215162eca74c9f11de2264a3806, type: 3}
   effectType: 27
   Mana: 10
   maxUsagePerTurn: 3
