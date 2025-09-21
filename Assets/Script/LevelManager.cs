@@ -489,14 +489,14 @@ public class LevelManager : MonoBehaviour
     {
         if (isGameOver || TurnManager.Instance == null || cfg == null) return false;
 
-        bool baseOK =
-            TurnManager.Instance.Score >= cfg.requiredScore &&
-            TurnManager.Instance.CheckedWordCount >= cfg.requiredWords;
+        int score = TurnManager.Instance.Score;
+        int words = TurnManager.Instance.UniqueWordsThisLevel; // <-- เปลี่ยนมาใช้ตัวนี้
+
+        bool baseOK = score >= cfg.requiredScore && words >= cfg.requiredWords;
         if (!baseOK) return false;
 
         if (cfg.levelIndex == 1 && itWordsFound.Count < itWordsTargetLevel1) return false;
 
-        // แก้เป็นใช้ Controller แทนของเดิม
         if (cfg.levelIndex == 2 && level2_useTriangleObjective &&
             !(Level2Controller.Instance?.IsTriangleComplete() ?? false)) return false;
 

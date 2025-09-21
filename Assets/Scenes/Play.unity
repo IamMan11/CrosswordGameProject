@@ -3351,7 +3351,7 @@ MonoBehaviour:
     requiredWords: 20
     timeLimit: 900
     level1_enableGarbledIT: 1
-    level1_garbledCount: 4
+    level1_garbledCount: 1
     level1_minGapBetweenSets: 2
     level1_placeMaxRetries: 200
     level1_reserveCenterBox: 1
@@ -3391,7 +3391,7 @@ MonoBehaviour:
     coefTurnMoney: -10
     coefTilesLeftMoney: 1
   - levelIndex: 2
-    requiredScore: 2000
+    requiredScore: 850
     requiredWords: 0
     timeLimit: 900
     level1_enableGarbledIT: 0
@@ -3418,7 +3418,7 @@ MonoBehaviour:
     level1_garbledSlotBg: {r: 0, g: 0, b: 0, a: 1}
     level1_outlineDefaultColor: {r: 0, g: 0, b: 0, a: 1}
     level1_outlineTouchedColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-    requireThemedWords: 1
+    requireThemedWords: 0
     requiredThemeTag: IT
     requiredThemeCount: 20
     manualThemeWords: []
