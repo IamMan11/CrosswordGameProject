@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 
 public class TutorialManager : MonoBehaviour
 {
@@ -23,6 +24,8 @@ public class TutorialManager : MonoBehaviour
     private bool running = false;
     private readonly Queue<TutorialEvent> eventQueue = new();
 
+    /* -------------------- Lifecycle -------------------- */
+
     void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
@@ -30,15 +33,105 @@ public class TutorialManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
+    void OnEnable()
+    {
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    void OnDisable()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
     void Start()
     {
-        if (config == null || ui == null) return;
+        EnsureUI();                   // หา UI ในซีนปัจจุบันถ้ายังไม่มี
+        BindButtonsIfReady();
+        TryStartIfNotSeen();          // เริ่มตามคอนฟิกถ้ายังไม่เคยดู
+    }
 
-        ui.BindButtons(Next, Back, SkipAll);
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        EnsureUI();                   // หา UI ของซีนใหม่
+        BindButtonsIfReady();         // bind ปุ่มใหม่ให้ UI ใหม่นี้
+        TryStartIfNotSeen();          // เผื่อซีนนี้มีคอนฟิกที่ควรเริ่มเอง
+    }
 
-        if (config.runOnFirstLaunch && PlayerPrefs.GetInt(config.seenKey, 0) == 0)
+    /* -------------------- Public API -------------------- */
+
+    public void SetConfig(TutorialConfigSO newConfig, bool startNow = true)
+    {
+        if (newConfig == null) return;
+        if (running) StopTutorial(false);   // จบของเดิมก่อน (ไม่ mark seen)
+        config = newConfig;
+
+        if (startNow) StartTutorial();
+    }
+
+    public void TryStartIfNotSeen()
+    {
+        if (!config) return;
+        if (config.runOnFirstLaunch && PlayerPrefs.GetInt(CurrentSeenKey(), 0) == 0)
             StartTutorial();
     }
+
+    public void StartTutorial()
+    {
+        if (running) return;
+        if (config == null || config.steps.Count == 0) return;
+
+        EnsureUI();
+        if (!ui)
+        {
+            Debug.LogWarning("[Tutorial] No TutorialUI found in this scene.");
+            return;
+        }
+
+        running = true;
+        index = -1;
+        Next();
+    }
+
+    public void StopTutorial(bool markSeen)
+    {
+        running = false;
+
+        if (ui) ui.HideCard(true);
+        if (markSeen && config != null)
+        {
+            PlayerPrefs.SetInt(CurrentSeenKey(), 1);
+            PlayerPrefs.Save();
+        }
+        BoardManager.Instance?.ClearHighlights();
+        if (ui) ui.ClearSpotlightHole();
+    }
+
+    public void Next()
+    {
+        index++;
+        if (index >= (config?.steps.Count ?? 0))
+        {
+            StopTutorial(true);
+            return;
+        }
+        ShowCurrent();
+    }
+
+    public void Back()
+    {
+        index = Mathf.Max(0, index - 1);
+        ShowCurrent();
+    }
+
+    public void SkipAll() => StopTutorial(true);
+
+    public void Fire(TutorialEvent ev)
+    {
+        if (!running) return;
+        eventQueue.Enqueue(ev);
+    }
+
+    /* -------------------- Internals -------------------- */
 
     void Update()
     {
@@ -64,61 +157,42 @@ public class TutorialManager : MonoBehaviour
         }
     }
 
-    public void StartTutorial()
+    private void EnsureUI()
     {
-        if (running) return;
-        if (config == null || config.steps.Count == 0) return;
-
-        running = true;
-        index = -1;
-        Next();
+        if (!ui)
+            ui = FindObjectOfType<TutorialUI>(true);
     }
 
-    public void StopTutorial(bool markSeen)
+    private void BindButtonsIfReady()
     {
-        running = false;
-        ui.HideCard(true);
-        if (markSeen && config != null)
-        {
-            PlayerPrefs.SetInt(config.seenKey, 1);
-            PlayerPrefs.Save();
-        }
-        BoardManager.Instance?.ClearHighlights();
-        ui.ClearSpotlightHole();
+        if (ui)
+            ui.BindButtons(Next, Back, SkipAll);
     }
 
-    public void Next()
+    private string CurrentSeenKey()
     {
-        index++;
-        if (index >= config.steps.Count)
-        {
-            StopTutorial(true);
-            return;
-        }
-        ShowCurrent();
+        if (config == null) return "TUTSEEN_NULL";
+        return string.IsNullOrEmpty(config.seenKey) ? $"TUTSEEN_{config.name}" : config.seenKey;
     }
 
-    public void Back()
+    private TutorialStep CurrentStep()
     {
-        index = Mathf.Max(0, index - 1);
-        ShowCurrent();
+        if (config == null || index < 0 || index >= config.steps.Count) return null;
+        return config.steps[index];
     }
-
-    public void SkipAll() => StopTutorial(true);
 
     private void ShowCurrent()
     {
         var step = CurrentStep();
-        if (step == null) return;
+        if (step == null || ui == null) return;
 
         // ---------- basic card / overlay ----------
         ui.SetBlockInput(step.blockInput);
         ui.SetPage(index, config.steps.Count);
         ui.SetCard(step.title, step.body, step.icon);
-
         ui.ShowCard(true);
 
-        // ใช้ CardSlot เป็นเป้า ถ้า focus ระบุ CardSlot
+        // focus target
         RectTransform focusTarget =
             (step.focus == FocusKey.CardSlot)
                 ? GetCardSlotRect(step.cardSlotIndex)
@@ -150,33 +224,17 @@ public class TutorialManager : MonoBehaviour
         if (step.highlightCardSlot)
             BoardManager.Instance?.HighlightCardSlot(step.cardSlotIndex, 10.0f);
 
-        // ---------- SHOP: spotlight hole for items row ----------
+        // ---------- SHOP: spotlight hole example ----------
         ui.ClearSpotlightHole(); // กันค้างจากสเต็ปก่อน
         if (step.focus == FocusKey.ShopItemsRow)
         {
             var rects = CollectShopItemRects();
             if (rects.Count > 0)
             {
-                // ซ่อนกรอบเหลือง แล้วเจาะ “รูโปร่ง” ครอบทั้งแถว
-                ui.SetFocus(null, Vector2.zero);
-                ui.SpotlightTargets(rects, 6f);
+                ui.SetFocus(null, Vector2.zero); // ซ่อนกรอบเหลือง
+                ui.SpotlightTargets(rects, 6f);  // เจาะรูโปร่งครอบทั้งแถว
             }
         }
-    }
-
-    private TutorialStep CurrentStep()
-    {
-        if (config == null || index < 0 || index >= config.steps.Count) return null;
-        return config.steps[index];
-    }
-
-    // เปลี่ยนคอนฟิกระหว่างซีน (เช่น Shop)
-    public void SetConfig(TutorialConfigSO newConfig, bool startNow = true)
-    {
-        if (newConfig == null) return;
-        if (running) StopTutorial(false);   // จบของเดิมก่อน (ไม่ mark seen)
-        config = newConfig;
-        if (startNow) StartTutorial();
     }
 
     private RectTransform MapFocus(FocusKey fk)
@@ -192,17 +250,17 @@ public class TutorialManager : MonoBehaviour
             case FocusKey.BagUI: return bagUI;
 
             // ====== SHOP (ผ่าน Binder) ======
-            case FocusKey.ShopPanel:       return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.panelRoot   : null;
-            case FocusKey.ShopCoin:        return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.coinText    : null;
-            case FocusKey.ShopBuyMana:     return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.buyMana     : null;
+            case FocusKey.ShopPanel: return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.panelRoot : null;
+            case FocusKey.ShopCoin: return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.coinText : null;
+            case FocusKey.ShopBuyMana: return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.buyMana : null;
             case FocusKey.ShopBuyTilePack: return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.buyTilePack : null;
-            case FocusKey.ShopBuyMaxCard:  return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.buyMaxCard  : null;
-            case FocusKey.ShopItemsRow:    return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.itemsRow    : null;
-            case FocusKey.ShopItem1:       return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.item1       : null;
-            case FocusKey.ShopItem2:       return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.item2       : null;
-            case FocusKey.ShopItem3:       return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.item3       : null;
-            case FocusKey.ShopReroll:      return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.rerollButton: null;
-            case FocusKey.ShopNext:        return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.nextButton  : null;
+            case FocusKey.ShopBuyMaxCard: return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.buyMaxCard : null;
+            case FocusKey.ShopItemsRow: return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.itemsRow : null;
+            case FocusKey.ShopItem1: return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.item1 : null;
+            case FocusKey.ShopItem2: return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.item2 : null;
+            case FocusKey.ShopItem3: return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.item3 : null;
+            case FocusKey.ShopReroll: return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.rerollButton : null;
+            case FocusKey.ShopNext: return ShopTutorialBinder.Instance ? ShopTutorialBinder.Instance.nextButton : null;
 
             default: return null;
         }
@@ -217,7 +275,6 @@ public class TutorialManager : MonoBehaviour
         void Add(RectTransform r) { if (r) list.Add(r); }
         Add(b.item1); Add(b.item2); Add(b.item3);
 
-        // ถ้าไม่ได้ลาก item1-3 ให้เก็บลูกทั้งหมดของ itemsRow
         if (list.Count == 0 && b.itemsRow)
         {
             for (int i = 0; i < b.itemsRow.childCount; i++)
@@ -240,11 +297,5 @@ public class TutorialManager : MonoBehaviour
 #endif
         var go = GameObject.Find($"Cardslot{idx + 1}");
         return go ? go.GetComponent<RectTransform>() : null;
-    }
-
-    public void Fire(TutorialEvent ev)
-    {
-        if (!running) return;
-        eventQueue.Enqueue(ev);
     }
 }

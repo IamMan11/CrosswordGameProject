@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: TutorialConfig_Shop
   m_EditorClassIdentifier: 
   runOnFirstLaunch: 1
-  seenKey: TUTORIAL_SEEN_shoping
+  seenKey: 
   steps:
   - id: shop_intro
     title: "\u0E23\u0E49\u0E32\u0E19\u0E04\u0E49\u0E32 (Shop)"
