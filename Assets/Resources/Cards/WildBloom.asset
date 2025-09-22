@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 26
   displayName: wild Bloom
   description: Turn 10 Slot in Borad to special Slot
-  icon: {fileID: 0}
+  icon: {fileID: -7508019736893653893, guid: 71b222d75a87c9d44a9c70af5a767b29, type: 3}
   effectType: 16
   Mana: 6
   maxUsagePerTurn: 3

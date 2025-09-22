@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 4
   displayName: Clean Slate
   description: Reset All Letter on Board
-  icon: {fileID: 0}
+  icon: {fileID: 8942411355787167956, guid: 0fb128998812e4647a459e3edba2dcba, type: 3}
   effectType: 19
   Mana: 10
   maxUsagePerTurn: 1

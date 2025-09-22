@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 2
   displayName: Card Refresh
   description: Reset Card Usage
-  icon: {fileID: 0}
+  icon: {fileID: 1277836374193459366, guid: 0024a74256fff61459b2b3cdb0173ae5, type: 3}
   effectType: 25
   Mana: 10
   maxUsagePerTurn: 1

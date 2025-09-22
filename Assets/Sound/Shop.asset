@@ -13,8 +13,20 @@ MonoBehaviour:
   m_Name: Shop
   m_EditorClassIdentifier: 
   sceneName: Shop
-  bgmBase: {fileID: 8300000, guid: ae4970eda836e44468e27f3458c54173, type: 3}
+  bgmBase: {fileID: 8300000, guid: aad2b0c2d581ead479830215c477bc0c, type: 3}
   bgmMid: {fileID: 0}
   bgmHigh: {fileID: 0}
   bgmLocalGain: 1
-  sfxBank: []
+  sfxBank:
+  - id: 10
+    clips:
+    - {fileID: 8300000, guid: ec45ea99d90f4394c87ad4e83863d4e4, type: 3}
+    volume: 1
+    pitch: {x: 1, y: 1}
+    cooldown: 0
+  - id: 11
+    clips:
+    - {fileID: 8300000, guid: 468a164073e293c48bb33fb42304a4d0, type: 3}
+    volume: 1
+    pitch: {x: 1, y: 1}
+    cooldown: 0

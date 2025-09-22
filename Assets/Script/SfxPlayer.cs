@@ -81,7 +81,40 @@ public class SfxPlayer : MonoBehaviour
 
         DontDestroyOnLoad(gameObject);
     }
+    public static void PlayIfNotPaused(SfxId id) {
+    if (PauseManager.IsPaused) return;
+    Play(id);
+    }
+    public static void PlayPitchIfNotPaused(SfxId id, float pitch) {
+        if (PauseManager.IsPaused) return;
+        PlayPitch(id, pitch);
+    }
+    public static void PlayVolPitchIfNotPaused(SfxId id, float vol, float pitch) {
+        if (PauseManager.IsPaused) return;
+        PlayVolPitch(id, vol, pitch);
+    }
+    public static void PlayForDurationIfNotPaused(SfxId id, float dur, bool stretchPitch=false, float volumeMul=1f) {
+        if (PauseManager.IsPaused) return;
+        PlayForDuration(id, dur, stretchPitch, volumeMul);
+    }
+    public void StopAllAndClearBank()
+    {
+        // หยุด src หลัก
+        if (source) source.Stop();
 
+        // หยุดแหล่งเสียงชั่วคราวที่อาจถูกสร้าง (เช่น PlayForDuration)
+        var all = GameObject.FindObjectsOfType<AudioSource>();
+        foreach (var s in all)
+        {
+            if (s == source) continue;
+            if (outputGroup && s.outputAudioMixerGroup == outputGroup)
+                s.Stop();
+        }
+
+        // ล้าง mapping sfx ปัจจุบัน (ให้ซีนใหม่โหลดแบงก์ของตัวเอง)
+        _map.Clear();
+        _burst.Clear();
+    }
     public static void Play(SfxId id)
     {
         if (!I || I.source == null) return;

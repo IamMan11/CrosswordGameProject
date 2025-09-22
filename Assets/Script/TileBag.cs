@@ -85,7 +85,22 @@ public class TileBag : MonoBehaviour
         }
 
         Debug.Log($"[TileBag] +{extra} tiles → {Remaining}/{TotalInitial}");
+        if (pool.Count > 0) LevelManager.Instance?.CancelPrepareFailMode();
         TurnManager.Instance?.UpdateBagUI();
+    }
+    public void AddRandomToPool(int count)
+    {
+        count = Mathf.Max(0, count);
+        if (count == 0) return;
+        if (initialLetters == null || initialLetters.Count == 0) return;
+
+        for (int i = 0; i < count; i++)
+        {
+            var pick = initialLetters[Random.Range(0, initialLetters.Count)];
+            if (pick?.data != null) pool.Add(pick.data);
+        }
+        if (pool.Count > 0) LevelManager.Instance?.CancelPrepareFailMode();
+        TurnManager.Instance?.UpdateBagUI(); // อัปเดต UI 70/100 -> 80/100 ฯลฯ
     }
 
     /// <summary>รีเซ็ต pool ทั้งหมดให้เหมือนเริ่มเกมใหม่ (ใช้ตอนเปลี่ยนด่าน/กดรีเซ็ต)</summary>
@@ -143,6 +158,8 @@ public class TileBag : MonoBehaviour
         int idx = Random.Range(0, pool.Count);
         var templateNormal = pool[idx];
         pool.RemoveAt(idx);
+        if (pool.Count == 0)
+            LevelManager.Instance?.EnterPrepareFailMode();
         TurnManager.Instance?.UpdateBagUI();
 
         if (templateNormal == null) return null;
@@ -213,6 +230,7 @@ public class TileBag : MonoBehaviour
         drawsSinceSpecial = 0;
 
         // 7) ซิงก์ UI
+        if (pool.Count > 0) LevelManager.Instance?.CancelPrepareFailMode();
         TurnManager.Instance?.UpdateBagUI();
     }
 

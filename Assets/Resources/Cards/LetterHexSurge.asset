@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 12
   displayName: Letter Hex Surge
   description: Make Special Slot Letter x3 to x6
-  icon: {fileID: 1375184204454939317, guid: 80b6074219faf294795d5d2bf82caa6a, type: 3}
+  icon: {fileID: -7149293016430180093, guid: 939c92b67a1dee344b6c159dbaa3993b, type: 3}
   effectType: 2
   Mana: 4
   maxUsagePerTurn: 10

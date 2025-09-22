@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 16
   displayName: Mana Overflow
   description: Refill Max Mana
-  icon: {fileID: 0}
+  icon: {fileID: -6838227121100322594, guid: 0c1ac7ab6c6c1f74b8e5ebc474c228de, type: 3}
   effectType: 15
   Mana: 0
   maxUsagePerTurn: 5

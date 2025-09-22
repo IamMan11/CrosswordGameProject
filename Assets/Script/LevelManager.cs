@@ -39,6 +39,10 @@ public class LevelManager : MonoBehaviour
     private float levelTimeElapsed;
     private bool levelTimerRunning;
     private bool timerStarted, timerPaused;
+    [SerializeField] float panicTimeThresholdSec = 180f; // 3 นาที
+    bool prepareFailActive = false;       // โหมดเตรียมแพ้ (ถุง = 0)
+    bool pendingPrepareFailCheck = false; // จะเช็กแพ้หลังคอนเฟิร์มหนึ่งครั้ง
+    bool panicBgmActive = false;          // โหมด BGM เวลาใกล้หมด
 
     // ===== Level 1 – IT words objective (progress) =====
     [Header("Level 1 – IT Words")]
@@ -175,6 +179,48 @@ public class LevelManager : MonoBehaviour
         int target = (cfg != null && cfg.requireThemedWords) ? Mathf.Max(0, cfg.requiredThemeCount) : 0;
         return (Mathf.Max(0, wordRequestsDone), target);
     }
+    public void EnterPrepareFailMode()
+    {
+        if (prepareFailActive) return;
+        prepareFailActive = true;
+        UIManager.Instance?.ShowFloatingToast("TileBag = 0 • เทิร์นถัดไปถ้ายังไม่ถึงเป้าจะแพ้", Color.yellow, 2f);
+    }
+    public void CancelPrepareFailMode()
+    {
+        if (!prepareFailActive) return;
+        prepareFailActive = false;
+        pendingPrepareFailCheck = false; // เคลียร์เงื่อนไขรอเช็ก
+        UIManager.Instance?.ShowFloatingToast("ได้ตัวอักษรเพิ่ม — ยกเลิกโหมดเตรียมแพ้", Color.cyan, 1.4f);
+    }
+
+    // เรียกตอนกด Confirm (ถ้า ณ ขณะนั้นอยู่โหมดเตรียมแพ้ → จะเช็กหลังจบอนิเมชัน)
+    public void MarkPrepareFailCheckIfActive()
+    {
+        if (prepareFailActive) pendingPrepareFailCheck = true;
+    }
+
+    // เรียกตอนคอร์รุตีนคิดคะแนนจบ
+    public void TryFailAfterConfirm()
+    {
+        if (!pendingPrepareFailCheck) return;
+        pendingPrepareFailCheck = false;
+
+        if (!HasMetWinConditions())
+            TriggerStageFail("Tiles ran out");    // สรุปแพ้
+    }
+
+    public bool IsPrepareFailActive() => prepareFailActive;
+
+    // ให้ TurnManager ใช้ถาม “ถึงเงื่อนไขชนะแล้วหรือยัง?”
+    public bool HasMetWinConditions() => CheckWinConditions(currentLevelConfig);
+
+    // เวลาใกล้หมด: เปิด/ปิดโหมด BGM Panic
+    void SetPanicBgm(bool on)
+    {
+        if (panicBgmActive == on) return;
+        panicBgmActive = on;
+        BgmPlayer.I?.SetPanicMode(on);  // จะบล็อกสลับ tier จาก streak ขณะ on
+    }
 
     public bool IsWordRequestObjectiveActive()
     {
@@ -199,6 +245,7 @@ public class LevelManager : MonoBehaviour
 
     private void Update()
     {
+        if (PauseManager.IsPaused) return;  // << หยุดทั้งเลเวลขณะ Pause
         if (phase != GamePhase.Running || levels == null || levels.Length == 0) return;
 
         var cfg = currentLevelConfig;
@@ -213,10 +260,11 @@ public class LevelManager : MonoBehaviour
             {
                 float remaining = Mathf.Max(0f, levelTimeLimit - levelTimeElapsed);
                 UpdateLevelTimerText(remaining);
+                SetPanicBgm(remaining > 0f && remaining <= panicTimeThresholdSec);
                 if (remaining <= 0f)
                 {
                     StopLevelTimer();
-                    GameOver(false);
+                    TriggerStageFail("Time up");
                     return;
                 }
             }
@@ -234,7 +282,7 @@ public class LevelManager : MonoBehaviour
         {
             int prev = level2_triangleLinkedCount;
             level2_triangleLinkedCount = Level2Controller.Instance ? Level2Controller.Instance.GetTouchedNodeCount() : 0;
-            level2_triangleComplete    = Level2Controller.Instance && Level2Controller.Instance.IsTriangleComplete();
+            level2_triangleComplete = Level2Controller.Instance && Level2Controller.Instance.IsTriangleComplete();
             if (prev != level2_triangleLinkedCount)
                 LevelTaskUI.I?.Refresh();
         }
@@ -411,24 +459,31 @@ public class LevelManager : MonoBehaviour
 
         var result = BuildStageResult(cfg);
 
-        // ✅ บวกเหรียญเข้ากระเป๋าผู้เล่นจริง ๆ (และจะเซฟลง PlayerPrefs ในตัว)
+        // บวกเหรียญเข้ากระเป๋าผู้เล่นจริง ๆ
         if (result.totalCoins > 0)
         {
             CurrencyManager.Instance?.Add(result.totalCoins);
-            // (ออปชัน) โชว์ toast เล็ก ๆ
             UIManager.Instance?.ShowFloatingToast($"+{result.totalCoins} coins", Color.yellow, 1.2f);
         }
 
         stageClearPanel?.Show(result, next: () =>
         {
+            // ส่งข้อมูลไปฝั่งถัดไป
             StageResultBus.LastResult = result;
             StageResultBus.NextLevelIndex = Mathf.Clamp(currentLevel + 1, 0, levels.Length - 1);
-            StageResultBus.GameplaySceneName = SceneManager.GetActiveScene().name;
+            StageResultBus.GameplaySceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
 
+            // คืนเวลา/เสียง + เคลียร์เสียงของซีนปัจจุบันก่อนเปลี่ยน
             Time.timeScale = 1f;
-            SceneManager.LoadScene(shopSceneName);
+            AudioListener.pause = false;
+            BgmPlayer.I?.StopImmediateAndClear();
+            SfxPlayer.I?.StopAllAndClearBank();
+
+            // โหลดผ่าน SceneTransitioner (มีเฟด)
+            SceneTransitioner.LoadScene(shopSceneName); // <- เดิมเคยใช้ SceneManager.LoadScene
         });
     }
+
 
     private bool CheckWinConditions(LevelConfig cfg)
     {
@@ -450,7 +505,7 @@ public class LevelManager : MonoBehaviour
     public (int linked, int total) GetTriangleLinkProgress()
     {
         var c = Level2Controller.Instance;
-        int total  = c != null ? Mathf.Min(3, c.NodeCount) : 3;
+        int total = c != null ? Mathf.Min(3, c.NodeCount) : 3;
         int linked = c != null ? c.GetTouchedNodeCount() : 0;
         return (linked, total);
     }
@@ -517,11 +572,12 @@ public class LevelManager : MonoBehaviour
 
         if (levelTimerText) levelTimerText.color = win ? Color.green : Color.red;
 
+        if (!win) { TriggerStageFail("GameOver(false)"); return; }
 
         if (win && currentLevelConfig?.levelIndex == 2 && level2_grantWinRewards)
             TryGrantLevel2Rewards(level2_winCogCoin, level2_nextFloorClue);
 
-        Debug.Log(win ? "🎉 ชนะทุกด่าน" : "💀 แพ้เพราะหมดเวลา");
+        Debug.Log("🎉 ชนะทุกด่าน");
     }
 
     private void StopAllLoops()
@@ -1022,5 +1078,27 @@ public class LevelManager : MonoBehaviour
             }
         }
     }
+    void TriggerStageFail(string reason)
+    {
+        if (isGameOver || phase == GamePhase.GameOver) return;
 
+        isGameOver = true;
+        StopLevelTimer();
+        StopAllLoops();
+        phase = GamePhase.GameOver;
+
+        // กันพาเนล Pause ทับ + ตัดเสียง
+        PauseManager.I?.ClosePause();
+        BgmPlayer.I?.DuckAndStop(0.18f);
+        SfxPlayer.I?.StopAllAndClearBank();
+
+        // โชว์ป๊อปอัปแพ้ใต้ Canvas หลัก (เหมือน StageClear)
+        var panel = StageFailPanel.Instance ?? FindObjectOfType<StageFailPanel>(true);
+        if (panel) panel.Show("Stage Fail", "กลับสู่เมนูหลัก?");
+        else
+        {
+            Debug.LogError("StageFailPanel not found under Main Canvas.");
+            PauseManager.I?.Btn_ReturnToMainMenu();
+        }
+    }
 }
