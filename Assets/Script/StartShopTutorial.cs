@@ -2,11 +2,11 @@ using UnityEngine;
 
 public class StartShopTutorial : MonoBehaviour
 {
-    [SerializeField] private TutorialConfigSO shopConfig;
+    public TutorialConfigSO shopConfig;
 
-    private void Start()
+    void Start()
     {
-        if (TutorialManager.Instance && shopConfig)
-            TutorialManager.Instance.SetConfig(shopConfig, true);
+        TutorialManager.Instance?.SetConfig(shopConfig, startNow: true);
+        TutorialManager.Instance?.Fire(TutorialEvent.ShopOpen);
     }
 }

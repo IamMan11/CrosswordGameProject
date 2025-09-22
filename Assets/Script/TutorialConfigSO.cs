@@ -9,8 +9,8 @@ public class TutorialConfigSO : ScriptableObject
     [Tooltip("เล่นอัตโนมัติเมื่อเปิดเกมครั้งแรก (เซฟด้วย PlayerPrefs)")]
     public bool runOnFirstLaunch = true;
 
-    [Tooltip("คีย์สำหรับบันทึกว่าเล่นจบ/ข้ามแล้ว")]
-    public string seenKey = "TUTORIAL_SEEN";
+    [Tooltip("คีย์ PlayerPrefs สำหรับบันทึกว่าเคยดูทิวทอเรียลนี้แล้ว\n(ปล่อยว่าง = ให้ TutorialManager สร้างคีย์อัตโนมัติจากชื่อ asset)")]
+    public string seenKey = "";   // ← เปลี่ยนจาก "TUTORIAL_SEEN" เป็นค่าว่าง
 
     [Header("ขั้นตอนทั้งหมด")]
     public List<TutorialStep> steps = new();
@@ -122,7 +122,7 @@ public enum FocusKey
     ShopBuyTilePack,   // ปุ่ม/บล็อค Tile Back
     ShopBuyMaxCard,    // ปุ่ม/บล็อค Max Card
     ShopItemsRow,      // แถวไอเทมสุ่ม 3 ช่อง
-    ShopItem1,         // ช่องไอเทม 1 (ถ้าจะชี้เป็นช่อง)
+    ShopItem1,         // ช่องไอเทม 1
     ShopItem2,         // ช่องไอเทม 2
     ShopItem3,         // ช่องไอเทม 3
     ShopReroll,        // ปุ่ม Reroll

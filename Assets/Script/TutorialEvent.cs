@@ -11,7 +11,8 @@ public enum TutorialEvent
     ManaEmpty,
     FirstSpecialUsed,
 
-        // ==== เพิ่มสำหรับหน้า Shop ====
+    // ==== เพิ่มสำหรับหน้า Shop ====
+    ShopOpen,
     ShopOpened,
     ShopReroll,
     ShopBuy           // << ต้องการอันนี้
