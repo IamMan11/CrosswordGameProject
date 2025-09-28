@@ -215,7 +215,8 @@ public class LetterTile : MonoBehaviour,
 
     public void OnDrag(PointerEventData e)
     {
-        if (!dragging || isLocked || isBusy) return;
+        if (!dragging || isBusy) return;
+        if (isLocked && !_garbledBoardDrag) return;
         if (canvas == null || transform.parent != canvas.transform) return; // ยังไม่ใช่ state ลาก
 
         // ลอยตามเมาส์ (พิกัดของ root canvas)

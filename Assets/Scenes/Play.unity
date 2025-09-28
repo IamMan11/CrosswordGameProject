@@ -3481,7 +3481,7 @@ MonoBehaviour:
     requiredWords: 20
     timeLimit: 900
     level1_enableGarbledIT: 1
-    level1_garbledCount: 1
+    level1_garbledCount: 3
     level1_minGapBetweenSets: 2
     level1_placeMaxRetries: 200
     level1_reserveCenterBox: 1
