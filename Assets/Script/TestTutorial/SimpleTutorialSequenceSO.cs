@@ -13,7 +13,28 @@ public class SimpleTutorialSequenceSO : ScriptableObject
 }
 
 public enum SimpleTutStepType { Subtitle, SubtitleAndHighlight }
-public enum SimpleTutAnchor { None, ScreenCenter, Bench }  // เพิ่มได้ภายหลัง เช่น Board, Buttons…
+public enum SubtitleAnchorSlot { Default, AltA, AltB, ScreenCenter }
+public enum SimpleTutAnchor
+{
+    None,
+    ScreenCenter,
+    Bench,
+    Space,        // NEW
+    TilePack,     // NEW (ถุงไทล์)
+    Dictionary,    // NEW (ปุ่ม/ไอคอนพจนานุกรม)
+    Mana,             // NEW: ป้าย Mana
+    CardSlots,        // NEW: โซน Card Slot ทั้งหมด
+    SpecialTileFirst,  // NEW: ตัวอักษรพิเศษตัวแรกที่พบ (Bench/Space ตาม scope)
+    Task,       // NEW
+    Confirm,    // NEW
+    Clear,      // NEW
+    Discard,    // NEW
+    Time,       // NEW
+    Score,      // NEW
+    Level       // NEW
+}
+public enum StepSpecialScope { Any, Bench, Space } // หาไทล์พิเศษจากที่ไหน
+
 
 [Serializable]
 public class SimpleTutorialStep
@@ -23,8 +44,12 @@ public class SimpleTutorialStep
     public SimpleTutStepType type = SimpleTutStepType.Subtitle;
 
     [Header("Subtitle placement")]
-    public SimpleTutAnchor subtitleAnchor = SimpleTutAnchor.ScreenCenter;
+    public bool subtitleUseSlot = true;                 // ← ใช้สลอตคงที่เป็นค่าเริ่มต้น
+    public SubtitleAnchorSlot subtitleSlot = SubtitleAnchorSlot.Default;
     public Vector2 subtitleOffset = new Vector2(0, -260);
+
+    // (ยังเก็บฟิลด์เดิมไว้เพื่อความเข้ากันได้ หากอยากให้ซับไตเติลเกาะอ็อบเจ็กต์จริง ๆ)
+    public SimpleTutAnchor subtitleAnchor = SimpleTutAnchor.ScreenCenter;
 
     [Header("Advance")]
     public bool clickAnywhereToAdvance = true;
@@ -33,4 +58,11 @@ public class SimpleTutorialStep
     public SimpleTutAnchor highlightTarget = SimpleTutAnchor.Bench;
     public float highlightPadding = 24f;
     public bool dimBackground = false;
+    [Header("Special tile guard (optional)")]
+    public bool waitForSpecialTile = false;                 // เปิดใช้เมื่อต้องรอให้มีไทล์พิเศษก่อนกดต่อ
+    public StepSpecialScope specialWhere = StepSpecialScope.Any;  // หาในไหน
+    // ==== NEW: คุมการแสดง Discard ใน step นี้ ====
+    [Header("Discard (optional)")]
+    public bool forceShowDiscardDuringStep = false;   // บังคับให้โชว์ Discard ระหว่าง step นี้
+    public bool revertDiscardStateOnExit = true;      // ออกจาก step แล้วให้กลับสภาพเดิมไหม
 }

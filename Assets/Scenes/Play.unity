@@ -136,7 +136,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &232373
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -14363,7 +14363,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1153837802
 RectTransform:
   m_ObjectHideFlags: 0
@@ -17057,7 +17057,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   sequence: {fileID: 11400000, guid: 8e411d462939cf244815860192811885, type: 2}
   targetCanvas: {fileID: 420713074}
-  benchAnchor: {fileID: 1436552340}
+  subtitleDefaultAnchor: {fileID: 1048200643}
+  subtitleAltA: {fileID: 0}
+  subtitleAltB: {fileID: 0}
+  benchAnchor: {fileID: 2092504041}
+  spaceAnchor: {fileID: 1480716708}
+  tilePackAnchor: {fileID: 1523689169}
+  dictionaryAnchor: {fileID: 297668890}
+  manaAnchor: {fileID: 2014620742}
+  taskAnchor: {fileID: 1824956431}
+  confirmAnchor: {fileID: 1930296279}
+  clearAnchor: {fileID: 544769946}
+  discardAnchor: {fileID: 1336419181}
+  timeAnchor: {fileID: 117497058}
+  scoreAnchor: {fileID: 1660760973}
+  levelAnchor: {fileID: 880912803}
+  discardRoot: {fileID: 1336419180}
   ui: {fileID: 1048200644}
 --- !u!1 &1367723097
 GameObject:
@@ -19731,7 +19746,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0, g: 0, b: 0, a: 0.7176471}
+  m_Color: {r: 0, g: 0, b: 0, a: 0.98039216}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 0
@@ -22187,7 +22202,7 @@ CanvasGroup:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1790459506}
   m_Enabled: 1
-  m_Alpha: 0.6
+  m_Alpha: 0
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
@@ -22204,10 +22219,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0, g: 0, b: 0, a: 1}
-  m_RaycastTarget: 1
+  m_Color: {r: 0, g: 0, b: 0, a: 0}
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
-  m_Maskable: 1
+  m_Maskable: 0
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
