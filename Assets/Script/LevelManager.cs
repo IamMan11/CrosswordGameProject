@@ -371,6 +371,36 @@ public class LevelManager : MonoBehaviour
                 LevelTaskUI.I?.Refresh();
         }
 
+<<<<<<<<< Temporary merge branch 1
+        // ----- Win condition -----
+        if (CheckWinConditions(cfg) && !(TurnManager.Instance?.IsScoringAnimation ?? false))
+            ShowStageClearAndShop(cfg);
+=========
+        // ===== Level 2 tick =====
+        if (cfg.levelIndex == 2)
+        {
+            // Triangle check (throttle)
+            if (level2_useTriangleObjective && level2_triangleTargets != null && level2_triangleTargets.Length >= 3)
+            {
+                level2_triangleCheckTimer += Time.unscaledDeltaTime;
+                if (level2_triangleCheckTimer >= level2_triangleCheckPeriod)
+                {
+                    level2_triangleCheckTimer = 0f;
+                    level2_triangleComplete = CheckTriangleComplete();
+                    // >>> อัปเดต UI Indicator ทุกครั้งที่เช็ก
+                    UIManager.Instance?.UpdateTriangleHint(level2_triangleComplete);
+                }
+            }
+
+            // Periodic x2 waves
+            if (level2_enablePeriodicX2Zones && level2_x2Routine == null)
+                level2_x2Routine = StartCoroutine(Level2_PeriodicX2Zones(spawnImmediately: true));
+
+            // Bench issue
+            if (level2_enableBenchIssue && level2_benchIssueRoutine == null)
+                level2_benchIssueRoutine = StartCoroutine(Level2_BenchIssueLoop());
+        }
+
         // ===== Level 3 tick =====
         if (cfg.levelIndex == 3 && level3_enableBoss)
         {
@@ -480,10 +510,7 @@ public class LevelManager : MonoBehaviour
         bool baseOK =
             TurnManager.Instance.Score >= cfg.requiredScore &&
             TurnManager.Instance.CheckedWordCount >= cfg.requiredWords;
-
-        if (levelTimeLimit > 0f) StartLevelTimer();
-        if (!timerStarted) { timerStarted = true; timerPaused = false; }
-        phase = GamePhase.Running;
+>>>>>>>>> Temporary merge branch 2
 
         // เริ่ม wave x2 ของด่าน 2 ถ้ายังไม่เริ่ม
         var cfg = currentLevelConfig;
@@ -518,8 +545,8 @@ public class LevelManager : MonoBehaviour
         if (timerText) timerText.gameObject.SetActive(false);
         if (levelTimerText) levelTimerText.color = _timerDefaultColor; // รีเซ็ตสีที่อาจถูกเปลี่ยนตอนจบเกมก่อนหน้า
 
-        // UI
-        if (levelText) levelText.text = $"Level {currentLevelConfig.levelIndex}";
+        // Timer setup
+>>>>>>>>> Temporary merge branch 2
         levelTimeElapsed = 0f;
         levelTimeLimit = Mathf.Max(0f, currentLevelConfig.timeLimit);
         levelTimerRunning = false;
@@ -537,30 +564,19 @@ public class LevelManager : MonoBehaviour
             }
             else itProgressText.gameObject.SetActive(false);
         }
-        level1_garbleSuspended = false;
-        level1_garbleResumeTime = 0f;
-        if (level1_garbleRoutine != null) { StopCoroutine(level1_garbleRoutine); level1_garbleRoutine = null; }
-
-        // แสดง/ซ่อนแผงเดาคำ IT
-        UIManager.Instance?.ShowGarbledUI(cfg.levelIndex == 1 && level1_enableGarbled);
-
-        // ===== ด่าน 2 reset =====
-        level2_triangleComplete = false;
-        level2_triangleCheckTimer = 0f;
-        Level2_RevertAllZones();
-        level2_lockedSlots.Clear();
-        if (level2_benchIssueRoutine != null) { StopCoroutine(level2_benchIssueRoutine); level2_benchIssueRoutine = null; }
-        level2_benchIssueActive = false;
-        level2_benchIssueEndTime = 0f;
-        level2_lastPenalizedWord = "";
-
-        // ซ่อน Triangle hint ตอนเข้าเลเวลอื่น, เปิดตอนเลเวล 2
-        UIManager.Instance?.SetTriangleHintVisible(cfg.levelIndex == 2);
-
-        // Prepare board & turn
-        if (BoardManager.Instance != null) BoardManager.Instance.GenerateBoard();
-        if (TurnManager.Instance != null)
+        wordRequestsDone = 0;
+        // เตรียมบอร์ด/เบนช์
+        BoardManager.Instance?.GenerateBoard();
+        TurnManager.Instance?.ResetForNewLevel();
+        TileBag.Instance?.RefillTileBag();
+        BenchManager.Instance?.RefillEmptySlots();
+        TurnManager.Instance?.UpdateBagUI();
+        if (currentLevelConfig?.levelIndex == 2)
         {
+<<<<<<<<< Temporary merge branch 1
+            Level2_ClearLockedSegments();
+            Level2_SpawnLockedSegments();
+=========
             TurnManager.Instance.ResetForNewLevel();
             if (TileBag.Instance != null) TileBag.Instance.RefillTileBag();
             if (BenchManager.Instance != null) BenchManager.Instance.RefillEmptySlots();
@@ -579,6 +595,7 @@ public class LevelManager : MonoBehaviour
             Level2_SpawnLockedSegments();         // ← แล้วค่อยวางล็อก
         }
 
+<<<<<<<<< Temporary merge branch 1
         Debug.Log($"▶ เริ่มด่าน {currentLevelConfig.levelIndex} | Time: {currentLevelConfig.timeLimit}s | Score target: {currentLevelConfig.requiredScore}");
         LevelTaskUI.I?.Refresh();    // <-- เพิ่ม
         phase = GamePhase.Ready;
@@ -587,14 +604,7 @@ public class LevelManager : MonoBehaviour
     {
         if (currentLevelConfig != null && currentLevelConfig.levelIndex == 2)
             Level2Controller.Instance?.Setup(); // <-- ไม่มีพารามิเตอร์แล้ว
-    }
-
-    void Update_Level2Hook()
-    {
-        if (currentLevelConfig != null && currentLevelConfig.levelIndex == 2)
-            Level2Controller.Instance?.Tick(Time.unscaledDeltaTime);
-    }
-
+=========
         // ด่าน 3: Boss
         if (cfg.levelIndex == 3)
         {
@@ -623,6 +633,19 @@ public class LevelManager : MonoBehaviour
 
         Debug.Log($"▶ เริ่มด่าน {cfg.levelIndex} | Time: {cfg.timeLimit}s | Score target: {cfg.requiredScore}");
         SetPhase(GamePhase.Ready);
+>>>>>>>>> Temporary merge branch 2
+    }
+
+    void Update_Level2Hook()
+    {
+        if (currentLevelConfig != null && currentLevelConfig.levelIndex == 2)
+            Level2Controller.Instance?.Tick(Time.unscaledDeltaTime);
+    }
+
+    void OnFirstConfirm_Level2Hook()
+    {
+        if (currentLevelConfig != null && currentLevelConfig.levelIndex == 2)
+            Level2Controller.Instance?.OnTimerStart();
     }
     bool CheckWinConditions_Level2Hook(bool baseOK)
     {
@@ -952,7 +975,7 @@ public class LevelManager : MonoBehaviour
             if (s.IsLocked) continue; // อย่าล็อกซ้ำ
             all.Add(s);                // ✅ อนุญาตล็อกทั้งช่องว่างและช่องที่มีตัวอักษร
         }
-
+>>>>>>>>> Temporary merge branch 2
         if (all.Count == 0) return;
 
         int want = Mathf.Clamp(level2_lockedCount, 0, all.Count);
@@ -1247,66 +1270,9 @@ public class LevelManager : MonoBehaviour
         }
         catch (Exception ex) { Debug.LogWarning($"[Level2] Reward hook exception: {ex.Message}"); }
     }
+<<<<<<<<< Temporary merge branch 1
     public void TriggerBenchIssueAfterRefill()
-    {
-        if (!level2_enableBenchIssue) return;
-        if (currentLevelConfig == null || currentLevelConfig.levelIndex != 2) return;
-
-        if (level2_benchIssueAfterRefillCo != null)
-            StopCoroutine(level2_benchIssueAfterRefillCo);
-
-        level2_benchIssueAfterRefillCo = StartCoroutine(Level2_BenchIssueAfterRefillCo());
-    }
-
-    private IEnumerator Level2_BenchIssueAfterRefillCo()
-    {
-        var bm = BenchManager.Instance;
-        if (bm == null) yield break;
-
-        // รอจนเติม Bench เสร็จ (รวมอนิเมชัน)
-        while (bm.IsRefilling()) yield return null;
-        yield return null; // กัน 1 เฟรมใหญ่วางลงจริง
-
-        // เคลียร์สถานะเก่าก่อน
-        ScoreManager.ClearZeroScoreTiles();
-        foreach (var t in bm.GetAllBenchTiles())
-            t.SetBenchIssueOverlay(false);
-
-        // สุ่ม x ตัวจาก Bench
-        var pool = new List<LetterTile>(bm.GetAllBenchTiles());
-        int pick = Mathf.Clamp(level2_benchIssueCount, 0, pool.Count);
-
-        var chosen = new List<LetterTile>();
-        for (int i = 0; i < pick && pool.Count > 0; i++)
-        {
-            int idx = UnityEngine.Random.Range(0, pool.Count);
-            chosen.Add(pool[idx]);
-            pool.RemoveAt(idx);
-        }
-
-        // ทำให้ตัวที่ถูกเลือก "คะแนน = 0" + ใส่ overlay
-        if (chosen.Count > 0)
-        {
-            ScoreManager.MarkZeroScoreTiles(chosen);
-            foreach (var t in chosen)
-                t.SetBenchIssueOverlay(true, level2_benchIssueOverlayColor);
-            UIManager.Instance?.ShowFloatingToast($"Bench issue: {chosen.Count} tile(s) score 0 next turn", Color.gray, 2f);
-        }
-
-        level2_benchIssueAfterRefillCo = null;
-    }
-    private void Level2_ClearLockedSegments()
-    {
-        if (level2_lockedSegmentSlots.Count == 0) return;
-        foreach (var s in level2_lockedSegmentSlots)
-            if (s)
-            {
-                s.IsLocked = false;                            // ✅ ล้างสถานะล็อก
-                s.SetLockedVisual(false);
-                s.ApplyVisual();                               // รีเฟรชหน้าตาเผื่อมีผลสี/ไอคอน
-            }
-        level2_lockedSegmentSlots.Clear();
-    }
+=========
 
     // ==============================
     // Level 3: Boss Hydra – APIs
@@ -1697,6 +1663,68 @@ public class LevelManager : MonoBehaviour
 #if UNITY_EDITOR
     [ContextMenu("Validate Levels")]
     private void ValidateLevels()
+>>>>>>>>> Temporary merge branch 2
+    {
+        if (!level2_enableBenchIssue) return;
+        if (currentLevelConfig == null || currentLevelConfig.levelIndex != 2) return;
+
+        if (level2_benchIssueAfterRefillCo != null)
+            StopCoroutine(level2_benchIssueAfterRefillCo);
+
+        level2_benchIssueAfterRefillCo = StartCoroutine(Level2_BenchIssueAfterRefillCo());
+    }
+
+    private IEnumerator Level2_BenchIssueAfterRefillCo()
+    {
+        var bm = BenchManager.Instance;
+        if (bm == null) yield break;
+
+        // รอจนเติม Bench เสร็จ (รวมอนิเมชัน)
+        while (bm.IsRefilling()) yield return null;
+        yield return null; // กัน 1 เฟรมใหญ่วางลงจริง
+
+        // เคลียร์สถานะเก่าก่อน
+        ScoreManager.ClearZeroScoreTiles();
+        foreach (var t in bm.GetAllBenchTiles())
+            t.SetBenchIssueOverlay(false);
+
+        // สุ่ม x ตัวจาก Bench
+        var pool = new List<LetterTile>(bm.GetAllBenchTiles());
+        int pick = Mathf.Clamp(level2_benchIssueCount, 0, pool.Count);
+
+        var chosen = new List<LetterTile>();
+        for (int i = 0; i < pick && pool.Count > 0; i++)
+        {
+            int idx = UnityEngine.Random.Range(0, pool.Count);
+            chosen.Add(pool[idx]);
+            pool.RemoveAt(idx);
+        }
+
+        // ทำให้ตัวที่ถูกเลือก "คะแนน = 0" + ใส่ overlay
+        if (chosen.Count > 0)
+        {
+            ScoreManager.MarkZeroScoreTiles(chosen);
+            foreach (var t in chosen)
+                t.SetBenchIssueOverlay(true, level2_benchIssueOverlayColor);
+            UIManager.Instance?.ShowFloatingToast($"Bench issue: {chosen.Count} tile(s) score 0 next turn", Color.gray, 2f);
+        }
+
+        level2_benchIssueAfterRefillCo = null;
+    }
+    private void Level2_ClearLockedSegments()
+    {
+        if (level2_lockedSegmentSlots.Count == 0) return;
+        foreach (var s in level2_lockedSegmentSlots)
+            if (s)
+            {
+                s.IsLocked = false;                            // ✅ ล้างสถานะล็อก
+                s.SetLockedVisual(false);
+                s.ApplyVisual();                               // รีเฟรชหน้าตาเผื่อมีผลสี/ไอคอน
+            }
+        level2_lockedSegmentSlots.Clear();
+    }
+
+    private void Level2_SpawnLockedSegments()
     {
         if (!level2_enableLockedSegments) return;
 
