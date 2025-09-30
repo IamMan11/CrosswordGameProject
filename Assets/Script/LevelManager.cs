@@ -371,6 +371,11 @@ public class LevelManager : MonoBehaviour
                 LevelTaskUI.I?.Refresh();
         }
 
+<<<<<<<<< Temporary merge branch 1
+        // ----- Win condition -----
+        if (CheckWinConditions(cfg) && !(TurnManager.Instance?.IsScoringAnimation ?? false))
+            ShowStageClearAndShop(cfg);
+=========
         // ===== Level 2 tick =====
         if (cfg.levelIndex == 2)
         {
@@ -496,7 +501,8 @@ public class LevelManager : MonoBehaviour
 
     public void OnFirstConfirm()
     {
-        if (phase != GamePhase.Ready) return;
+        if (isGameOver) return false;
+        if (TurnManager.Instance == null) return false;
 
         // ด่าน 3 ให้ระบบบอสจัดการจบเกมเอง
         if (cfg.levelIndex == 3) return false;
@@ -504,6 +510,7 @@ public class LevelManager : MonoBehaviour
         bool baseOK =
             TurnManager.Instance.Score >= cfg.requiredScore &&
             TurnManager.Instance.CheckedWordCount >= cfg.requiredWords;
+>>>>>>>>> Temporary merge branch 2
 
         // เริ่ม wave x2 ของด่าน 2 ถ้ายังไม่เริ่ม
         var cfg = currentLevelConfig;
@@ -531,13 +538,15 @@ public class LevelManager : MonoBehaviour
         phase = GamePhase.Setup;
 
         currentLevel = idx;
-        currentLevelConfig = levels[currentLevel];
+
+        var cfg = levels[currentLevel];
 
         if (levelText) levelText.text = $"Level {cfg.levelIndex}";
         if (timerText) timerText.gameObject.SetActive(false);
         if (levelTimerText) levelTimerText.color = _timerDefaultColor; // รีเซ็ตสีที่อาจถูกเปลี่ยนตอนจบเกมก่อนหน้า
 
         // Timer setup
+>>>>>>>>> Temporary merge branch 2
         levelTimeElapsed = 0f;
         levelTimeLimit = Mathf.Max(0f, currentLevelConfig.timeLimit);
         levelTimerRunning = false;
@@ -564,6 +573,10 @@ public class LevelManager : MonoBehaviour
         TurnManager.Instance?.UpdateBagUI();
         if (currentLevelConfig?.levelIndex == 2)
         {
+<<<<<<<<< Temporary merge branch 1
+            Level2_ClearLockedSegments();
+            Level2_SpawnLockedSegments();
+=========
             TurnManager.Instance.ResetForNewLevel();
             if (TileBag.Instance != null) TileBag.Instance.RefillTileBag();
             if (BenchManager.Instance != null) BenchManager.Instance.RefillEmptySlots();
@@ -582,6 +595,16 @@ public class LevelManager : MonoBehaviour
             Level2_SpawnLockedSegments();         // ← แล้วค่อยวางล็อก
         }
 
+<<<<<<<<< Temporary merge branch 1
+        Debug.Log($"▶ เริ่มด่าน {currentLevelConfig.levelIndex} | Time: {currentLevelConfig.timeLimit}s | Score target: {currentLevelConfig.requiredScore}");
+        LevelTaskUI.I?.Refresh();    // <-- เพิ่ม
+        phase = GamePhase.Ready;
+    }
+    void SetupLevel_Level2Hook()
+    {
+        if (currentLevelConfig != null && currentLevelConfig.levelIndex == 2)
+            Level2Controller.Instance?.Setup(); // <-- ไม่มีพารามิเตอร์แล้ว
+=========
         // ด่าน 3: Boss
         if (cfg.levelIndex == 3)
         {
@@ -610,6 +633,7 @@ public class LevelManager : MonoBehaviour
 
         Debug.Log($"▶ เริ่มด่าน {cfg.levelIndex} | Time: {cfg.timeLimit}s | Score target: {cfg.requiredScore}");
         SetPhase(GamePhase.Ready);
+>>>>>>>>> Temporary merge branch 2
     }
 
     void Update_Level2Hook()
@@ -951,6 +975,7 @@ public class LevelManager : MonoBehaviour
             if (s.IsLocked) continue; // อย่าล็อกซ้ำ
             all.Add(s);                // ✅ อนุญาตล็อกทั้งช่องว่างและช่องที่มีตัวอักษร
         }
+>>>>>>>>> Temporary merge branch 2
         if (all.Count == 0) return;
 
         int want = Mathf.Clamp(level2_lockedCount, 0, all.Count);
@@ -1245,6 +1270,9 @@ public class LevelManager : MonoBehaviour
         }
         catch (Exception ex) { Debug.LogWarning($"[Level2] Reward hook exception: {ex.Message}"); }
     }
+<<<<<<<<< Temporary merge branch 1
+    public void TriggerBenchIssueAfterRefill()
+=========
 
     // ==============================
     // Level 3: Boss Hydra – APIs
@@ -1635,6 +1663,7 @@ public class LevelManager : MonoBehaviour
 #if UNITY_EDITOR
     [ContextMenu("Validate Levels")]
     private void ValidateLevels()
+>>>>>>>>> Temporary merge branch 2
     {
         if (!level2_enableBenchIssue) return;
         if (currentLevelConfig == null || currentLevelConfig.levelIndex != 2) return;
