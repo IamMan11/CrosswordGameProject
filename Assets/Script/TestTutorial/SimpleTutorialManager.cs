@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
 
 public class SimpleTutorialManager : MonoBehaviour
 {
@@ -24,6 +25,32 @@ public class SimpleTutorialManager : MonoBehaviour
     public RectTransform timeAnchor;        // ข้อความเวลา
     public RectTransform scoreAnchor;       // ข้อความคะแนน
     public RectTransform levelAnchor;       // ข้อความเลเวล
+
+    [Header("SHOP Anchors")]
+    public RectTransform coinAnchor;
+    public RectTransform manaInfoAnchor;      // "Mana : 00"
+    public RectTransform cardSlotInfoAnchor;  // "Card Slot : 00"
+    public RectTransform tilePackInfoAnchor;  // "TilePack : 000"
+
+    public RectTransform maxManaUpAnchor;
+    public RectTransform maxTilepackUpAnchor;
+    public RectTransform maxCardslotUpAnchor;
+
+    public RectTransform priceManaAnchor;
+    public RectTransform priceTilepackAnchor;
+    public RectTransform priceCardslotAnchor;
+
+    public RectTransform progressManaAnchor;
+    public RectTransform progressTilepackAnchor;
+    public RectTransform progressCardslotAnchor;
+
+    public RectTransform buyCard1Anchor;
+    public RectTransform buyCard2Anchor;
+    public RectTransform buyCard3Anchor;
+
+    public RectTransform rerollAnchor;
+    public RectTransform nextAnchor;
+
     [Header("Optional Roots")]
     public GameObject discardRoot;          // รากของปุ่ม/กลุ่ม Discard (ไว้เปิด/ปิดทั้งก้อน)
 
@@ -35,14 +62,27 @@ public class SimpleTutorialManager : MonoBehaviour
     Coroutine watcherCo; // เฝ้ารอ special tile
     bool discardPrevActive = false;
     SimpleTutorialStep _prevStep = null;
+    const string TUT_SESSION_KEY = "TUT_ENABLE_SESSION";
 
     void Start()
     {
+        if (ui == null) ui = SimpleTutorialUI.Instance;
+        if (ui != null && targetCanvas != null) ui.SetMainCanvas(targetCanvas);
+
         if (sequence == null) return;
 
-        if (!sequence.runOnFirstLaunch || PlayerPrefs.GetInt(sequence.seenPlayerPrefKey, 0) == 0)
+        bool sessionWant = PlayerPrefs.GetInt(TUT_SESSION_KEY, 0) == 1;
+
+        // ถ้าผู้เล่นเลือก Yes ในเมนู: บังคับรันเสมอ
+        if (sessionWant)
         {
             StartSequence();
+        }
+        else
+        {
+            // โหมดเดิม: รันเฉพาะครั้งแรก/หรือไม่บังคับ one-time
+            if (!sequence.runOnFirstLaunch || PlayerPrefs.GetInt(sequence.seenPlayerPrefKey, 0) == 0)
+                StartSequence();
         }
     }
     void ExitPreviousStepIfAny()
@@ -95,15 +135,16 @@ public class SimpleTutorialManager : MonoBehaviour
         // highlight
         if (step.type == SimpleTutStepType.SubtitleAndHighlight)
         {
+            var targets = GetTargets(step.highlightTarget);
             if (step.waitForSpecialTile || step.highlightTarget == SimpleTutAnchor.SpecialTileFirst)
             {
                 ui.ConfigureOverlay(onClick: null, enableDim: step.dimBackground);
-                ui.ShowHighlight(null, 0);
-                watcherCo = StartCoroutine(WaitAndHighlightSpecialThenEnable(step));
+                ui.ShowHighlights(null, step.highlightPadding);
+                watcherCo = StartCoroutine(WaitAndHighlightSpecialThenEnable(step)); // (ตัวนี้ยัง single ตามเดิม)
             }
             else
             {
-                ui.ShowHighlight(MapAnchor(step.highlightTarget), step.highlightPadding);
+                ui.ShowHighlights(targets, step.highlightPadding);
             }
         }
         else
@@ -153,6 +194,31 @@ public class SimpleTutorialManager : MonoBehaviour
 
             case SimpleTutAnchor.ScreenCenter:return (RectTransform)targetCanvas.transform;
             case SimpleTutAnchor.SpecialTileFirst: return null;
+            //---Shop---//
+            case SimpleTutAnchor.Coin:               return coinAnchor;
+            case SimpleTutAnchor.ManaInfo:     return manaInfoAnchor;
+            case SimpleTutAnchor.CardSlotInfo: return cardSlotInfoAnchor;
+            case SimpleTutAnchor.TilePackInfo: return tilePackInfoAnchor;
+
+            case SimpleTutAnchor.MaxManaUpgrade:     return maxManaUpAnchor;
+            case SimpleTutAnchor.MaxTilepackUpgrade: return maxTilepackUpAnchor;
+            case SimpleTutAnchor.MaxCardslotUpgrade: return maxCardslotUpAnchor;
+
+            case SimpleTutAnchor.Price_Mana:         return priceManaAnchor;
+            case SimpleTutAnchor.Price_Tilepack:     return priceTilepackAnchor;
+            case SimpleTutAnchor.Price_Cardslot:     return priceCardslotAnchor;
+
+            case SimpleTutAnchor.Progress_Mana:      return progressManaAnchor;
+            case SimpleTutAnchor.Progress_Tilepack:  return progressTilepackAnchor;
+            case SimpleTutAnchor.Progress_Cardslot:  return progressCardslotAnchor;
+
+            case SimpleTutAnchor.BuyCard_1:          return buyCard1Anchor ?? GetShopSlotRT(0);
+            case SimpleTutAnchor.BuyCard_2:          return buyCard2Anchor ?? GetShopSlotRT(1);
+            case SimpleTutAnchor.BuyCard_3:          return buyCard3Anchor ?? GetShopSlotRT(2);
+
+            case SimpleTutAnchor.Reroll:             return rerollAnchor;
+            case SimpleTutAnchor.Next:               return nextAnchor;
+
             default: return null;
         }
     }
@@ -166,6 +232,53 @@ public class SimpleTutorialManager : MonoBehaviour
             case SubtitleAnchorSlot.ScreenCenter:return (RectTransform)targetCanvas.transform;
             default:                             return subtitleDefaultAnchor ? subtitleDefaultAnchor
                                                                             : (RectTransform)targetCanvas.transform;
+        }
+    }
+    RectTransform GetShopSlotRT(int index)
+    {
+        var sm = ShopManager.Instance;
+        if (sm == null) return null;
+        // สมมุติว่ามี array slots ภายใน ShopManager/หรือหา ShopCardSlot ในฉาก
+    #if UNITY_2023_1_OR_NEWER
+        var slots = Object.FindObjectsByType<ShopCardSlot>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+    #else
+        var slots = GameObject.FindObjectsOfType<ShopCardSlot>(true);
+    #endif
+        if (slots != null && slots.Length > index) return slots[index]?.GetComponent<RectTransform>();
+        return null;
+    }
+    // ==== helper: รวมรายการ RectTransform (ข้าม null) ====
+    List<RectTransform> MakeList(params RectTransform[] arr)
+    {
+        var list = new List<RectTransform>();
+        foreach (var rt in arr) if (rt) list.Add(rt);
+        return list;
+    }
+
+    // ==== ดึงกลุ่มเป้าหมายตาม anchor ====
+    List<RectTransform> GetTargets(SimpleTutAnchor a)
+    {
+        switch (a)
+        {
+            // --- กลุ่มใหม่ ---
+            case SimpleTutAnchor.Price_All:
+                return MakeList(priceManaAnchor, priceTilepackAnchor, priceCardslotAnchor);
+
+            case SimpleTutAnchor.Progress_All:
+                return MakeList(progressManaAnchor, progressTilepackAnchor, progressCardslotAnchor);
+
+            case SimpleTutAnchor.BuyCard_All:
+            {
+                var a1 = buyCard1Anchor ?? GetShopSlotRT(0);
+                var a2 = buyCard2Anchor ?? GetShopSlotRT(1);
+                var a3 = buyCard3Anchor ?? GetShopSlotRT(2);
+                return MakeList(a1, a2, a3);
+            }
+
+            // --- เดี่ยว (ห่อเป็นลิสต์ 1 ตัว) ---
+            default:
+                var single = MapAnchor(a);
+                return single ? new List<RectTransform> { single } : new List<RectTransform>();
         }
     }
 

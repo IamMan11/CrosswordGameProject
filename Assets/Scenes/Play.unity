@@ -8456,7 +8456,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &652651623
 RectTransform:
   m_ObjectHideFlags: 0
@@ -17072,6 +17072,24 @@ MonoBehaviour:
   timeAnchor: {fileID: 117497058}
   scoreAnchor: {fileID: 1660760973}
   levelAnchor: {fileID: 880912803}
+  coinAnchor: {fileID: 0}
+  manaInfoAnchor: {fileID: 0}
+  cardSlotInfoAnchor: {fileID: 0}
+  tilePackInfoAnchor: {fileID: 0}
+  maxManaUpAnchor: {fileID: 0}
+  maxTilepackUpAnchor: {fileID: 0}
+  maxCardslotUpAnchor: {fileID: 0}
+  priceManaAnchor: {fileID: 0}
+  priceTilepackAnchor: {fileID: 0}
+  priceCardslotAnchor: {fileID: 0}
+  progressManaAnchor: {fileID: 0}
+  progressTilepackAnchor: {fileID: 0}
+  progressCardslotAnchor: {fileID: 0}
+  buyCard1Anchor: {fileID: 0}
+  buyCard2Anchor: {fileID: 0}
+  buyCard3Anchor: {fileID: 0}
+  rerollAnchor: {fileID: 0}
+  nextAnchor: {fileID: 0}
   discardRoot: {fileID: 1336419180}
   ui: {fileID: 1048200644}
 --- !u!1 &1367723097

@@ -16,22 +16,20 @@ public enum SimpleTutStepType { Subtitle, SubtitleAndHighlight }
 public enum SubtitleAnchorSlot { Default, AltA, AltB, ScreenCenter }
 public enum SimpleTutAnchor
 {
-    None,
-    ScreenCenter,
-    Bench,
-    Space,        // NEW
-    TilePack,     // NEW (ถุงไทล์)
-    Dictionary,    // NEW (ปุ่ม/ไอคอนพจนานุกรม)
-    Mana,             // NEW: ป้าย Mana
-    CardSlots,        // NEW: โซน Card Slot ทั้งหมด
-    SpecialTileFirst,  // NEW: ตัวอักษรพิเศษตัวแรกที่พบ (Bench/Space ตาม scope)
-    Task,       // NEW
-    Confirm,    // NEW
-    Clear,      // NEW
-    Discard,    // NEW
-    Time,       // NEW
-    Score,      // NEW
-    Level       // NEW
+    None, ScreenCenter,
+    // (ที่มีอยู่)
+    Bench, Space, TilePack, Dictionary, Mana, CardSlots, SpecialTileFirst,
+    Task, Confirm, Clear, Discard, Time, Score, Level,
+    // ==== SHOP ====
+    Coin,
+    MaxManaUpgrade, MaxTilepackUpgrade, MaxCardslotUpgrade,
+    Price_Mana, Price_Tilepack, Price_Cardslot,
+    Progress_Mana, Progress_Tilepack, Progress_Cardslot,
+    BuyCard_1, BuyCard_2, BuyCard_3,
+    Reroll, Next, ManaInfo, CardSlotInfo, TilePackInfo,
+    Price_All,
+    Progress_All,
+    BuyCard_All
 }
 public enum StepSpecialScope { Any, Bench, Space } // หาไทล์พิเศษจากที่ไหน
 

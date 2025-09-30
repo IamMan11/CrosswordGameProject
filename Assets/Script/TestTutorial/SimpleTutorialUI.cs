@@ -1,9 +1,11 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 public class SimpleTutorialUI : MonoBehaviour
 {
+    public static SimpleTutorialUI Instance { get; private set; }
     [Header("Refs")]
     [SerializeField] Canvas mainCanvas;
     [SerializeField] RectTransform overlay;    // ครอบเต็มจอ เอาไว้จับคลิก
@@ -11,6 +13,7 @@ public class SimpleTutorialUI : MonoBehaviour
     [SerializeField] RectTransform subtitleRoot;
     [SerializeField] TMP_Text subtitleText;
     [SerializeField] RectTransform focusFrame; // 9-sliced border image
+    List<RectTransform> _frames = new List<RectTransform>(); // index 0 = focusFrame เดิม
     Image focusImg;
     static Sprite _fallbackSprite;
     static Sprite GetFallbackSprite()
@@ -19,7 +22,7 @@ public class SimpleTutorialUI : MonoBehaviour
         var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
         tex.SetPixels(new[] { Color.white, Color.white, Color.white, Color.white });
         tex.Apply();
-        _fallbackSprite = Sprite.Create(tex, new Rect(0, 0, 2, 2), new Vector2(0.5f, 0.5f), 100f);
+        _fallbackSprite = Sprite.Create(tex, new Rect(0, 0, 2, 2), new Vector2(0.5f,0.5f), 100f);
         return _fallbackSprite;
     }
 
@@ -27,6 +30,10 @@ public class SimpleTutorialUI : MonoBehaviour
 
     void Awake()
     {
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        Instance = this;
+        DontDestroyOnLoad(gameObject);          // ← อยู่ข้ามซีน
+
         if (overlay)
         {
             var btn = overlay.GetComponent<Button>() ?? overlay.gameObject.AddComponent<Button>();
@@ -41,20 +48,61 @@ public class SimpleTutorialUI : MonoBehaviour
             focusImg = focusFrame.GetComponent<Image>() ?? focusFrame.gameObject.AddComponent<Image>();
             if (!focusImg.sprite) focusImg.sprite = GetFallbackSprite();
             focusImg.raycastTarget = false;
-            if (focusImg.color.a <= 0.01f) focusImg.color = new Color(1, 1, 1, 0.9f); // มองเห็นชัด
+            if (focusImg.color.a <= 0.01f) focusImg.color = new Color(1,1,1,0.9f);
+            if (_frames.Count == 0) _frames.Add(focusFrame);
         }
     }
 
     public void HideAll()
     {
         if (subtitleRoot) subtitleRoot.gameObject.SetActive(false);
-        if (focusFrame) focusFrame.gameObject.SetActive(false);
         if (dimImage) dimImage.enabled = false;
         if (overlay) overlay.gameObject.SetActive(false);
         onOverlayClick = null;
+        // ซ่อนกรอบทั้งหมด
+        foreach (var f in _frames) if (f) f.gameObject.SetActive(false);
         gameObject.SetActive(false);
     }
+    // === helper สำหรับดึงกรอบตาม index (โคลนจากกรอบแรก) ===
+    RectTransform GetFrame(int index)
+    {
+        if (_frames.Count == 0 && focusFrame) _frames.Add(focusFrame);
+        while (_frames.Count <= index)
+        {
+            var src = _frames[0];
+            var inst = Instantiate(src, src.parent);
+            inst.name = $"FocusFrame_{_frames.Count}";
+            var img = inst.GetComponent<Image>() ?? inst.gameObject.AddComponent<Image>();
+            if (!img.sprite) img.sprite = GetFallbackSprite();
+            img.raycastTarget = false;
+            _frames.Add(inst);
+        }
+        return _frames[index];
+    }
+    // === แปลงตำแหน่ง/ขนาด ===
+    void LayoutFrame(RectTransform frame, RectTransform target, float padding)
+    {
+        if (!frame || !target) return;
+        var canvasRT = (RectTransform)mainCanvas.transform;
+        var cam = mainCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : mainCanvas.worldCamera;
 
+        Vector3[] wc = new Vector3[4];
+        target.GetWorldCorners(wc);
+        Vector2 a, b;
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRT,
+            RectTransformUtility.WorldToScreenPoint(cam, wc[0]), cam, out a);
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRT,
+            RectTransformUtility.WorldToScreenPoint(cam, wc[2]), cam, out b);
+
+        var center = (a + b) * 0.5f;
+        var size = new Vector2(Mathf.Abs(b.x - a.x), Mathf.Abs(b.y - a.y)) + Vector2.one * (padding * 2f);
+
+        frame.anchoredPosition = center;
+        frame.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, size.x);
+        frame.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, size.y);
+        frame.SetAsLastSibling();
+        frame.gameObject.SetActive(true);
+    }
     public void ConfigureOverlay(System.Action onClick, bool enableDim, float dimAlpha = 0.6f)
     {
         gameObject.SetActive(true);
@@ -82,46 +130,31 @@ public class SimpleTutorialUI : MonoBehaviour
         PositionTo(anchorOrNull, offset, subtitleRoot);
     }
 
+    // === API เดิม (single) → เรียก multi ===
     public void ShowHighlight(RectTransform target, float padding)
     {
-        if (!focusFrame)
-            return;
+        if (target == null) { ShowHighlights(null, padding); return; }
+        ShowHighlights(new List<RectTransform> { target }, padding);
+    }
 
-        if (target == null)
+    // === NEW: multi-highlight ===
+    public void ShowHighlights(IList<RectTransform> targets, float padding)
+    {
+        // ซ่อนทั้งหมดก่อน
+        int used = 0;
+        if (targets != null)
         {
-            focusFrame.gameObject.SetActive(false);
-            return;
+            for (int i = 0; i < targets.Count; i++)
+            {
+                if (targets[i] == null) continue;
+                var f = GetFrame(used);
+                LayoutFrame(f, targets[i], padding);
+                used++;
+            }
         }
-
-        if (!focusImg)
-            focusImg = focusFrame.GetComponent<Image>() ?? focusFrame.gameObject.AddComponent<Image>();
-        if (!focusImg.sprite)
-            focusImg.sprite = GetFallbackSprite();
-        focusImg.raycastTarget = false;
-
-        // คำนวณกรอบรอบ target
-        var canvasRT = (RectTransform)mainCanvas.transform;
-        var cam = mainCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : mainCanvas.worldCamera;
-
-        Vector3[] wc = new Vector3[4];
-        target.GetWorldCorners(wc);
-
-        Vector2 a, b;
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRT,
-            RectTransformUtility.WorldToScreenPoint(cam, wc[0]), cam, out a);
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRT,
-            RectTransformUtility.WorldToScreenPoint(cam, wc[2]), cam, out b);
-
-        var center = (a + b) * 0.5f;
-        var size = new Vector2(Mathf.Abs(b.x - a.x), Mathf.Abs(b.y - a.y)) + Vector2.one * (padding * 2f);
-
-        focusFrame.anchoredPosition = center;
-        focusFrame.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, size.x);
-        focusFrame.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, size.y);
-
-        // ให้กรอบอยู่บนสุดเสมอ (เหนือ overlay/dim/subtitle)
-        focusFrame.SetAsLastSibling();
-        focusFrame.gameObject.SetActive(true);
+        // ซ่อนกรอบที่เกิน
+        for (int i = used; i < _frames.Count; i++)
+            if (_frames[i]) _frames[i].gameObject.SetActive(false);
     }
 
 
@@ -145,5 +178,9 @@ public class SimpleTutorialUI : MonoBehaviour
             );
         }
         what.anchoredPosition = anchored + offset;
+    }
+    public void SetMainCanvas(Canvas c)
+    {
+        if (c) mainCanvas = c;
     }
 }   
