@@ -3212,12 +3212,6 @@ MonoBehaviour:
   nextAnchor: {fileID: 86121354}
   discardRoot: {fileID: 0}
   ui: {fileID: 1059005264}
-  speakerSprite: {fileID: 0}
-  speakerFollowSubtitle: 1
-  speakerAnchor: {fileID: 643563913}
-  speakerOffset: {x: -420, y: 0}
-  speakerMirrorX: 0
-  speakerAlpha: 1
 --- !u!1001 &594602014
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -5319,6 +5313,8 @@ MonoBehaviour:
   speakerRoot: {fileID: 643563913}
   speakerImage: {fileID: 1307952122}
   speakerOnTop: 1
+  typewriter: {fileID: 1390929085}
+  defaultTypeSeconds: 0.6
 --- !u!114 &1059005265
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7087,6 +7083,8 @@ GameObject:
   - component: {fileID: 1390929081}
   - component: {fileID: 1390929083}
   - component: {fileID: 1390929082}
+  - component: {fileID: 1390929085}
+  - component: {fileID: 1390929084}
   m_Layer: 5
   m_Name: Subtitle
   m_TagString: Untagged
@@ -7212,6 +7210,45 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1390929080}
   m_CullTransparentMesh: 1
+--- !u!95 &1390929084
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1390929080}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: df849c6c1a2d68e4db23b66d23372beb, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 2
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &1390929085
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1390929080}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3acae46993280204fb634831535ea316, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  tmp: {fileID: 1390929082}
+  animator: {fileID: 1390929084}
+  progressParam: TypeProgress
+  stateName: TW_Progress01
+  clipLengthSeconds: 1
 --- !u!1 &1446369906
 GameObject:
   m_ObjectHideFlags: 0

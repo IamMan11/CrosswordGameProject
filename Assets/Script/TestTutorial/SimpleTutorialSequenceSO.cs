@@ -51,6 +51,10 @@ public class SimpleTutorialStep
 
     [Header("Advance")]
     public bool clickAnywhereToAdvance = true;
+    
+    [Header("Typing")]
+    [Tooltip("เวลาพิมพ์ซับไตเติล (วินาที) ถ้า <=0 จะใช้ค่าดีฟอลต์จาก UI")]
+    public float typewriterSeconds = -1f;
 
     [Header("Highlight (used when type = SubtitleAndHighlight)")]
     public SimpleTutAnchor highlightTarget = SimpleTutAnchor.Bench;

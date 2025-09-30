@@ -33,6 +33,8 @@ public class SimpleTutorialUI : MonoBehaviour
         _fallbackSprite = Sprite.Create(tex, new Rect(0, 0, 2, 2), new Vector2(0.5f,0.5f), 100f);
         return _fallbackSprite;
     }
+    [SerializeField] TMPTypewriter typewriter;
+    [SerializeField] float defaultTypeSeconds = 0.6f; // ตั้งเวลามาตรฐานจาก Inspector
 
     System.Action onOverlayClick;
     void Awake()
@@ -64,6 +66,19 @@ public class SimpleTutorialUI : MonoBehaviour
             skipButton.onClick.AddListener(ClickSkip);
             skipButton.gameObject.SetActive(false); // เริ่มต้นซ่อน
         }
+    }
+    // ช่วยบอกสถานะ กำลังพิมพ์?
+    public bool IsTyping => typewriter != null && typewriter.IsPlaying;
+
+    // กดเพื่อให้พิมพ์เสร็จทันที (ถ้ากำลังพิมพ์) -> true ถ้าจบให้
+    public bool TryFinishTypingNow()
+    {
+        if (typewriter != null && typewriter.IsPlaying)
+        {
+            typewriter.RevealAllNow();
+            return true;
+        }
+        return false;
     }
     public bool HasOverlayHandler() => onOverlayClick != null;
     public void HideAll()
@@ -182,12 +197,29 @@ public class SimpleTutorialUI : MonoBehaviour
         }
     }
 
-    public void ShowSubtitle(string text, RectTransform anchorOrNull, Vector2 offset)
+    public void ShowSubtitle(string text, RectTransform anchorOrNull, Vector2 offset, float timeSec = -1f)
     {
         gameObject.SetActive(true);
         if (subtitleRoot) subtitleRoot.gameObject.SetActive(true);
-        if (subtitleText) subtitleText.text = text;
+
+        // จัดวางตำแหน่งก่อน
         PositionTo(anchorOrNull, offset, subtitleRoot);
+
+        float useSec = (timeSec > 0f) ? timeSec : defaultTypeSeconds;
+
+        // ถ้ามีไทป์ไรเตอร์ → ใช้มัน, ไม่งั้นก็เซ็ตข้อความตรงๆ เหมือนเดิม
+        if (typewriter != null)
+        {
+            typewriter.Play(text, useSec);
+        }
+        else
+        {
+            if (subtitleText) subtitleText.text = text;
+        }
+    }
+    public void RevealSubtitleImmediately()
+    {
+        if (typewriter != null) typewriter.RevealAllNow();
     }
 
     // === API เดิม (single) → เรียก multi ===

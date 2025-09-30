@@ -65,6 +65,12 @@ public class SimpleTutorialManager : MonoBehaviour
     const string TUT_SESSION_KEY = "TUT_ENABLE_SESSION";
     bool canAdvanceStep = false;
     float advanceCooldownUntil = 0f;
+    [SerializeField] float firstStepInputBlock = 0.15f; // กันคลิก/คีย์ค้างจากก่อนเข้าทิวทอเรียล
+    [SerializeField] float skipToNextCooldown = 0.3f;   // กันกดเพื่อจบการพิมพ์แล้วทะลุไปสเต็ปถัดไป
+
+    float _blockInputUntil;       // ใช้กันเหตุสเต็ปแรกข้าม
+    float _cooldownUntil;         // ใช้กันกดทะลุไปสเต็ปถัด
+    bool _overlayClickQueued = false;
     void Start()
     {
         if (ui == null) ui = SimpleTutorialUI.Instance;
@@ -113,30 +119,46 @@ public class SimpleTutorialManager : MonoBehaviour
 
     void Update()
     {
-        if (!running || !canAdvanceStep) return;
-
-        // กันกดซ้ำหลายครั้งติด ๆ กัน
-        if (Time.unscaledTime < advanceCooldownUntil) return;
-
-        bool overlayHandlesMouse = ui != null && ui.HasOverlayHandler(); // ← ใช้เมาส์ผ่าน overlay เท่านั้น
-        bool anyKeyDown = Input.anyKeyDown;
-        if (!anyKeyDown) return;
-
-        // กรอง Esc เสมอ
-        if (Input.GetKeyDown(KeyCode.Escape)) return;
-
-        // ถ้า overlay รับเมาส์อยู่ → Update ฟังเฉพาะ "คีย์บอร์ด" เท่านั้น
-        if (overlayHandlesMouse)
+        // กันอินพุตค้างจากก่อนเข้า/ก่อนขึ้นสเต็ป
+        if (Time.unscaledTime < _blockInputUntil)
         {
-            // เมาส์คลิกอย่าให้ทางนี้กิน เพื่อไม่ชนกับ overlay.onClick
-            if (Input.GetKeyDown(KeyCode.Mouse0) || Input.GetKeyDown(KeyCode.Mouse1) || Input.GetKeyDown(KeyCode.Mouse2))
-                return;
+            // เคลียร์คิวคลิกทิ้งไปเลยในช่วงบล็อก เพื่อไม่ให้กดค้างแล้วทะลุ
+            _overlayClickQueued = false;
+            return;
         }
 
-        // ผ่านเงื่อนไข → ไปสเต็ปต่อ
-        canAdvanceStep = false;
-        advanceCooldownUntil = Time.unscaledTime + 0.05f; // debounce 50ms
-        Next();
+        // รวมอินพุต: anykey + เมาส์ + คลิกจาก overlay (คิวไว้)
+        bool anyPress =
+            Input.anyKeyDown ||                         // ปุ่มคีย์บอร์ดทั้งหมด (ไม่รวมเมาส์)
+            Input.GetMouseButtonDown(0) ||              // ซ้าย
+            Input.GetMouseButtonDown(1) ||              // ขวา
+            Input.GetMouseButtonDown(2) ||              // กลาง
+            _overlayClickQueued;                        // คลิกผ่าน overlay UI
+
+        if (!anyPress) return;
+
+        // กินคิวคลิก overlay (ป้องกันถูกใช้ซ้ำในเฟรมถัดไป)
+        _overlayClickQueued = false;
+
+        // ขั้นที่ 1: ถ้ากำลังพิมพ์อยู่ → กด = จบการพิมพ์ทันที แต่ "ไม่" ไป Next
+        if (ui != null && ui.IsTyping)
+        {
+            if (ui.TryFinishTypingNow())
+            {
+                _cooldownUntil = Time.unscaledTime + skipToNextCooldown; // กันกดครั้งเดียวแล้วทะลุ Next
+            }
+            return;
+        }
+
+        // ขั้นที่ 2: ถ้าไม่ได้พิมพ์แล้ว → พ้นคูลดาวน์ค่อย Next
+        if (Time.unscaledTime >= _cooldownUntil)
+        {
+            Next();
+        }
+    }
+    public void OnOverlayClicked()
+    {
+        _overlayClickQueued = true; // แค่ตั้งธง เดี๋ยว Update จะตัดสินใจ
     }
     public void Next()
     {
@@ -160,12 +182,15 @@ public class SimpleTutorialManager : MonoBehaviour
         }
 
         // overlay/dim + subtitle เหมือนเดิม
-        ui.ConfigureOverlay(step.clickAnywhereToAdvance ? (System.Action)CallTryAdvance : null,
-                    enableDim: step.dimBackground);
+        ui.ConfigureOverlay(step.clickAnywhereToAdvance ? (System.Action)OnOverlayClicked : null,
+                            enableDim: step.dimBackground);
 
         RectTransform subAnchor = step.subtitleUseSlot ? MapSubtitleSlot(step.subtitleSlot)
                                                     : MapAnchor(step.subtitleAnchor);
-        ui.ShowSubtitle(step.text, subAnchor, step.subtitleOffset);
+        ui.ShowSubtitle(step.text, subAnchor, step.subtitleOffset, step.typewriterSeconds);
+        _blockInputUntil = Time.unscaledTime + firstStepInputBlock; // กันอินพุตค้างเฟรมแรก
+        _cooldownUntil   = Time.unscaledTime;                       // รีเซ็ตคูลดาวน์
+        _overlayClickQueued = false;
 
         // highlight
         if (step.type == SimpleTutStepType.SubtitleAndHighlight)
