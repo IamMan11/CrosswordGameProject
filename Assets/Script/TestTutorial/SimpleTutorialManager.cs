@@ -63,7 +63,8 @@ public class SimpleTutorialManager : MonoBehaviour
     bool discardPrevActive = false;
     SimpleTutorialStep _prevStep = null;
     const string TUT_SESSION_KEY = "TUT_ENABLE_SESSION";
-
+    bool canAdvanceStep = false;
+    float advanceCooldownUntil = 0f;
     void Start()
     {
         if (ui == null) ui = SimpleTutorialUI.Instance;
@@ -99,10 +100,44 @@ public class SimpleTutorialManager : MonoBehaviour
         if (running) return;
         running = true;
         index = -1;
+
+        // เปิดปุ่ม Skip — ปิดเฉพาะซีนนี้ ไม่แตะ PlayerPrefs และไม่ปิด session key
+        ui.SetSkip(() =>
+        {
+            EndSequence(markSeen: false);   // จบซีนนี้ แต่ไม่มาร์กว่าเคยดู
+        }, true);
+
         Next();
     }
+    public void SetAdvanceEnabled(bool enable) => canAdvanceStep = enable;
 
-    
+    void Update()
+    {
+        if (!running || !canAdvanceStep) return;
+
+        // กันกดซ้ำหลายครั้งติด ๆ กัน
+        if (Time.unscaledTime < advanceCooldownUntil) return;
+
+        bool overlayHandlesMouse = ui != null && ui.HasOverlayHandler(); // ← ใช้เมาส์ผ่าน overlay เท่านั้น
+        bool anyKeyDown = Input.anyKeyDown;
+        if (!anyKeyDown) return;
+
+        // กรอง Esc เสมอ
+        if (Input.GetKeyDown(KeyCode.Escape)) return;
+
+        // ถ้า overlay รับเมาส์อยู่ → Update ฟังเฉพาะ "คีย์บอร์ด" เท่านั้น
+        if (overlayHandlesMouse)
+        {
+            // เมาส์คลิกอย่าให้ทางนี้กิน เพื่อไม่ชนกับ overlay.onClick
+            if (Input.GetKeyDown(KeyCode.Mouse0) || Input.GetKeyDown(KeyCode.Mouse1) || Input.GetKeyDown(KeyCode.Mouse2))
+                return;
+        }
+
+        // ผ่านเงื่อนไข → ไปสเต็ปต่อ
+        canAdvanceStep = false;
+        advanceCooldownUntil = Time.unscaledTime + 0.05f; // debounce 50ms
+        Next();
+    }
     public void Next()
     {
         // ตัด watcher เก่า
@@ -125,8 +160,8 @@ public class SimpleTutorialManager : MonoBehaviour
         }
 
         // overlay/dim + subtitle เหมือนเดิม
-        ui.ConfigureOverlay(step.clickAnywhereToAdvance ? (System.Action)Next : null,
-                            enableDim: step.type == SimpleTutStepType.SubtitleAndHighlight && step.dimBackground);
+        ui.ConfigureOverlay(step.clickAnywhereToAdvance ? (System.Action)CallTryAdvance : null,
+                    enableDim: step.dimBackground);
 
         RectTransform subAnchor = step.subtitleUseSlot ? MapSubtitleSlot(step.subtitleSlot)
                                                     : MapAnchor(step.subtitleAnchor);
@@ -151,14 +186,16 @@ public class SimpleTutorialManager : MonoBehaviour
         {
             ui.ShowHighlight(null, 0);
         }
+        SetAdvanceEnabled(true);
+        advanceCooldownUntil = Time.unscaledTime + 0.05f; // กันเด้งซ้ำเฟรมแรกหลังเจอ
     }
-    public void EndSequence()
+    public void EndSequence(bool markSeen = true)
     {
         if (watcherCo != null) { StopCoroutine(watcherCo); watcherCo = null; }
         ExitPreviousStepIfAny();
         running = false;
         ui.HideAll();
-        if (sequence && sequence.runOnFirstLaunch)
+        if (markSeen && sequence && sequence.runOnFirstLaunch)
             PlayerPrefs.SetInt(sequence.seenPlayerPrefKey, 1);
     }
 
@@ -222,7 +259,6 @@ public class SimpleTutorialManager : MonoBehaviour
             default: return null;
         }
     }
-
     RectTransform MapSubtitleSlot(SubtitleAnchorSlot slot)
     {
         switch (slot)
@@ -395,7 +431,8 @@ public class SimpleTutorialManager : MonoBehaviour
             targetRt = FindFirstSpecialTileRect(step.specialWhere);
             if (targetRt)
             {
-                ui.ShowHighlight(targetRt, step.highlightPadding);
+                ui.ConfigureOverlay(step.clickAnywhereToAdvance ? (System.Action)CallTryAdvance : null,
+                    enableDim: step.dimBackground);
                 // เปิดให้กดไปต่อได้ตอนนี้
                 ui.ConfigureOverlay(step.clickAnywhereToAdvance ? (System.Action)Next : null, enableDim: step.dimBackground);
                 break;
@@ -406,6 +443,13 @@ public class SimpleTutorialManager : MonoBehaviour
             yield return null;
         }
         watcherCo = null;
+    }
+    public void CallTryAdvance()
+    {
+        if (!running || !canAdvanceStep) return;
+        // overlay คลิกถือเป็น any key อยู่แล้ว แต่เผื่อมีคนเรียกเมธอดนี้จากที่อื่น
+        canAdvanceStep = false;
+        Next();
     }
 
     RectTransform FindFirstSpecialTileRect(StepSpecialScope where)

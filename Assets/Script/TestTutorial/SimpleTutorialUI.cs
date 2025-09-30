@@ -13,6 +13,14 @@ public class SimpleTutorialUI : MonoBehaviour
     [SerializeField] RectTransform subtitleRoot;
     [SerializeField] TMP_Text subtitleText;
     [SerializeField] RectTransform focusFrame; // 9-sliced border image
+    [Header("Skip Button")]
+    [SerializeField] Button skipButton;     // ← ลากปุ่ม Skip ที่คุณตั้งไว้มาใส่ Inspector
+    System.Action onSkip;                   // ← callback สำหรับผู้ควบคุม tutorial
+    [Header("Speaker (Character Image)")]
+    [SerializeField] RectTransform speakerRoot;  // ลาก RectTransform ของกรุ๊ปตัวละคร (อยู่ใต้ Canvas)
+    [SerializeField] Image speakerImage;         // ลาก Image ที่ใช้แสดงรูปตัวละคร
+    [SerializeField] bool speakerOnTop = true; // ให้ลอยอยู่บนสุดเหนือ overlay/กรอบ/ซับ ฯลฯ
+
     List<RectTransform> _frames = new List<RectTransform>(); // index 0 = focusFrame เดิม
     Image focusImg;
     static Sprite _fallbackSprite;
@@ -27,7 +35,6 @@ public class SimpleTutorialUI : MonoBehaviour
     }
 
     System.Action onOverlayClick;
-
     void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
@@ -48,11 +55,17 @@ public class SimpleTutorialUI : MonoBehaviour
             focusImg = focusFrame.GetComponent<Image>() ?? focusFrame.gameObject.AddComponent<Image>();
             if (!focusImg.sprite) focusImg.sprite = GetFallbackSprite();
             focusImg.raycastTarget = false;
-            if (focusImg.color.a <= 0.01f) focusImg.color = new Color(1,1,1,0.9f);
+            if (focusImg.color.a <= 0.01f) focusImg.color = new Color(1, 1, 1, 0.9f);
             if (_frames.Count == 0) _frames.Add(focusFrame);
         }
+        if (skipButton)
+        {
+            skipButton.onClick.RemoveAllListeners();
+            skipButton.onClick.AddListener(ClickSkip);
+            skipButton.gameObject.SetActive(false); // เริ่มต้นซ่อน
+        }
     }
-
+    public bool HasOverlayHandler() => onOverlayClick != null;
     public void HideAll()
     {
         if (subtitleRoot) subtitleRoot.gameObject.SetActive(false);
@@ -62,6 +75,53 @@ public class SimpleTutorialUI : MonoBehaviour
         // ซ่อนกรอบทั้งหมด
         foreach (var f in _frames) if (f) f.gameObject.SetActive(false);
         gameObject.SetActive(false);
+        if (skipButton) skipButton.gameObject.SetActive(false);
+        onSkip = null;
+    }
+    /// <summary>ตั้ง callback และกำหนดให้ปุ่ม Skip แสดง/ซ่อน</summary>
+    public void SetSkip(System.Action onSkipCallback, bool show = true)
+    {
+        onSkip = onSkipCallback;
+        if (skipButton)
+        {
+            skipButton.gameObject.SetActive(show);
+            if (show) skipButton.transform.SetAsLastSibling(); // ให้อยู่เหนือ overlay
+        }
+    }
+        // == API ==
+    public void ShowSpeaker(Sprite sprite, RectTransform anchorOrNull, Vector2 offset, bool mirrorX = false, float alpha = 1f)
+    {
+        if (!speakerRoot || !speakerImage || sprite == null) return;
+
+        gameObject.SetActive(true);
+        speakerRoot.gameObject.SetActive(true);   // ← ปลุกตัวละครขึ้น
+        speakerImage.enabled = true;
+
+        speakerImage.sprite = sprite;
+        var c = speakerImage.color; c.a = alpha; speakerImage.color = c;
+        speakerImage.raycastTarget = false;
+
+        PositionTo(anchorOrNull, offset, speakerRoot);
+
+        var s = speakerRoot.localScale;
+        s.x = Mathf.Abs(s.x) * (mirrorX ? -1f : 1f);
+        speakerRoot.localScale = s;
+
+        if (speakerOnTop) speakerRoot.SetAsLastSibling();
+    }
+    public void HideSpeaker()
+    {
+        if (!speakerRoot || !speakerImage) return;
+        speakerRoot.gameObject.SetActive(false);
+    }
+
+    /// <summary>เรียกจากปุ่ม Skip</summary>
+    public void ClickSkip()
+    {
+        // ให้สิทธิผู้ควบคุมจัดการ state ก่อน
+        onSkip?.Invoke();
+        // แล้วซ่อนทุกอย่าง
+        HideAll();
     }
     // === helper สำหรับดึงกรอบตาม index (โคลนจากกรอบแรก) ===
     RectTransform GetFrame(int index)
