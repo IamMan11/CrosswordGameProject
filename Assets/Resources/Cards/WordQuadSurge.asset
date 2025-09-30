@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 28
   displayName: Word Quad Surge
   description: Make Special Slot Letter x2 to x4
-  icon: {fileID: 0}
+  icon: {fileID: 4861726761567185663, guid: 3cf658fcb94e8c940bb0dc95785d8a6d, type: 3}
   effectType: 1
   Mana: 4
   maxUsagePerTurn: 1

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 18
   displayName: Minor Infusion
   description: Refill 2 Mana
-  icon: {fileID: 0}
+  icon: {fileID: 8391756266262009408, guid: 7cb16462d1265d24c8a12c9fcfb41b7a, type: 3}
   effectType: 13
   Mana: 0
   maxUsagePerTurn: 10

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 14
   displayName: Major Infusion
   description: Refill 5 Mana
-  icon: {fileID: 0}
+  icon: {fileID: -5650218737840976518, guid: 4ad433dbfc361104a8a88f40a03aa6e8, type: 3}
   effectType: 14
   Mana: 0
   maxUsagePerTurn: 10

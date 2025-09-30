@@ -5,10 +5,11 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// จัดการ UI ทั่วไป: GameWin, LevelFail, ข้อความสถานะ
-/// การจัดการ Card Slots + Replace Mode
-/// และ (ใหม่) Garbled IT UI ของด่าน 1 / ตัวช่วยแสดงสถานะสามเหลี่ยมของด่าน 2
+
+/// จัดการ UI ทั่วไป: ชนะ/แพ้ด่าน, ข้อความสถานะ, และ Card Slots + โหมด Replace
+
 /// </summary>
+[DisallowMultipleComponent]
 public class UIManager : MonoBehaviour
 {
     public static UIManager Instance { get; private set; }
@@ -18,20 +19,34 @@ public class UIManager : MonoBehaviour
     public GameObject levelFailPanel;
 
     [Header("Message Popup")]
-    [SerializeField] private GameObject popupPanel;   // MessagePopup Panel
-    [SerializeField] private TMP_Text messageText;    // MessageText
-    [SerializeField] private float displayTime = 2f;  // เวลาแสดง popup (วินาที)
+    [SerializeField] private GameObject popupPanel;
+    [SerializeField] private TMP_Text messageText;
+    [SerializeField] private float displayTime = 2f;
     private Coroutine hideRoutine;
 
     [Header("Card Slots")]
-    [SerializeField] private List<Button> cardSlotButtons;  // ปุ่มคลิกใช้การ์ด/แทนการ์ด
-    [SerializeField] private List<Image>  cardSlotIcons;    // ไอคอนการ์ดในช่อง
+    [SerializeField] private List<Button> cardSlotButtons; // ปุ่มกดใช้/แทนที่
+    [SerializeField] private List<Image> cardSlotIcons;   // ไอคอนการ์ดในช่อง
 
     [Header("Replace Mode")]
-    [SerializeField] private Button cancelReplacementButton; // ปุ่มยกเลิกโหมดแทนการ์ด
-
-    [Header("Replace Mode Prompt")]
+    [SerializeField] private Button cancelReplacementButton;
     [SerializeField] private TMP_Text replaceModePromptText;
+    // === Defer apply เพื่อกันไอคอนโผล่ก่อนแอนิเมชันบินจบ ===
+    private UICardSelect _uiSelectCached;   // <-- ไม่มี UI.
+    private Coroutine _applyPendingCo;
+    private List<CardData> _pendingCards;
+    private bool _pendingReplaceMode;
+
+    private UICardSelect GetSelect()
+    {
+        if (_uiSelectCached == null)
+            #if UNITY_2023_1_OR_NEWER
+            _uiSelectCached = UnityEngine.Object.FindFirstObjectByType<UICardSelect>(FindObjectsInactive.Include);
+            #else
+            _uiSelectCached = FindObjectOfType<UICardSelect>(true);
+            #endif
+        return _uiSelectCached;
+    }
 
     // ===== NEW: Level 1 – Garbled IT UI =====
     [Header("Level 1 – Garbled IT UI")]
@@ -45,91 +60,148 @@ public class UIManager : MonoBehaviour
 
     void Awake()
     {
-        if (Instance == null) Instance = this;
-        else { Destroy(gameObject); return; }
+        if (Instance == null) Instance = this; else { Destroy(gameObject); return; }
 
-        if (popupPanel != null) popupPanel.SetActive(false);
 
-        // ซ่อน card slots เริ่มต้น (กัน NPE ถ้า list ไม่ได้เซ็ต)
+        if (popupPanel) popupPanel.SetActive(false);
+
+        // ซ่อนช่องการ์ดเริ่มต้น
         if (cardSlotButtons != null)
             foreach (var btn in cardSlotButtons) if (btn) btn.gameObject.SetActive(false);
 
-        // ตั้ง callback ปุ่มยกเลิก Replace Mode
+        // ปุ่มยกเลิก Replace
         if (cancelReplacementButton != null)
         {
             cancelReplacementButton.onClick.RemoveAllListeners();
-            cancelReplacementButton.onClick.AddListener(() =>
-            {
-                if (CardManager.Instance != null)
-                    CardManager.Instance.CancelReplacement();
-            });
+            cancelReplacementButton.onClick.AddListener(() => CardManager.Instance?.CancelReplacement());
             cancelReplacementButton.gameObject.SetActive(false);
         }
+
         if (replaceModePromptText != null)
             replaceModePromptText.gameObject.SetActive(false);
-
-        // ===== wire Garbled IT UI =====
-        if (garbledPanel != null) garbledPanel.SetActive(false);
-        if (garbledSubmitButton != null)
-        {
-            garbledSubmitButton.onClick.RemoveAllListeners();
-            garbledSubmitButton.onClick.AddListener(SubmitGarbledGuess);
-        }
-
-        // triangle hint label ซ่อนก่อน (ไม่จำเป็นต้องมี)
-        if (triangleHintText != null) triangleHintText.gameObject.SetActive(false);
     }
 
     /// <summary>แสดงหน้าชนะเกม</summary>
-    public void ShowGameWin()
-    {
-        if (gameWinPanel != null) gameWinPanel.SetActive(true);
-    }
-
+    public void ShowGameWin() { if (gameWinPanel != null) gameWinPanel.SetActive(true); }
     /// <summary>แสดงหน้าล้มเหลวในด่าน</summary>
-    public void ShowLevelFail()
-    {
-        if (levelFailPanel != null) levelFailPanel.SetActive(true);
-    }
 
-    /// <summary>แสดงข้อความเป็น Popup ระยะสั้น</summary>
-    public void ShowMessageDictionary(string message)
-    {
-        ShowMessage(message, displayTime);
-    }
+    public void ShowLevelFail() { if (levelFailPanel != null) levelFailPanel.SetActive(true); }
 
-    /// <summary>แสดงข้อความนานตาม seconds ที่กำหนด (seconds<=0 จะแสดงต่อไปจนกว่าจะ HideMessage)</summary>
+    /// <summary>แสดงข้อความสั้นตามค่า default</summary>
+    public void ShowMessageDictionary(string message) => ShowMessage(message, displayTime);
+
+    /// <summary>แสดงข้อความนานตาม seconds (<=0 = แสดงค้าง)</summary>
     public void ShowMessage(string message, float seconds)
     {
+        if (popupPanel == null || messageText == null) { Debug.Log(message); return; }
+
         if (messageText == null || popupPanel == null) return;
 
         if (hideRoutine != null) StopCoroutine(hideRoutine);
 
         messageText.text = message;
         popupPanel.SetActive(true);
+
         if (seconds > 0f)
             hideRoutine = StartCoroutine(HideAfterDelay(seconds));
     }
+    /// <summary>แสดงข้อความสั้นแบบเลือกสีได้ (Toast ลอย)</summary>
+    public void ShowFloatingToast(string message, Color color, float seconds = 2f)
+    {
+        if (popupPanel == null || messageText == null) { Debug.Log(message); return; }
+        if (hideRoutine != null) StopCoroutine(hideRoutine);
+        messageText.color = color;
+        messageText.text = message;
+        popupPanel.SetActive(true);
+        if (seconds > 0f) hideRoutine = StartCoroutine(HideAfterDelay(seconds));
+    }
 
-    /// <summary>ปิดข้อความ popup ทันที</summary>
+    /// <summary>ปิดข้อความทันที</summary>
     public void HideMessage()
     {
         if (hideRoutine != null) StopCoroutine(hideRoutine);
+
+        if (popupPanel) popupPanel.SetActive(false);
+
         if (popupPanel != null) popupPanel.SetActive(false);
+
     }
 
-    private IEnumerator HideAfterDelay(float seconds)
+    IEnumerator HideAfterDelay(float seconds)
     {
         yield return new WaitForSeconds(seconds);
+
+        if (popupPanel) popupPanel.SetActive(false);
+
         if (popupPanel != null) popupPanel.SetActive(false);
+
     }
 
-    /// <summary>อัพเดต Card Slot UI; ถ้า replaceMode=true จะเซ็ตให้เรียก ReplaceSlot()</summary>
+    /// <summary>
+    /// อัปเดต UI ช่องการ์ดทั้งหมด
+    /// - replaceMode=true: คลิก = ReplaceSlot(index)
+    /// - replaceMode=false: คลิก = UseCard(index)
+    /// </summary>
     public void UpdateCardSlots(List<CardData> cards, bool replaceMode = false)
     {
+
+        if (cards == null || cardSlotButtons == null || cardSlotIcons == null) return;
+        if (cardSlotButtons.Count != cardSlotIcons.Count)
+            Debug.LogWarning("[UIManager] จำนวนปุ่มและไอคอนไม่เท่ากัน");
+
+        // ⭐ บังคับเปิดสายพาเรนต์/CanvasGroup ให้แน่ใจว่า UI โหมดแทนที่มองเห็น
+        if (replaceMode) ForceShowReplaceUI();
+
+        // ปุ่มยกเลิก Replace + prompt
+
         if (cardSlotButtons == null || cardSlotIcons == null) return;
 
         // ควบคุมปุ่มยกเลิก Replace Mode
+
+        if (cancelReplacementButton != null)
+            cancelReplacementButton.gameObject.SetActive(replaceMode);
+
+        if (replaceModePromptText != null)
+
+        {
+            replaceModePromptText.gameObject.SetActive(replaceMode);
+            if (replaceMode) replaceModePromptText.text = "Chose card";
+        }
+
+        var sel = GetSelect();
+        bool busy = sel != null && (sel.IsOpen || sel.HasActiveClone || sel.IsAnimating);
+
+        // ⭐ แก้หลัก: "หน่วงเฉพาะตอนที่ไม่ใช่โหมดแทนที่"
+        if (busy && !replaceMode)
+        {
+            _pendingCards = new List<CardData>(cards);
+            _pendingReplaceMode = false;
+            if (_applyPendingCo != null) StopCoroutine(_applyPendingCo);
+            _applyPendingCo = StartCoroutine(ApplySlotsWhenSafe());
+            return;
+        }
+
+        // โหมดแทนที่ให้ "อัปเดตทันที" เพื่อผูกปุ่ม ReplaceSlot(index)
+        ApplySlotsImmediate(cards, replaceMode);
+    }
+    private IEnumerator ApplySlotsWhenSafe()
+    {
+        var sel = GetSelect();
+        while (sel != null && (sel.IsOpen || sel.HasActiveClone || sel.IsAnimating))
+            yield return null;                 // รอจน UI เลือกการ์ดปิด/จบอนิเมชัน
+
+        yield return new WaitForEndOfFrame();  // เผื่อ layout รีเฟรช
+
+        if (_pendingCards != null)
+            ApplySlotsImmediate(_pendingCards, _pendingReplaceMode);
+
+        _pendingCards = null;
+        _applyPendingCo = null;
+    }
+
+    void ApplySlotsImmediate(List<CardData> cards, bool replaceMode)
+    {
+        // ปุ่มยกเลิก Replace + prompt
         if (cancelReplacementButton != null)
             cancelReplacementButton.gameObject.SetActive(replaceMode);
 
@@ -139,99 +211,101 @@ public class UIManager : MonoBehaviour
             if (replaceMode) replaceModePromptText.text = "Chose card";
         }
 
-        for (int i = 0; i < cardSlotButtons.Count; i++)
+        int n = cardSlotButtons.Count;
+        for (int i = 0; i < n; i++)
         {
-            var btn   = cardSlotButtons[i];
-            var icon  = (i < cardSlotIcons.Count) ? cardSlotIcons[i] : null;
+            var btn = cardSlotButtons[i];
+            var icon = (i < cardSlotIcons.Count) ? cardSlotIcons[i] : null;
+            var hover = btn ? btn.GetComponent<CardSlotUI>() : null;
             if (btn == null || icon == null) continue;
 
-            var hover = btn.GetComponent<CardSlotUI>();
-            int index = i; // ✅ ประกาศก่อนใช้
+            int index = i;
+            if (i < cards.Count && cards[i] != null)
 
-            if (cards != null && i < cards.Count && cards[i] != null)
             {
                 var data = cards[i];
 
                 // กราฟิก
-                icon.sprite  = data.icon;
+                icon.sprite = data.icon;
                 icon.enabled = true;
                 btn.gameObject.SetActive(true);
 
-                // ใส่ข้อมูลให้ Slot (สำหรับ hover และ drop)
+                // Hover / meta
                 if (hover != null)
                 {
                     hover.cardInSlot = data;
-                    hover.slotIndex  = index;
+                    hover.slotIndex = index;
                 }
 
-                // 🆕 ผูกตัวลาก
+                // Drag helper (มีอยู่เดิม)
                 var drag = icon.GetComponent<CardDraggable>();
                 if (drag == null) drag = icon.gameObject.AddComponent<CardDraggable>();
-                drag.SetData(index, data); // ให้รู้ว่าอยู่ช่องไหนและเป็นการ์ดอะไร
+                drag.SetData(index, data);
 
-                // คลิก (ยังใช้ได้ตามเดิม)
+                // Click
                 btn.onClick.RemoveAllListeners();
-                if (replaceMode)
-                    btn.onClick.AddListener(() => CardManager.Instance.ReplaceSlot(index));
+                if (replaceMode) btn.onClick.AddListener(() => CardManager.Instance?.ReplaceSlot(index));
                 else
-                    btn.onClick.AddListener(() => CardManager.Instance.UseCard(index));
+                {
+                    // ❌ เดิม: เล่นอนิเมชันหดก่อน -> StartCoroutine(UseWithFx(slot, index));
+                    // ✅ ใหม่: แค่ขอ “ใช้การ์ด” เพื่อให้โชว์ป๊อปอัปก่อน
+                    btn.onClick.AddListener(() => CardManager.Instance?.UseCard(index));
+                }
             }
             else
             {
+                // ช่องว่าง
                 btn.gameObject.SetActive(false);
                 if (hover != null)
                 {
                     hover.cardInSlot = null;
-                    hover.slotIndex  = index; // เผื่อกรณี drop ใส่ช่องว่าง
+                    hover.slotIndex = index;
                 }
                 var drag = icon.GetComponent<CardDraggable>();
                 if (drag != null) drag.SetData(index, null);
             }
         }
     }
-
-    // ======== NEW: Garbled IT UI controls (Lv1) ========
-
-    /// <summary>ให้ LevelManager เรียกเพื่อเปิด/ปิดแผงเดาคำ IT ในด่าน 1</summary>
-    public void ShowGarbledUI(bool show)
+    private IEnumerator UseWithFx(CardSlotUI slot, int index)
     {
-        if (garbledPanel != null) garbledPanel.SetActive(show);
-        if (show && garbledInput != null) garbledInput.text = "";
+        yield return slot.PlayUseThen(() => CardManager.Instance?.UseCard(index));
     }
-
-    /// <summary>กดปุ่มยืนยันเดาคำ IT (เรียกจากปุ่มในแผง)</summary>
-    public void SubmitGarbledGuess()
+    // ===== Force show helpers =====
+    void ForceShowTransform(Transform t)
     {
-        if (LevelManager.Instance == null) return;
+        // เปิดขึ้นมาจนถึง Canvas เพื่อกันกรณีพาเรนต์ถูกซ่อน/ปิดไว้
+        while (t != null)
+        {
+            if (!t.gameObject.activeSelf) t.gameObject.SetActive(true);
 
-        string guess = garbledInput != null ? garbledInput.text : "";
-        if (string.IsNullOrWhiteSpace(guess))
-        {
-            ShowMessage("พิมพ์คำ IT ที่คิดว่าเจอแล้วกด Confirm", 1.2f);
-            return;
-        }
+            var cg = t.GetComponent<CanvasGroup>();
+            if (cg)
+            {
+                if (cg.alpha < 1f) cg.alpha = 1f;
+                cg.blocksRaycasts = true;
+                cg.interactable = true;
+            }
 
-        bool ok = LevelManager.Instance.Level1_SubmitFixGuess(guess);
-        if (ok)
-        {
-            ShowMessage($"✔ \"{guess}\" ถูกต้อง! หยุดสลับชั่วคราว", 2f);
-            if (garbledInput) garbledInput.text = "";
-        }
-        else
-        {
-            ShowMessage($"✖ \"{guess}\" ไม่ใช่คำ IT", 1.5f);
+            if (t.GetComponent<Canvas>()) break;
+            t = t.parent;
         }
     }
 
-    // ======== NEW: Triangle hint (Lv2) – optional ========
-
-    /// <summary>เปิด/ปิด label แสดงสถานะ Triangle objective (ถ้าผูกไว้)</summary>
-    public void SetTriangleHintVisible(bool show)
+    void ForceShowReplaceUI()
     {
-        if (triangleHintText == null) return;
-        triangleHintText.gameObject.SetActive(show);
-    }
+        if (cancelReplacementButton)
+            ForceShowTransform(cancelReplacementButton.transform);
 
+        if (replaceModePromptText)
+            ForceShowTransform(replaceModePromptText.transform);
+
+        // เผื่อกลุ่ม Card Slots ถูกปิดไว้ ตั้งแต่ container ขึ้นไปถึง Canvas
+        if (cardSlotButtons != null)
+        {
+            foreach (var btn in cardSlotButtons)
+                if (btn) { ForceShowTransform(btn.transform); break; } // เอาต้นหนึ่งต้นก็พอ
+        }
+    }
     /// <summary>อัพเดตข้อความ/สีของ Triangle objective (ถ้าอยากใช้เป็น indicator คงที่)</summary>
     public void UpdateTriangleHint(bool connected)
     {

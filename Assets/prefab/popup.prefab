@@ -405,6 +405,7 @@ GameObject:
   - component: {fileID: 3138224359751337104}
   - component: {fileID: 1225026558006343852}
   - component: {fileID: 6265513163697658210}
+  - component: {fileID: 2502271905185222168}
   m_Layer: 5
   m_Name: popup
   m_TagString: Untagged
@@ -487,6 +488,20 @@ MonoBehaviour:
   msgText: {fileID: 4018721459530623314}
   btnConfirm: {fileID: 3148609382290687349}
   btnCancel: {fileID: 7932424455724849530}
+  canvasGroup: {fileID: 0}
+  clickGuardSeconds: 0.15
+--- !u!225 &2502271905185222168
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4515445269844136245}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &5964270085834312818
 GameObject:
   m_ObjectHideFlags: 0

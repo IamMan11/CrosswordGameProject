@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 23
   displayName: Targeted Flux
   description: Can Chose 5 Special Slot in Board by Click
-  icon: {fileID: 0}
+  icon: {fileID: 7655299627757419862, guid: 7e1bd088ed9fc7d44a8f185ea8bc8660, type: 3}
   effectType: 18
   Mana: 5
   maxUsagePerTurn: 5

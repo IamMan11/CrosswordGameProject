@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 17
   displayName: Master Draft
   description: Can pick 1 card Can't not pick WildCard
-  icon: {fileID: 0}
+  icon: {fileID: -686499304459078933, guid: 883877f54b4f73240833b81f7ee6158c, type: 3}
   effectType: 21
   Mana: 6
   maxUsagePerTurn: 3
