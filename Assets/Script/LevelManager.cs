@@ -5,19 +5,23 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using TMPro;
+using UnityEngine.SceneManagement;
 
 public class LevelManager : MonoBehaviour
 {
     public static LevelManager Instance { get; private set; }
+    [Header("Level 1 – Word Request")]
+    public int wordRequestTargetLevel1 = 0;   // ตั้ง > 0 ถ้ามีเป้าหมาย
+    private int wordRequestsDone = 0;
 
     [Header("Configs")]
     public LevelConfig[] levels;
+    [HideInInspector] public LevelConfig currentLevelConfig;
 
-    [Header("UI (ผูกใน Inspector)")]
+    [Header("UI")]
     public TMP_Text levelText;
-    public TMP_Text timerText;      // legacy
-    public TMP_Text levelTimerText; // ตัวจับเวลาเลเวล (ขึ้น/ลง)
-    [Tooltip("Progress ของคำ IT สำหรับด่าน 1 (ไม่ผูกก็ได้)")]
+    public TMP_Text levelTimerText;
+    [Tooltip("Progress คำ IT ของด่าน 1 (ไม่ผูกก็ได้)")]
     public TMP_Text itProgressText;
 
     /// <summary>
@@ -25,96 +29,100 @@ public class LevelManager : MonoBehaviour
     /// </summary>
     public int CurrentLevel => currentLevel;
 
+    // ===== Internal state =====
     private enum GamePhase { None, Setup, Ready, Running, Transition, GameOver }
     private GamePhase phase = GamePhase.None;
+
     private int currentLevel;
-    private bool isGameOver = false;
-    private bool isTransitioning = false;
+    private bool isGameOver;
 
     private float levelTimeLimit;    // หมายถึง "เวลาสะสมสูงสุดตั้งแต่เริ่มเลเวล" (not remaining)
     private float levelTimeElapsed;  // เวลาที่ผ่านไป
     private bool levelTimerRunning;
-    bool timerStarted;
-    bool timerPaused;
+    private bool timerStarted, timerPaused;
+    [SerializeField] float panicTimeThresholdSec = 180f; // 3 นาที
+    bool prepareFailActive = false;       // โหมดเตรียมแพ้ (ถุง = 0)
+    bool pendingPrepareFailCheck = false; // จะเช็กแพ้หลังคอนเฟิร์มหนึ่งครั้ง
+    bool panicBgmActive = false;          // โหมด BGM เวลาใกล้หมด
 
     private Color _timerDefaultColor = Color.white; // จะ override จากสีจริงใน Awake()
 
     // ===== Level 1 – IT words requirement =====
     [Header("Level 1 – IT Words")]
-    [Tooltip("จำนวน 'คำ IT' ขั้นต่ำที่ต้องทำให้ได้ในด่าน 1")]
     public int itWordsTargetLevel1 = 5;
-
-    [Tooltip("คีย์เวิร์ดสำหรับตรวจกับคำ (จับแบบ contains, ไม่สนตัวพิมพ์)")]
-    public string[] itKeywordsLevel1 = new string[]
-    {
+    public string[] itKeywordsLevel1 = new string[] {
         "it","code","bug","dev","server","client","api","database","db","sql",
         "data","cloud","ai","ml","python","java","c#","csharp","unity","scene",
         "asset","compile","build","network","socket","array","stack","cache","login","token"
     };
-
     private readonly HashSet<string> itWordsFound = new HashSet<string>();
 
-    // ===== Level 1 – Garbled IT Obstacle =====
-    [Header("Level 1 – Garbled IT Obstacle")]
-    public bool  level1_enableGarbled = true;
-    public float level1_garbleTickSec = 3f;
-    public int   level1_garbleClusterSize = 6;
-    public int   level1_wrongGuessPenalty = 20;
-    public float level1_garbleSuspendDuration = 10f;
-
-    private Coroutine level1_garbleRoutine;
-    private bool  level1_garbleSuspended = false;
-    private float level1_garbleResumeTime = 0f;
-
-    // ===== Level 2 – Triangle + Obstacles =====
+    // ===== Level 2 systems (คงเดิม) =====
     [Header("Level 2 – Triangle Objective")]
-    public bool level2_useTriangleObjective = true;
-    public Vector2Int[] level2_triangleTargets = new Vector2Int[]
-    {
+    public Vector2Int[] level2_triangleTargets = new Vector2Int[] {
         new Vector2Int(2,2),
         new Vector2Int(2,12),
         new Vector2Int(12,7)
     };
-    public float level2_triangleCheckPeriod = 0.5f;
-    private bool  level2_triangleComplete = false;
-    private float level2_triangleCheckTimer = 0f;
+    private bool level2_triangleComplete;
+    private float level2_triangleCheckTimer;
+    private int level2_triangleLinkedCount = 0; // 0..3 ที่ "เชื่อมถึงกัน" ณ ตอนนี้
 
     [Header("Level 2 – Periodic X2 Zones (3x3)")]
-    public bool  level2_enablePeriodicX2Zones = true;
-    public float level2_x2IntervalSec = 180f;  // 3 นาที
-    public int   level2_x2ZonesPerWave = 2;    // 2–3 แล้วแต่ config
-    public float level2_x2ZoneDurationSec = 30f;
-    public SlotType level2_multiplierSlotType = SlotType.DoubleWord;
-
     private Coroutine level2_x2Routine;
     private readonly List<(Vector2Int pos, SlotType prevType, int prevMana)> level2_activeZoneChanges
         = new List<(Vector2Int, SlotType, int)>();
 
     [Header("Level 2 – Locked Board (ปลดด้วยความยาวคำหลัก)")]
-    public bool  level2_enableLockedBoard = true;
-    public int   level2_lockedCount = 7;
+    public bool level2_enableLockedBoard = true;
+    public int level2_lockedCount = 7;
     public Vector2Int level2_requiredLenRange = new Vector2Int(3, 7);
-    private readonly Dictionary<BoardSlot,int> level2_lockedSlots = new Dictionary<BoardSlot,int>();
+    private readonly Dictionary<BoardSlot, int> level2_lockedSlots = new Dictionary<BoardSlot, int>();
 
-    [Header("Level 2 – Bench Issue (ช่วงเวลาบั๊ก)")]
-    public bool  level2_enableBenchIssue = true;
+    [Header("Level 2 – Bench Issue")]
+    public bool level2_enableBenchIssue = true;
     public float level2_benchIssueIntervalSec = 60f;
     public float level2_benchIssueDurationSec = 20f;
-    [Tooltip("จำนวนตัวอักษร (วางในเทิร์น) ที่จะโดนทำคะแนนตัวอักษรเป็น 0 เมื่อ Bench bug ทำงาน")]
     public int level2_benchZeroPerMove = 2;
-    [Tooltip("(ตัวเลือก) หักแต้มคงที่ต่อคำหลัก (0 = ไม่หัก)")]
     public int level2_benchPenaltyPerMove = 0;
-
-    private bool level2_benchIssueActive = false;
-    private float level2_benchIssueEndTime = 0f;
+    private bool level2_benchIssueActive;
+    private float level2_benchIssueEndTime;
     private Coroutine level2_benchIssueRoutine;
     private string level2_lastPenalizedWord = "";
 
     [Header("Level 2 – Theme & Rewards")]
-    public bool   level2_applyThemeOnStart = true;
-    public bool   level2_grantWinRewards  = true;
-    public int    level2_winCogCoin       = 1;
-    public string level2_nextFloorClue    = "เลขชั้นถัดไป";
+    public bool level2_applyThemeOnStart = true;
+    public bool level2_grantWinRewards = true;
+    public int level2_winCogCoin = 1;
+    public string level2_nextFloorClue = "เลขชั้นถัดไป";
+    [Header("Level 2 – Triangle Objective")]
+    public bool level2_useTriangleObjective = true;
+    [Min(1)] public int level2_triangleNodeSize = 1;         // ขนาดโหนด (เช่น 2 = 2×2)
+    [Min(2)] public int level2_triangleMinManhattanGap = 6;  // ระยะห่างระหว่างโหนด
+    public float level2_triangleCheckPeriod = 0.5f;
+    public Color level2_triangleIdleColor = new Color32(40, 40, 40, 200);
+    public Color level2_triangleLinkedColor = new Color32(30, 180, 60, 200);
+
+    [Header("Level 2 – Periodic X2 Zones (3×3)")]
+    public bool level2_enablePeriodicX2Zones = true;
+    public float level2_x2IntervalSec = 180f;
+    public int level2_x2ZonesPerWave = 2;
+
+    [Header("Level 2 – Zone spacing")]
+    [Min(3)] public int level2_zoneMinCenterCheby = 4; // 3=ไม่แตะกัน, 4+=ห่างขึ้น
+    public float level2_x2ZoneDurationSec = 30f;
+    public SlotType level2_multiplierSlotType = SlotType.DoubleWord;
+    public Color level2_zoneOverlayColor = new Color(0.2f, 0.9f, 0.2f, 0.28f);
+    [Header("Level 2 – Bench Issue (Per-Confirm)")]
+    [Min(0)] public int level2_benchIssueCount = 2; // x ตัวที่จะสุ่ม
+    public Color level2_benchIssueOverlayColor = new Color(0f, 0f, 0f, 0.55f);
+    private Coroutine level2_benchIssueAfterRefillCo;
+    [Header("Level 2 – Locked Segments")]
+    public bool level2_enableLockedSegments = true;
+    [Min(1)] public int level2_lockedSegmentLength = 4;
+    [Min(1)] public int level2_lockedSegmentCount = 3;
+    public Color level2_lockedOverlayColor = new Color(0f, 0f, 0f, 0.55f);
+    private readonly List<BoardSlot> level2_lockedSegmentSlots = new();
 
     // =============== Level 3 – The Black Hydra (Boss) ===============
     [Header("Level 3 – Black Hydra (Boss)")]
@@ -197,7 +205,6 @@ public class LevelManager : MonoBehaviour
     // =====================================================
 
     // ----------------------------------------
-    private static readonly WaitForEndOfFrame WaitEOF = new WaitForEndOfFrame();
 
     private void Awake()
     {
@@ -209,19 +216,111 @@ public class LevelManager : MonoBehaviour
 
     private void Start()
     {
-        if (levels == null || levels.Length == 0)
+        if (levels == null || levels.Length == 0) { Debug.LogError("No level configuration provided!"); return; }
+
+        int startIndex = 0;
+        if (StageResultBus.HasPendingNextLevel)
         {
-            Debug.LogError("[LevelManager] No level configuration provided!");
-            return;
+            startIndex = Mathf.Clamp(StageResultBus.NextLevelIndex, 0, levels.Length - 1);
+            StageResultBus.ClearNextLevelFlag();
         }
-        SetupLevel(0);
+        SetupLevel(startIndex);
     }
+    public void IncrementWordRequest(int delta = 1)
+    {
+        wordRequestsDone = Mathf.Max(0, wordRequestsDone + delta);
+        LevelTaskUI.I?.Refresh();
+        OnScoreOrWordProgressChanged();
+    }
+
+    private bool IsWordMatchingTheme(string w)
+    {
+        var cfg = currentLevelConfig;
+        if (cfg == null || string.IsNullOrEmpty(w)) return false;
+
+        string n = Normalize(w);
+
+        // 1) ถ้าใช้แท็ก "IT" ให้รีไซเคิลเช็กเดิม
+        if (!string.IsNullOrEmpty(cfg.requiredThemeTag) &&
+            cfg.requiredThemeTag.Trim().ToLowerInvariant() == "it")
+            return IsITWord(n);
+
+        // 2) manual whitelist
+        if (cfg.manualThemeWords != null && cfg.manualThemeWords.Length > 0)
+        {
+            for (int i = 0; i < cfg.manualThemeWords.Length; i++)
+            {
+                var mw = cfg.manualThemeWords[i];
+                if (string.IsNullOrWhiteSpace(mw)) continue;
+                if (n == Normalize(mw)) return true;
+            }
+        }
+        return false;
+    }
+    public (int done, int target) GetWordRequestProgress()
+    {
+        var cfg = currentLevelConfig;
+        int target = (cfg != null && cfg.requireThemedWords) ? Mathf.Max(0, cfg.requiredThemeCount) : 0;
+        return (Mathf.Max(0, wordRequestsDone), target);
+    }
+    public void EnterPrepareFailMode()
+    {
+        if (prepareFailActive) return;
+        prepareFailActive = true;
+        UIManager.Instance?.ShowFloatingToast("TileBag = 0 • เทิร์นถัดไปถ้ายังไม่ถึงเป้าจะแพ้", Color.yellow, 2f);
+    }
+    public void CancelPrepareFailMode()
+    {
+        if (!prepareFailActive) return;
+        prepareFailActive = false;
+        pendingPrepareFailCheck = false; // เคลียร์เงื่อนไขรอเช็ก
+        UIManager.Instance?.ShowFloatingToast("ได้ตัวอักษรเพิ่ม — ยกเลิกโหมดเตรียมแพ้", Color.cyan, 1.4f);
+    }
+
+    // เรียกตอนกด Confirm (ถ้า ณ ขณะนั้นอยู่โหมดเตรียมแพ้ → จะเช็กหลังจบอนิเมชัน)
+    public void MarkPrepareFailCheckIfActive()
+    {
+        if (prepareFailActive) pendingPrepareFailCheck = true;
+    }
+
+    // เรียกตอนคอร์รุตีนคิดคะแนนจบ
+    public void TryFailAfterConfirm()
+    {
+        if (!pendingPrepareFailCheck) return;
+        pendingPrepareFailCheck = false;
+
+        if (!HasMetWinConditions())
+            TriggerStageFail("Tiles ran out");    // สรุปแพ้
+    }
+
+    public bool IsPrepareFailActive() => prepareFailActive;
+
+    // ให้ TurnManager ใช้ถาม “ถึงเงื่อนไขชนะแล้วหรือยัง?”
+    public bool HasMetWinConditions() => CheckWinConditions(currentLevelConfig);
+
+    // เวลาใกล้หมด: เปิด/ปิดโหมด BGM Panic
+    void SetPanicBgm(bool on)
+    {
+        if (panicBgmActive == on) return;
+        panicBgmActive = on;
+        BgmPlayer.I?.SetPanicMode(on);  // จะบล็อกสลับ tier จาก streak ขณะ on
+    }
+
+    public bool IsWordRequestObjectiveActive()
+    {
+        var cfg = currentLevelConfig;
+        return cfg != null && cfg.levelIndex == 1 && cfg.requireThemedWords && cfg.requiredThemeCount > 0;
+    }
+    // ใช้โดย UI Task
+    public int GetITWordsFoundCount() => itWordsFound.Count;
+    public int GetITWordsTargetLevel1() => itWordsTargetLevel1;
 
     private void OnDisable() => StopAllLoops();
 
     public bool IsGameOver() => isGameOver;
+    public int GetCurrentLevelIndex() => currentLevelConfig != null ? currentLevelConfig.levelIndex : 0;
 
-    void UpdateLevelTimerText(float seconds)
+    private void UpdateLevelTimerText(float seconds)
     {
         var total = Mathf.Max(0, Mathf.FloorToInt(seconds));
         int mm = total / 60, ss = total % 60;
@@ -230,12 +329,13 @@ public class LevelManager : MonoBehaviour
 
     private void Update()
     {
+        if (PauseManager.IsPaused) return;  // << หยุดทั้งเลเวลขณะ Pause
         if (phase != GamePhase.Running || levels == null || levels.Length == 0) return;
 
-        var cfg = GetCurrentConfig();
+        var cfg = currentLevelConfig;
         if (cfg == null) return;
 
-        // เดินเวลา
+        // ----- Timer -----
         if (timerStarted && !timerPaused)
         {
             levelTimeElapsed += Time.unscaledDeltaTime;
@@ -244,52 +344,31 @@ public class LevelManager : MonoBehaviour
             {
                 float remaining = Mathf.Max(0f, levelTimeLimit - levelTimeElapsed);
                 UpdateLevelTimerText(remaining);
+                SetPanicBgm(remaining > 0f && remaining <= panicTimeThresholdSec);
                 if (remaining <= 0f)
                 {
                     StopLevelTimer();
-                    GameOver(false);
+                    TriggerStageFail("Time up");
                     return;
                 }
             }
             else
             {
-                UpdateLevelTimerText(levelTimeElapsed);
+                UpdateLevelTimerText(levelTimeElapsed); // ใช้เป็น stopwatch
             }
         }
 
-        // ===== Level 1 tick =====
-        if (cfg.levelIndex == 1 && level1_enableGarbled)
+        // ----- Level 2 ticks -----
+        if (currentLevelConfig?.levelIndex == 2)
+            Level2Controller.Instance?.Tick(Time.unscaledDeltaTime);
+
+        if (currentLevelConfig?.levelIndex == 2 && level2_useTriangleObjective)
         {
-            if (level1_garbleSuspended && Time.unscaledTime >= level1_garbleResumeTime)
-                level1_garbleSuspended = false;
-
-            if (!level1_garbleSuspended && level1_garbleRoutine == null)
-                level1_garbleRoutine = StartCoroutine(Level1_GarbleLoop());
-        }
-
-        // ===== Level 2 tick =====
-        if (cfg.levelIndex == 2)
-        {
-            // Triangle check (throttle)
-            if (level2_useTriangleObjective && level2_triangleTargets != null && level2_triangleTargets.Length >= 3)
-            {
-                level2_triangleCheckTimer += Time.unscaledDeltaTime;
-                if (level2_triangleCheckTimer >= level2_triangleCheckPeriod)
-                {
-                    level2_triangleCheckTimer = 0f;
-                    level2_triangleComplete = CheckTriangleComplete();
-                    // >>> อัปเดต UI Indicator ทุกครั้งที่เช็ก
-                    UIManager.Instance?.UpdateTriangleHint(level2_triangleComplete);
-                }
-            }
-
-            // Periodic x2 waves
-            if (level2_enablePeriodicX2Zones && level2_x2Routine == null)
-                level2_x2Routine = StartCoroutine(Level2_PeriodicX2Zones(spawnImmediately: true));
-
-            // Bench issue
-            if (level2_enableBenchIssue && level2_benchIssueRoutine == null)
-                level2_benchIssueRoutine = StartCoroutine(Level2_BenchIssueLoop());
+            int prev = level2_triangleLinkedCount;
+            level2_triangleLinkedCount = Level2Controller.Instance ? Level2Controller.Instance.GetTouchedNodeCount() : 0;
+            level2_triangleComplete = Level2Controller.Instance && Level2Controller.Instance.IsTriangleComplete();
+            if (prev != level2_triangleLinkedCount)
+                LevelTaskUI.I?.Refresh();
         }
 
         // ===== Level 3 tick =====
@@ -338,13 +417,16 @@ public class LevelManager : MonoBehaviour
         }
     }
 
-    /// <summary>ให้ TurnManager เรียกเมื่อคะแนน/จำนวนคำเปลี่ยน</summary>
+    // ------------------------------ Public hooks ------------------------------
     public void OnScoreOrWordProgressChanged()
     {
         if (phase != GamePhase.Running) return;
 
-        // ด่าน 2: ปลดล็อก/หักบั๊กแบบคงที่
-        if (GetCurrentConfig()?.levelIndex == 2)
+        // รีเฟรช Task panel ทุกครั้งที่คะแนน/เป้าหมายคำคืบหน้า
+        LevelTaskUI.I?.Refresh();
+
+        // ของเดิม (ด่าน 2 ฯลฯ)
+        if (currentLevelConfig?.levelIndex == 2)
         {
             Level2_TryUnlockByWordLength();
             if (level2_benchPenaltyPerMove > 0) Level2_TryApplyBenchPenalty();
@@ -358,11 +440,10 @@ public class LevelManager : MonoBehaviour
         }
     }
 
-    // ===== ด่าน 1: รับคำ IT ถูกแล้วอัปเดต progress =====
     public void RegisterConfirmedWords(IEnumerable<string> words)
     {
         if (phase == GamePhase.GameOver || words == null) return;
-        if (GetCurrentConfig()?.levelIndex != 1) return;
+        if (currentLevelConfig?.levelIndex != 1) return;
 
         int before = itWordsFound.Count;
         foreach (var w in words)
@@ -372,9 +453,23 @@ public class LevelManager : MonoBehaviour
         }
         if (itProgressText) itProgressText.text = $"IT words: {itWordsFound.Count}/{itWordsTargetLevel1}";
         if (itWordsFound.Count != before) OnScoreOrWordProgressChanged();
+        // --- WordRequest / Themed words ---
+        var cfg2 = currentLevelConfig;
+        if (cfg2 != null && cfg2.requireThemedWords && cfg2.requiredThemeCount > 0)
+        {
+            // words ที่ส่งมาคือรายการ "คำถูกต้อง" สำหรับเทิร์นนี้แล้ว
+            int add = words.Count();  // ✅ นับทั้งหมด ไม่กรอง IT อีกต่อไป
+
+            if (add > 0)
+            {
+                wordRequestsDone = Mathf.Min(wordRequestsDone + add, cfg2.requiredThemeCount); // กันเกินเป้า
+                LevelTaskUI.I?.Refresh();
+                OnScoreOrWordProgressChanged();
+            }
+        }
     }
 
-    private bool CheckWinConditions(LevelConfig cfg)
+    public void OnFirstConfirm()
     {
         if (isGameOver) return false;
         if (TurnManager.Instance == null) return false;
@@ -386,53 +481,56 @@ public class LevelManager : MonoBehaviour
             TurnManager.Instance.Score >= cfg.requiredScore &&
             TurnManager.Instance.CheckedWordCount >= cfg.requiredWords;
 
-        if (!baseOK) return false;
+        if (levelTimeLimit > 0f) StartLevelTimer();
+        if (!timerStarted) { timerStarted = true; timerPaused = false; }
+        phase = GamePhase.Running;
 
-        // ด่าน 1: ต้องมีคำ IT ถึงเป้า
-        if (cfg.levelIndex == 1)
-        {
-            if (itWordsFound.Count < itWordsTargetLevel1) return false;
-        }
-
-        // ด่าน 2: ต้องปิดสามเหลี่ยม (ถ้าเปิดใช้)
-        if (cfg.levelIndex == 2 && level2_useTriangleObjective)
-        {
-            if (!level2_triangleComplete) return false;
-        }
-
-        return true;
+        // เริ่ม wave x2 ของด่าน 2 ถ้ายังไม่เริ่ม
+        var cfg = currentLevelConfig;
+        // ✅ ให้ Level2Controller จัดการทั้งหมด
+        if (currentLevelConfig?.levelIndex == 2)
+            Level2Controller.Instance?.OnTimerStart();
     }
 
-    // ------------------------------ Level flow ------------------------------
+    public void PauseLevelTimer() { timerPaused = true; }
+    public void ResumeLevelTimer() { timerPaused = false; }
+
+    public void ShowToast(string msg, Color col)
+    {
+        if (UIManager.Instance != null) UIManager.Instance.ShowFloatingToast(msg, col, 2f);
+        else Debug.Log(msg);
+    }
+
+    // ------------------------------ Flow ------------------------------
     private void SetupLevel(int idx)
     {
         idx = Mathf.Clamp(idx, 0, levels.Length - 1);
 
         StopAllLoops();
         isGameOver = false;
-        isTransitioning = false;
-        SetPhase(GamePhase.Setup);
+        phase = GamePhase.Setup;
 
         currentLevel = idx;
+
         var cfg = levels[currentLevel];
 
         if (levelText) levelText.text = $"Level {cfg.levelIndex}";
         if (timerText) timerText.gameObject.SetActive(false);
         if (levelTimerText) levelTimerText.color = _timerDefaultColor; // รีเซ็ตสีที่อาจถูกเปลี่ยนตอนจบเกมก่อนหน้า
 
-        // Timer setup
+        // UI
+        if (levelText) levelText.text = $"Level {currentLevelConfig.levelIndex}";
         levelTimeElapsed = 0f;
-        levelTimeLimit   = Mathf.Max(0f, cfg.timeLimit);
+        levelTimeLimit = Mathf.Max(0f, currentLevelConfig.timeLimit);
         levelTimerRunning = false;
-        timerStarted = false;
-        timerPaused  = false;
+        timerStarted = timerPaused = false;
         UpdateLevelTimerText(levelTimeLimit > 0 ? levelTimeLimit : 0f);
 
-        // ===== ด่าน 1 reset =====
+        // ด่าน 1: reset progress
         itWordsFound.Clear();
         if (itProgressText)
         {
-            if (cfg.levelIndex == 1)
+            if (currentLevelConfig.levelIndex == 1)
             {
                 itProgressText.gameObject.SetActive(true);
                 itProgressText.text = $"IT words: 0/{itWordsTargetLevel1}";
@@ -469,18 +567,33 @@ public class LevelManager : MonoBehaviour
             TurnManager.Instance.UpdateBagUI(); // เรียกครั้งเดียวหลังเติมครบ
         }
 
-        // ด่าน 2: theme / locked seeds / x2 wave start
-        if (cfg.levelIndex == 2)
+        // เรียก Garbled ครั้งเดียวพอ
+        Level1GarbledIT.Instance?.ClearAll();
+        Level1GarbledIT.Instance?.Setup(currentLevelConfig);
+
+        // ด่าน 2: seed/ธีม/เริ่มโซน x2
+        if (currentLevelConfig?.levelIndex == 2)
         {
-            Level2_ApplyThemeAndUpgrades();
-            if (level2_enableLockedBoard) Level2_SeedLockedSlots();
-
-            // เริ่มโซน x2 ทันที (กันลืม OnFirstConfirm) และอัปเดต triangle hint ครั้งแรก
-            if (level2_enablePeriodicX2Zones && level2_x2Routine == null)
-                level2_x2Routine = StartCoroutine(Level2_PeriodicX2Zones(spawnImmediately: true));
-
-            UIManager.Instance?.UpdateTriangleHint(level2_triangleComplete);
+            Level2_ClearLockedSegments();
+            Level2Controller.Instance?.Setup();   // ← สร้าง Triangle ก่อน
+            Level2_SpawnLockedSegments();         // ← แล้วค่อยวางล็อก
         }
+
+        Debug.Log($"▶ เริ่มด่าน {currentLevelConfig.levelIndex} | Time: {currentLevelConfig.timeLimit}s | Score target: {currentLevelConfig.requiredScore}");
+        LevelTaskUI.I?.Refresh();    // <-- เพิ่ม
+        phase = GamePhase.Ready;
+    }
+    void SetupLevel_Level2Hook()
+    {
+        if (currentLevelConfig != null && currentLevelConfig.levelIndex == 2)
+            Level2Controller.Instance?.Setup(); // <-- ไม่มีพารามิเตอร์แล้ว
+    }
+
+    void Update_Level2Hook()
+    {
+        if (currentLevelConfig != null && currentLevelConfig.levelIndex == 2)
+            Level2Controller.Instance?.Tick(Time.unscaledDeltaTime);
+    }
 
         // ด่าน 3: Boss
         if (cfg.levelIndex == 3)
@@ -511,57 +624,126 @@ public class LevelManager : MonoBehaviour
         Debug.Log($"▶ เริ่มด่าน {cfg.levelIndex} | Time: {cfg.timeLimit}s | Score target: {cfg.requiredScore}");
         SetPhase(GamePhase.Ready);
     }
-
-    private IEnumerator GoToNextLevel()
+    bool CheckWinConditions_Level2Hook(bool baseOK)
     {
-        if (isTransitioning || phase == GamePhase.Transition || phase == GamePhase.GameOver) yield break;
-        isTransitioning = true;
-        SetPhase(GamePhase.Transition);
+        if (!baseOK) return false;
+        if (currentLevelConfig != null && currentLevelConfig.levelIndex == 2)
+            return !level2_useTriangleObjective || (Level2Controller.Instance?.IsTriangleComplete() ?? false);
+        return true;
+    }
+    public bool IsTriangleComplete() => level2_triangleComplete;
+
+    private void ShowStageClearAndShop(LevelConfig cfg)
+    {
+        if (phase == GamePhase.Transition || phase == GamePhase.GameOver) return;
+        phase = GamePhase.Transition;
 
         StopAllLoops();
-        yield return WaitEOF;
 
-        if (currentLevel + 1 < levels.Length) SetupLevel(currentLevel + 1);
-        else GameOver(true);
+        var result = BuildStageResult(cfg);
 
-        isTransitioning = false;
-    }
-
-    /// <summary>เรียกจาก TurnManager ครั้งแรกหลังยืนยันคำแรก เพื่อเริ่มจับเวลา</summary>
-    public void OnFirstConfirm()
-    {
-        if (phase != GamePhase.Ready)
+        // บวกเหรียญเข้ากระเป๋าผู้เล่นจริง ๆ
+        if (result.totalCoins > 0)
         {
-            Debug.LogWarning($"OnFirstConfirm ignored. Phase={phase}");
-            return;
+            CurrencyManager.Instance?.Add(result.totalCoins);
+            UIManager.Instance?.ShowFloatingToast($"+{result.totalCoins} coins", Color.yellow, 1.2f);
         }
-        if (levelTimeLimit > 0f) StartLevelTimer();
-        if (!timerStarted) { timerStarted = true; timerPaused = false; }
-        SetPhase(GamePhase.Running);
-        Debug.Log("Level started");
 
-        var cfg = GetCurrentConfig();
-        if (cfg != null && cfg.levelIndex == 2 && level2_enablePeriodicX2Zones && level2_x2Routine == null)
-            level2_x2Routine = StartCoroutine(Level2_PeriodicX2Zones(spawnImmediately: true));
+        stageClearPanel?.Show(result, next: () =>
+        {
+            // ส่งข้อมูลไปฝั่งถัดไป
+            StageResultBus.LastResult = result;
+            StageResultBus.NextLevelIndex = Mathf.Clamp(currentLevel + 1, 0, levels.Length - 1);
+            StageResultBus.GameplaySceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+
+            // คืนเวลา/เสียง + เคลียร์เสียงของซีนปัจจุบันก่อนเปลี่ยน
+            Time.timeScale = 1f;
+            AudioListener.pause = false;
+            BgmPlayer.I?.StopImmediateAndClear();
+            SfxPlayer.I?.StopAllAndClearBank();
+
+            // โหลดผ่าน SceneTransitioner (มีเฟด)
+            SceneTransitioner.LoadScene(shopSceneName); // <- เดิมเคยใช้ SceneManager.LoadScene
+        });
     }
 
-    public void PauseLevelTimer()  { timerPaused = true;  }
-    public void ResumeLevelTimer() { timerPaused = false; }
 
-    // ------------------------------ Timer control ------------------------------
-    private void StartLevelTimer()
+    private bool CheckWinConditions(LevelConfig cfg)
     {
-        if (levelTimerRunning) return;
-        levelTimerRunning = true;
-        levelTimeElapsed = 0f;
+        if (isGameOver || TurnManager.Instance == null || cfg == null) return false;
+
+        int score = TurnManager.Instance.Score;
+        int words = TurnManager.Instance.UniqueWordsThisLevel; // <-- เปลี่ยนมาใช้ตัวนี้
+
+        bool baseOK = score >= cfg.requiredScore && words >= cfg.requiredWords;
+        if (!baseOK) return false;
+
+        if (cfg.levelIndex == 1 && itWordsFound.Count < itWordsTargetLevel1) return false;
+
+        if (cfg.levelIndex == 2 && level2_useTriangleObjective &&
+            !(Level2Controller.Instance?.IsTriangleComplete() ?? false)) return false;
+
+        return true;
     }
-    private void StopLevelTimer()
+    public (int linked, int total) GetTriangleLinkProgress()
     {
-        if (!levelTimerRunning) return;
-        levelTimerRunning = false;
+        var c = Level2Controller.Instance;
+        int total = c != null ? Mathf.Min(3, c.NodeCount) : 3;
+        int linked = c != null ? c.GetTouchedNodeCount() : 0;
+        return (linked, total);
     }
 
-    // ------------------------------ Level end ------------------------------
+    private StageResult BuildStageResult(LevelConfig cfg)
+    {
+        var tm = TurnManager.Instance;
+        int timeUsed = Mathf.FloorToInt(levelTimeElapsed);
+        int words = tm ? tm.UniqueWordsThisLevel : 0;
+        int turns = tm ? tm.ConfirmsThisLevel : 0;
+        int tilesLeft = TileBag.Instance ? TileBag.Instance.Remaining : 0;
+        int moveScore = tm ? tm.Score : 0;
+
+        // คะแนนโบนัส
+        int timeLeft = Mathf.Max(0, cfg.targetTimeSec - timeUsed);
+        int wordsScoreCount = Mathf.Min(words, Mathf.Max(0, cfg.maxWordsForScore));
+        int bonusScore =
+            Mathf.Max(0, Mathf.RoundToInt(timeLeft * cfg.coefTimeScore)) +
+            (wordsScoreCount * cfg.coefWordScore) +
+            (turns * cfg.coefTurnScore) +
+            (tilesLeft * cfg.coefTilesLeftScore);
+
+        int totalScore = Mathf.Max(0, moveScore + bonusScore);
+
+        // เหรียญ
+        int wordsMoneyCount = Mathf.Min(words, Mathf.Max(0, cfg.maxWordsForMoney));
+        int bonusCoins =
+            Mathf.Max(0, Mathf.RoundToInt(timeLeft * cfg.coefTimeMoney)) +
+            (wordsMoneyCount * cfg.coefWordMoney) +
+            (turns * cfg.coefTurnMoney) +
+            (tilesLeft * cfg.coefTilesLeftMoney);
+
+        int totalCoins = Mathf.Max(0, cfg.baseCoins + bonusCoins);
+
+        return new StageResult
+        {
+            levelIndex = cfg.levelIndex,
+            timeUsedSec = timeUsed,
+            words = words,
+            turns = turns,
+            tilesLeft = tilesLeft,
+            moveScore = moveScore,
+            bonusScore = bonusScore,
+            totalScore = totalScore,
+            baseCoins = cfg.baseCoins,
+            bonusCoins = bonusCoins,
+            totalCoins = totalCoins
+        };
+    }
+
+    // ------------------------------ Timer helpers ------------------------------
+    private void StartLevelTimer() { if (!levelTimerRunning) { levelTimerRunning = true; levelTimeElapsed = 0f; } }
+    private void StopLevelTimer() { if (levelTimerRunning) { levelTimerRunning = false; } }
+
+    // ------------------------------ Game over / stop loops ------------------------------
     private void GameOver(bool win)
     {
         if (isGameOver || phase == GamePhase.GameOver) return;
@@ -569,28 +751,22 @@ public class LevelManager : MonoBehaviour
         isGameOver = true;
         StopLevelTimer();
         StopAllLoops();
-        SetPhase(GamePhase.GameOver);
+        phase = GamePhase.GameOver;
 
-        if (timerText) timerText.gameObject.SetActive(false);
         if (levelTimerText) levelTimerText.color = win ? Color.green : Color.red;
 
-        // ปิด UI เฉพาะเลเวล
-        UIManager.Instance?.ShowGarbledUI(false);
-        UIManager.Instance?.SetTriangleHintVisible(false);
+        if (!win) { TriggerStageFail("GameOver(false)"); return; }
 
-        if (win && GetCurrentConfig()?.levelIndex == 2 && level2_grantWinRewards)
-        {
+        if (win && currentLevelConfig?.levelIndex == 2 && level2_grantWinRewards)
             TryGrantLevel2Rewards(level2_winCogCoin, level2_nextFloorClue);
-        }
 
-        Debug.Log(win ? "🎉 ชนะทุกด่าน" : "💀 แพ้เพราะหมดเวลา");
+        Debug.Log("🎉 ชนะทุกด่าน");
     }
 
     private void StopAllLoops()
     {
-        if (level1_garbleRoutine != null) { StopCoroutine(level1_garbleRoutine); level1_garbleRoutine = null; }
 
-        if (level2_x2Routine != null)         { StopCoroutine(level2_x2Routine);         level2_x2Routine = null; }
+        if (level2_x2Routine != null) { StopCoroutine(level2_x2Routine); level2_x2Routine = null; }
         if (level2_benchIssueRoutine != null) { StopCoroutine(level2_benchIssueRoutine); level2_benchIssueRoutine = null; }
         Level2_RevertAllZones();
 
@@ -628,7 +804,6 @@ public class LevelManager : MonoBehaviour
     private void SetPhase(GamePhase next) => phase = next;
 
     private static string Normalize(string s) => (s ?? string.Empty).Trim().ToLowerInvariant();
-
     private bool IsITWord(string w)
     {
         if (string.IsNullOrEmpty(w)) return false;
@@ -759,11 +934,7 @@ public class LevelManager : MonoBehaviour
 
         var prog = PlayerProgressSO.Instance?.data;
         if (prog != null)
-        {
-            // ตัวอย่าง: ใช้ค่าที่ผู้เล่นอัปเกรดไว้ (เช่น max mana)
             TurnManager.Instance?.UpgradeMaxMana(PlayerProgressSO.Instance.data.maxMana);
-            Debug.Log("[Level2] Applied permanent upgrades from shop (e.g., max mana).");
-        }
     }
 
     private void Level2_SeedLockedSlots()
@@ -781,6 +952,7 @@ public class LevelManager : MonoBehaviour
             if (s.IsLocked) continue; // อย่าล็อกซ้ำ
             all.Add(s);                // ✅ อนุญาตล็อกทั้งช่องว่างและช่องที่มีตัวอักษร
         }
+
         if (all.Count == 0) return;
 
         int want = Mathf.Clamp(level2_lockedCount, 0, all.Count);
@@ -813,7 +985,6 @@ public class LevelManager : MonoBehaviour
         int len = main.Trim().Length;
         if (len <= 0) return;
 
-        // เลือกจาก snapshot เพื่อหลีกเลี่ยงการแก้ dict ระหว่าง iterate
         var toUnlock = level2_lockedSlots.Where(kv => kv.Value == len).Select(kv => kv.Key).ToList();
         if (toUnlock.Count == 0) return;
 
@@ -830,7 +1001,7 @@ public class LevelManager : MonoBehaviour
 
     private IEnumerator Level2_BenchIssueLoop()
     {
-        while (!isGameOver && GetCurrentConfig() != null && GetCurrentConfig().levelIndex == 2)
+        while (!isGameOver && currentLevelConfig != null && currentLevelConfig.levelIndex == 2)
         {
             yield return new WaitForSecondsRealtime(Mathf.Max(5f, level2_benchIssueIntervalSec));
 
@@ -860,10 +1031,8 @@ public class LevelManager : MonoBehaviour
         int p = Mathf.Abs(level2_benchPenaltyPerMove);
         TurnManager.Instance?.AddScore(-p);
         level2_lastPenalizedWord = main;
-        Debug.Log($"[Level2] Bench bug penalty -{p} for word: {main}");
     }
 
-    // === Public APIs for TurnManager (Bench Issue) ===
     public bool Level2_IsBenchIssueActive() => level2_benchIssueActive;
     public int Level2_SelectZeroCount(int placedCount)
     {
@@ -872,7 +1041,6 @@ public class LevelManager : MonoBehaviour
         return Mathf.Clamp(level2_benchZeroPerMove, 0, placedCount);
     }
 
-    // ---------- Triangle ----------
     private bool CheckTriangleComplete()
     {
         var bm = BoardManager.Instance;
@@ -917,28 +1085,66 @@ public class LevelManager : MonoBehaviour
 
         return visited[targets[1].x, targets[1].y] && visited[targets[2].x, targets[2].y];
     }
+    private int Level2_RecomputeTriangleLinks()
+    {
+        var bm = BoardManager.Instance;
+        if (bm == null || bm.grid == null || level2_triangleTargets == null || level2_triangleTargets.Length < 3)
+            return 0;
 
-    // ---------- Periodic X2 ----------
+        // เอาเฉพาะเป้าหมายที่ "มีตัวอักษรอยู่"
+        var active = new List<Vector2Int>();
+        foreach (var v in level2_triangleTargets)
+        {
+            int r = v.x, c = v.y;
+            if (r < 0 || r >= bm.rows || c < 0 || c >= bm.cols) continue;
+            var s = bm.grid[r, c];
+            if (s != null && s.HasLetterTile()) active.Add(new Vector2Int(r, c));
+        }
+        if (active.Count == 0) return 0;
+
+        // BFS ไปตามช่องที่มีตัวอักษร ติดกัน 4 ทิศ
+        var visited = new bool[bm.rows, bm.cols];
+        var q = new Queue<Vector2Int>();
+        q.Enqueue(active[0]);
+        visited[active[0].x, active[0].y] = true;
+
+        int[] dr = { -1, 1, 0, 0 };
+        int[] dc = { 0, 0, -1, 1 };
+
+        while (q.Count > 0)
+        {
+            var cur = q.Dequeue();
+            for (int k = 0; k < 4; k++)
+            {
+                int nr = cur.x + dr[k], nc = cur.y + dc[k];
+                if (nr < 0 || nr >= bm.rows || nc < 0 || nc >= bm.cols) continue;
+                if (visited[nr, nc]) continue;
+
+                var s = bm.grid[nr, nc];
+                if (s == null || !s.HasLetterTile()) continue;
+
+                visited[nr, nc] = true;
+                q.Enqueue(new Vector2Int(nr, nc));
+            }
+        }
+
+        int count = 0;
+        foreach (var t in active)
+            if (visited[t.x, t.y]) count++;
+
+        return Mathf.Clamp(count, 0, 3);
+    }
+
     private IEnumerator Level2_PeriodicX2Zones(bool spawnImmediately = false)
     {
         if (spawnImmediately)
-        {
-            ApplyX2ZonesOnce(
-                zones: Mathf.Max(1, level2_x2ZonesPerWave),
-                duration: Mathf.Max(5f, level2_x2ZoneDurationSec)
-            );
-        }
+            ApplyX2ZonesOnce(Mathf.Max(1, level2_x2ZonesPerWave), Mathf.Max(5f, level2_x2ZoneDurationSec));
 
-        while (!isGameOver && GetCurrentConfig() != null && GetCurrentConfig().levelIndex == 2)
+        while (!isGameOver && currentLevelConfig != null && currentLevelConfig.levelIndex == 2)
         {
             float wait = Mathf.Max(1f, level2_x2IntervalSec);
-            Debug.Log($"[Level2] Waiting {wait} sec for next x2 wave…");
             yield return new WaitForSecondsRealtime(wait);
-
-            ApplyX2ZonesOnce(
-                zones: Mathf.Max(1, level2_x2ZonesPerWave),
-                duration: Mathf.Max(5f, level2_x2ZoneDurationSec)
-            );
+            ApplyX2ZonesOnce(Mathf.Max(1, level2_x2ZonesPerWave), Mathf.Max(5f, level2_x2ZoneDurationSec));
         }
         level2_x2Routine = null;
     }
@@ -946,16 +1152,8 @@ public class LevelManager : MonoBehaviour
     private void ApplyX2ZonesOnce(int zones, float duration)
     {
         var bm = BoardManager.Instance;
-        if (bm == null || bm.grid == null)
-        {
-            Debug.LogWarning("[Level2] ApplyX2ZonesOnce aborted: board not ready.");
-            return;
-        }
-        if (bm.rows < 3 || bm.cols < 3)
-        {
-            Debug.LogWarning("[Level2] Board too small (<3x3) — skip x2 zones.");
-            return;
-        }
+        if (bm == null || bm.grid == null) return;
+        if (bm.rows < 3 || bm.cols < 3) return;
 
         Level2_RevertAllZones();
 
@@ -965,40 +1163,30 @@ public class LevelManager : MonoBehaviour
 
         while (chosenCenters.Count < zones && attempts++ < maxAttempts)
         {
-            int r = UnityEngine.Random.Range(1, rows - 1);  // เลือกศูนย์กลางที่ไม่ชนขอบ (สำหรับ 3x3)
+            int r = UnityEngine.Random.Range(1, rows - 1);
             int c = UnityEngine.Random.Range(1, cols - 1);
-
-            // เว้นระยะห่างระหว่าง center
             bool tooClose = chosenCenters.Any(cc => Mathf.Abs(cc.x - r) + Mathf.Abs(cc.y - c) < 3);
             if (tooClose) continue;
-
             chosenCenters.Add(new Vector2Int(r, c));
         }
-
-        if (chosenCenters.Count == 0)
-        {
-            Debug.LogWarning("[Level2] No valid centers for x2 zones.");
-            return;
-        }
+        if (chosenCenters.Count == 0) return;
 
         foreach (var center in chosenCenters)
         {
             for (int dr = -1; dr <= 1; dr++)
-            for (int dc = -1; dc <= 1; dc++)
-            {
-                int rr = center.x + dr, cc = center.y + dc;
-                if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue;
+                for (int dc = -1; dc <= 1; dc++)
+                {
+                    int rr = center.x + dr, cc = center.y + dc;
+                    if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue;
 
-                var slot = bm.grid[rr, cc];
-                if (slot == null) continue;
+                    var slot = bm.grid[rr, cc];
+                    if (slot == null) continue;
 
                 level2_activeZoneChanges.Add((new Vector2Int(rr, cc), slot.type, slot.manaGain)); // NOTE: prevMana เก็บไว้เผื่อในอนาคต
                 slot.type = level2_multiplierSlotType; // ปัจจุบันเปลี่ยนเฉพาะ type
                 slot.ApplyVisual();
             }
         }
-
-        Debug.Log($"[Level2] x2 Zones appeared at centers: {string.Join(", ", chosenCenters)} for {duration}s.");
 
         if (level2_activeZoneChanges.Count > 0)
         {
@@ -1023,8 +1211,6 @@ public class LevelManager : MonoBehaviour
         foreach (var it in level2_activeZoneChanges)
         {
             var v = it.pos;
-
-            // ✅ เช็คขอบเขตแบบ component-wise
             if (v.x < 0 || v.x >= bm.rows || v.y < 0 || v.y >= bm.cols) continue;
 
             var s = bm.grid[v.x, v.y];
@@ -1038,46 +1224,88 @@ public class LevelManager : MonoBehaviour
     }
 
     // ===== Rewards (safe reflection, ไม่พังถ้าไม่มีฟิลด์/พร็อพ) =====
+
     private void TryGrantLevel2Rewards(int addCogCoin, string clue)
     {
         try
         {
             var so = PlayerProgressSO.Instance;
             var data = so != null ? so.data : null;
-            if (data == null)
-            {
-                Debug.Log($"[Level2] Reward hook — clue: {clue} (no PlayerProgressSO.data)");
-                return;
-            }
+            if (data == null) { Debug.Log($"[Level2] Reward hook — clue: {clue}"); return; }
 
             int add = Mathf.Max(0, addCogCoin);
-
             var t = data.GetType();
+
             var field = t.GetField("cogCoin") ?? t.GetField("CogCoin");
-            if (field != null)
-            {
-                int cur = Convert.ToInt32(field.GetValue(data));
-                field.SetValue(data, cur + add);
-                Debug.Log($"[Level2] +{add} CogCoin via field. Clue: {clue}");
-                return;
-            }
+            if (field != null) { int cur = Convert.ToInt32(field.GetValue(data)); field.SetValue(data, cur + add); return; }
 
             var prop = t.GetProperty("cogCoin") ?? t.GetProperty("CogCoin");
             if (prop != null && prop.CanRead && prop.CanWrite)
-            {
-                int cur = Convert.ToInt32(prop.GetValue(data, null));
-                prop.SetValue(data, cur + add, null);
-                Debug.Log($"[Level2] +{add} CogCoin via property. Clue: {clue}");
-                return;
-            }
+            { int cur = Convert.ToInt32(prop.GetValue(data, null)); prop.SetValue(data, cur + add, null); return; }
 
-            // ถ้าไม่มีจริง ๆ ก็ล็อกเฉย ๆ
             Debug.Log($"[Level2] (Reward hook) No cogCoin field/property found. Clue: {clue}");
         }
-        catch (Exception ex)
+        catch (Exception ex) { Debug.LogWarning($"[Level2] Reward hook exception: {ex.Message}"); }
+    }
+    public void TriggerBenchIssueAfterRefill()
+    {
+        if (!level2_enableBenchIssue) return;
+        if (currentLevelConfig == null || currentLevelConfig.levelIndex != 2) return;
+
+        if (level2_benchIssueAfterRefillCo != null)
+            StopCoroutine(level2_benchIssueAfterRefillCo);
+
+        level2_benchIssueAfterRefillCo = StartCoroutine(Level2_BenchIssueAfterRefillCo());
+    }
+
+    private IEnumerator Level2_BenchIssueAfterRefillCo()
+    {
+        var bm = BenchManager.Instance;
+        if (bm == null) yield break;
+
+        // รอจนเติม Bench เสร็จ (รวมอนิเมชัน)
+        while (bm.IsRefilling()) yield return null;
+        yield return null; // กัน 1 เฟรมใหญ่วางลงจริง
+
+        // เคลียร์สถานะเก่าก่อน
+        ScoreManager.ClearZeroScoreTiles();
+        foreach (var t in bm.GetAllBenchTiles())
+            t.SetBenchIssueOverlay(false);
+
+        // สุ่ม x ตัวจาก Bench
+        var pool = new List<LetterTile>(bm.GetAllBenchTiles());
+        int pick = Mathf.Clamp(level2_benchIssueCount, 0, pool.Count);
+
+        var chosen = new List<LetterTile>();
+        for (int i = 0; i < pick && pool.Count > 0; i++)
         {
-            Debug.LogWarning($"[Level2] Reward hook exception: {ex.Message}");
+            int idx = UnityEngine.Random.Range(0, pool.Count);
+            chosen.Add(pool[idx]);
+            pool.RemoveAt(idx);
         }
+
+        // ทำให้ตัวที่ถูกเลือก "คะแนน = 0" + ใส่ overlay
+        if (chosen.Count > 0)
+        {
+            ScoreManager.MarkZeroScoreTiles(chosen);
+            foreach (var t in chosen)
+                t.SetBenchIssueOverlay(true, level2_benchIssueOverlayColor);
+            UIManager.Instance?.ShowFloatingToast($"Bench issue: {chosen.Count} tile(s) score 0 next turn", Color.gray, 2f);
+        }
+
+        level2_benchIssueAfterRefillCo = null;
+    }
+    private void Level2_ClearLockedSegments()
+    {
+        if (level2_lockedSegmentSlots.Count == 0) return;
+        foreach (var s in level2_lockedSegmentSlots)
+            if (s)
+            {
+                s.IsLocked = false;                            // ✅ ล้างสถานะล็อก
+                s.SetLockedVisual(false);
+                s.ApplyVisual();                               // รีเฟรชหน้าตาเผื่อมีผลสี/ไอคอน
+            }
+        level2_lockedSegmentSlots.Clear();
     }
 
     // ==============================
@@ -1470,34 +1698,120 @@ public class LevelManager : MonoBehaviour
     [ContextMenu("Validate Levels")]
     private void ValidateLevels()
     {
-        if (levels == null || levels.Length == 0)
+        if (!level2_enableLockedSegments) return;
+
+        var bm = BoardManager.Instance;
+        if (bm == null || bm.grid == null) return;
+
+        int rows = bm.rows, cols = bm.cols;
+        int segLen = Mathf.Max(1, level2_lockedSegmentLength);
+        int segCount = Mathf.Max(0, level2_lockedSegmentCount);
+
+        int centerR = rows / 2;
+        int centerC = cols / 2;
+        bool InCenter3x3(int r, int c) => Mathf.Abs(r - centerR) <= 1 && Mathf.Abs(c - centerC) <= 1;
+
+        // 8 ทิศ (กันแตะทั้งข้างและชนมุม)
+        Vector2Int[] ADJ8 = new Vector2Int[] {
+            new Vector2Int(-1, 0), new Vector2Int(1, 0),
+            new Vector2Int(0, -1), new Vector2Int(0, 1),
+            new Vector2Int(-1,-1), new Vector2Int(-1, 1),
+            new Vector2Int( 1,-1), new Vector2Int( 1, 1),
+        };
+        bool NearTriangle8(int r, int c)
         {
-            Debug.LogWarning("[LevelManager] levels is empty.");
-            return;
+            if (Level2Controller.IsTriangleCell(r, c)) return true;
+            for (int i = 0; i < ADJ8.Length; i++)
+            {
+                int nr = r + ADJ8[i].x, nc = c + ADJ8[i].y;
+                if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+                if (Level2Controller.IsTriangleCell(nr, nc)) return true;
+            }
+            return false;
         }
 
-        var seen = new HashSet<int>();
-        for (int i = 0; i < levels.Length; i++)
+        bool HasLockedNeighbor8(int r, int c)
         {
-            var L = levels[i];
-            if (L == null) { Debug.LogWarning($"Level {i} is null"); continue; }
-
-            if (L.levelIndex < 1) L.levelIndex = 1;
-            if (L.requiredScore < 0) L.requiredScore = 0;
-            if (L.requiredWords < 0) L.requiredWords = 0;
-            if (L.timeLimit < 0f) L.timeLimit = 0f;
-
-            if (!seen.Add(L.levelIndex))
-                Debug.LogWarning($"Duplicate levelIndex detected: {L.levelIndex}. Consider making them unique.");
+            for (int i = 0; i < ADJ8.Length; i++)
+            {
+                int nr = r + ADJ8[i].x, nc = c + ADJ8[i].y;
+                if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+                var ns = bm.grid[nr, nc];
+                if (ns != null && ns.IsLocked) return true;
+            }
+            return false;
         }
 
-        var cfg = GetCurrentConfig();
-        if (cfg != null) UpdateLevelTimerText(Mathf.Max(0f, cfg.timeLimit));
+        int attemptsPerSeg = 200;
 
-        if (cfg != null && cfg.levelIndex == 1 && itProgressText)
-            itProgressText.text = $"IT words: 0/{itWordsTargetLevel1}";
+        for (int seg = 0; seg < segCount; seg++)
+        {
+            bool placed = false;
+            for (int attempt = 0; attempt < attemptsPerSeg && !placed; attempt++)
+            {
+                bool vertical = UnityEngine.Random.value < 0.5f;
 
-        Debug.Log("[LevelManager] ValidateLevels done.");
+                int startR = vertical
+                    ? UnityEngine.Random.Range(0, rows - segLen + 1)
+                    : UnityEngine.Random.Range(0, rows);
+
+                int startC = vertical
+                    ? UnityEngine.Random.Range(0, cols)
+                    : UnityEngine.Random.Range(0, cols - segLen + 1);
+
+                var candidates = new List<BoardSlot>();
+                for (int k = 0; k < segLen; k++)
+                {
+                    int r = startR + (vertical ? k : 0);
+                    int c = startC + (vertical ? 0 : k);
+
+                    var s = bm.grid[r, c];
+                    // เงื่อนไข: ต้องอยู่นอกกลาง 3×3, ยังไม่ล็อก, ไม่มีตัวอักษร, และ "ไม่มีเพื่อนล็อก" 8 ทิศ
+                    if (!s || InCenter3x3(r, c) || s.IsLocked || s.HasLetterTile()
+                        || Level2Controller.IsTriangleCell(r, c)       // ✅ กันวางทับ Triangle
+                        || HasLockedNeighbor8(r, c)
+                        || NearTriangle8(r, c))
+                    {
+                        candidates.Clear(); break;
+                    }
+
+                    candidates.Add(s);
+                }
+
+                if (candidates.Count == segLen)
+                {
+                    foreach (var s in candidates)
+                    {
+                        s.IsLocked = true;                                 // ✅ ต้องตั้งสถานะล็อกจริง
+                        s.SetLockedVisual(true, level2_lockedOverlayColor);
+                        level2_lockedSegmentSlots.Add(s);
+                    }
+                    placed = true;
+                }
+            }
+        }
     }
-#endif
+    void TriggerStageFail(string reason)
+    {
+        if (isGameOver || phase == GamePhase.GameOver) return;
+
+        isGameOver = true;
+        StopLevelTimer();
+        StopAllLoops();
+        phase = GamePhase.GameOver;
+
+        // กันพาเนล Pause ทับ + ตัดเสียง
+        PauseManager.I?.ClosePause();
+        BgmPlayer.I?.DuckAndStop(0.18f);
+        SfxPlayer.I?.StopAllAndClearBank();
+
+        // โชว์ป๊อปอัปแพ้ใต้ Canvas หลัก (เหมือน StageClear)
+        var panel = StageFailPanel.Instance ?? FindObjectOfType<StageFailPanel>(true);
+        if (panel) panel.Show("Stage Fail", "กลับสู่เมนูหลัก?");
+        else
+        {
+            Debug.LogError("StageFailPanel not found under Main Canvas.");
+            PauseManager.I?.Btn_ReturnToMainMenu();
+        }
+    }
 }

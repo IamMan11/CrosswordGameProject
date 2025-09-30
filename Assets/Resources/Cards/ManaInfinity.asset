@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 15
   displayName: Mana Infinity
   description: Infinity Mana 1 Minute
-  icon: {fileID: 0}
+  icon: {fileID: -4546942110212721668, guid: 0b3b84425c0dbe341a2f54c42444643c, type: 3}
   effectType: 28
   Mana: 10
   maxUsagePerTurn: 2

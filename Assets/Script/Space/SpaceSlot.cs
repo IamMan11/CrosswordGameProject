@@ -1,33 +1,51 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 
+/// <summary>
+/// SpaceSlot
+/// - จุดวางตัวอักษรชั่วคราว (พื้นที่ Space ระหว่าง Bench กับ Board)
+/// - รับ Drag&Drop จาก LetterTile และแจ้ง SpaceManager ให้จัดช่องว่าง/ขยับเพื่อนบ้าน
+/// </summary>
+[DisallowMultipleComponent]
 public class SpaceSlot : MonoBehaviour, IDropHandler, IPointerEnterHandler
 {
+    /// <summary>เมื่อเมาส์โฮเวอร์ระหว่างลาก ให้ SpaceManager จำตำแหน่งช่องเพื่อขยับ</summary>
     public void OnPointerEnter(PointerEventData eventData)
     {
-        if (SpaceManager.Instance != null && SpaceManager.Instance.draggingTile != null)
-            SpaceManager.Instance.OnHoverSlot(transform);
+        var sm = SpaceManager.Instance;
+        if (sm != null && sm.draggingTile != null)
+            sm.OnHoverSlot(transform);
     }
 
+    /// <summary>เมื่อปล่อยไทล์ลงช่องนี้</summary>
     public void OnDrop(PointerEventData eventData)
     {
+        if (eventData == null) return;
+
         var go = eventData.pointerDrag;
         if (!go) return;
+
         var tile = go.GetComponent<LetterTile>();
-        if (!tile) return;
+        if (tile == null) return;
 
-        // สร้างช่องว่าง ณ จุดนี้ก่อน
-        if (SpaceManager.Instance && SpaceManager.Instance.draggingTile)
-            SpaceManager.Instance.EnsureEmptyAt(transform);
+        var sm = SpaceManager.Instance;
 
-        // เข็มขัดนิรภัย ถ้ายังมีของค้าง เตะไปช่องว่างใกล้สุด
-        if (transform.childCount > 0 && SpaceManager.Instance)
-            SpaceManager.Instance.KickOutExistingToNearestEmpty(transform);
+        // 1) ถ้ากำลังลากจริง ให้ "จัดทำช่องว่าง" ณ จุดนี้ก่อน (จะขยับช่องข้าง ๆ ให้พอดี)
+        if (sm != null && sm.draggingTile != null)
+            sm.EnsureEmptyAt(transform);
 
+        // 2) ถ้ายังมีไทล์ค้างในช่อง (edge-case) ให้เตะไปช่องว่างที่ใกล้ที่สุดก่อน
+        if (transform.childCount > 0 && sm != null)
+            sm.KickOutExistingToNearestEmpty(transform);
+
+        // 3) วางจริง
         tile.OriginalParent = transform;
         go.transform.SetParent(transform, false);
+        go.transform.SetAsLastSibling();
         tile.AdjustSizeToParent();
         tile.PlaySettle();
-        SpaceManager.Instance?.UpdateDiscardButton();
+
+        // 4) อัปเดตปุ่ม Discard ให้ตรงสภาพ
+        sm?.UpdateDiscardButton();
     }
 }

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 22
   displayName: Quad Supply
   description: Add 4 letter to Bench
-  icon: {fileID: 0}
+  icon: {fileID: -8268889977658006730, guid: 849c25bdbcde1374ab7e55fb51f4d2f1, type: 3}
   effectType: 6
   Mana: 4
   maxUsagePerTurn: 10

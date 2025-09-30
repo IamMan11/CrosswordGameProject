@@ -2,27 +2,43 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-[System.Serializable]          // ใช้คู่กับ Inspector
+[System.Serializable]
 public class LetterCount
 {
-    public LetterData data;    // Sprite / คะแนน ฯลฯ
-    [Range(1,199)]
-    public int count = 1;      // จำนวนตัวที่ใส่ลงถุง
+    public LetterData data;          // ข้อมูลตัวอักษร (sprite/คะแนน)
+    [Range(1, 199)]
+    public int count = 1;            // จำนวนตัวที่ใส่ลงถุง
 }
 
+/// <summary>
+/// TileBag
+/// - ถุงตัวอักษรของเกม: สร้างพูลจากสัดส่วนตั้งต้น + extraTiles จาก Progress
+/// - จั่วแบบสุ่ม, รองรับโหมด Infinite (ไม่ลดจำนวน), คืนไทล์ได้
+/// - มีตัวพิเศษ (isSpecial) ทุก ๆ 6 การจั่ว (ทั้งโหมดปกติและ Infinite)
+/// </summary>
 public class TileBag : MonoBehaviour
 {
     public static TileBag Instance { get; private set; }
 
-    [Header("Setup (ต้องรวมกัน = 100)")]
-    public List<LetterCount> initialLetters = new();   // จัดสรร A‑Z ตามใจ
+    [Header("Setup (ควรรวมกันได้ค่าพื้นฐาน เช่น 100)")]
+    public List<LetterCount> initialLetters = new();   // จัดสรร A-Z ตามต้องการ
 
-    private readonly List<LetterData> pool = new();    // ถุงจริงหลังแตกตัว
-    int baseCapacity; 
+    // พูลจริงของไทล์ที่จั่วได้
+    private readonly List<LetterData> pool = new();
 
-    public int TotalInitial { get; private set; }      // 100
-    public int Remaining   => pool.Count;              // เหลือในถุง
+    // ความจุพื้นฐาน (sum ของ count)
+    int baseCapacity;
+
+    /// <summary>จำนวนตัวทั้งหมดตั้งต้น + extra ณ ตอนสร้าง/รีฟิล</summary>
+    public int TotalInitial { get; private set; }
+
+    /// <summary>จำนวนตัวที่เหลืออยู่ในถุงตอนนี้</summary>
+    public int Remaining => pool.Count;
+
+    // ตัวพิเศษทุก ๆ 6 จั่ว
     int drawsSinceSpecial = 0;
+
+    // โหมด Infinite (จั่วไม่ลด)
     private bool infiniteMode = false;
     private Coroutine infiniteCoroutine = null;
 
@@ -30,68 +46,64 @@ public class TileBag : MonoBehaviour
     {
         if (Instance == null) Instance = this; else { Destroy(gameObject); return; }
 
-        // Base capacity = sum initial counts (100)
+        // คำนวณ baseCapacity แบบปลอดภัย
         baseCapacity = 0;
-        foreach (var lc in initialLetters) baseCapacity += lc.count;
+        foreach (var lc in initialLetters)
+            if (lc != null) baseCapacity += Mathf.Max(0, lc.count);
 
-        TotalInitial = baseCapacity + PlayerProgressSO.Instance.data.extraTiles;
-        RebuildPool();
-        // เรียก UI ครั้งแรกหลังสร้าง pool
-        TurnManager.Instance?.UpdateBagUI();
+        // ดึง extra จาก Progress (กัน null)
+        int extra = PlayerProgressSO.Instance?.data?.extraTiles ?? 0;
+        extra = Mathf.Max(0, extra);
+
+        TotalInitial = baseCapacity + extra;
+
+        RebuildPool();                      // สร้าง pool ครั้งแรก
+        TurnManager.Instance?.UpdateBagUI();// ซิงก์ UI
     }
 
-    /// <summary>ดึงสุ่ม 1 ตัว (ถ้าหมดคืน null)</summary>
-    /* -------------------------------------------------- public API -------------------------------------------------- */
+    /* -------------------------------------------------- Public API -------------------------------------------------- */
+
+    /// <summary>เพิ่มความจุถุงแบบ runtime + เติมไทล์สุ่มทันที (ใช้ตอนอัปเกรดถุง)</summary>
     public void AddExtraLetters(int extra)
     {
-        TotalInitial += extra;                     // expand capacity first
-        for (int i = 0; i < extra; i++)            // add letters immediately
+        extra = Mathf.Max(0, extra);
+        if (extra == 0) return;
+
+        TotalInitial += extra;
+
+        if (initialLetters == null || initialLetters.Count == 0)
         {
-            var t = initialLetters[Random.Range(0, initialLetters.Count)].data;
-            pool.Add(t);
+            Debug.LogWarning("[TileBag] initialLetters ว่าง — ไม่สามารถเพิ่มไทล์สุ่มได้");
+            TurnManager.Instance?.UpdateBagUI();
+            return;
         }
-        Debug.Log($"[TileBag] +{extra} tiles → {Remaining}/{TotalInitial}");
-        TurnManager.Instance?.UpdateBagUI();       // sync UI
-    }
-    /// <summary>สร้าง (หรือสร้างใหม่) พูลตัวอักษรทั้งหมดตาม initialLetters</summary>
-    void RebuildPool()
-    {
-        pool.Clear();
-        // initial letters
-        foreach (var lc in initialLetters)
-            for (int i = 0; i < lc.count; i++)
-                pool.Add(lc.data);
-        // extras
-        int extra = TotalInitial - baseCapacity;
+
         for (int i = 0; i < extra; i++)
         {
-            var t = initialLetters[Random.Range(0, initialLetters.Count)].data;
-            pool.Add(t);
+            var pick = initialLetters[Random.Range(0, initialLetters.Count)];
+            if (pick?.data != null) pool.Add(pick.data);
         }
+
+        Debug.Log($"[TileBag] +{extra} tiles → {Remaining}/{TotalInitial}");
+        if (pool.Count > 0) LevelManager.Instance?.CancelPrepareFailMode();
+        TurnManager.Instance?.UpdateBagUI();
     }
-    /// <summary>เปิดโหมด InfiniteTiles (tilepack ไม่หมด)</summary>
-    public void ActivateInfinite(float duration)
+    public void AddRandomToPool(int count)
     {
-        if (infiniteCoroutine != null)
-            StopCoroutine(infiniteCoroutine);
+        count = Mathf.Max(0, count);
+        if (count == 0) return;
+        if (initialLetters == null || initialLetters.Count == 0) return;
 
-        infiniteMode = true;
-        Debug.Log("[TileBag] InfiniteTiles Mode ON (1 นาที)");
-
-        infiniteCoroutine = StartCoroutine(DeactivateInfiniteAfter(duration));
+        for (int i = 0; i < count; i++)
+        {
+            var pick = initialLetters[Random.Range(0, initialLetters.Count)];
+            if (pick?.data != null) pool.Add(pick.data);
+        }
+        if (pool.Count > 0) LevelManager.Instance?.CancelPrepareFailMode();
+        TurnManager.Instance?.UpdateBagUI(); // อัปเดต UI 70/100 -> 80/100 ฯลฯ
     }
 
-    /// <summary>
-    /// Coroutine รอแล้วปิดโหมด InfiniteTiles อัตโนมัติ
-    /// </summary>
-    private IEnumerator DeactivateInfiniteAfter(float duration)
-    {
-        yield return new WaitForSeconds(duration);
-        infiniteMode = false;
-        infiniteCoroutine = null;
-        Debug.Log("[TileBag] InfiniteTiles Mode AUTO-OFF (หมดเวลา 1 นาที)");
-    }
-    /// <summary>Reset tilepack ทั้งหมด (PackRenewal) → สร้าง pool ใหม่เต็ม เช่นเดียวกับเริ่มเกม</summary>
+    /// <summary>รีเซ็ต pool ทั้งหมดให้เหมือนเริ่มเกมใหม่ (ใช้ตอนเปลี่ยนด่าน/กดรีเซ็ต)</summary>
     public void ResetPool()
     {
         RebuildPool();
@@ -99,19 +111,37 @@ public class TileBag : MonoBehaviour
         Debug.Log("[TileBag] Pool ถูกรีเซ็ตใหม่ทั้งหมด");
         TurnManager.Instance?.UpdateBagUI();
     }
-    
+
+    /// <summary>เปิดโหมด InfiniteTiles (จั่วไม่ลด และสุ่มพิเศษทุก ๆ 6 จั่ว)</summary>
+    public void ActivateInfinite(float duration)
+    {
+        if (infiniteCoroutine != null) StopCoroutine(infiniteCoroutine);
+
+        infiniteMode = true;
+        Debug.Log($"[TileBag] InfiniteTiles Mode ON ({duration:0.#}s)");
+
+        infiniteCoroutine = StartCoroutine(DeactivateInfiniteAfter(duration));
+    }
+
+    /// <summary>จั่ว 1 ตัวแบบสุ่ม (null ถ้าหมด และไม่ใช่โหมด Infinite)</summary>
     public LetterData DrawRandomTile()
     {
+        // โหมด Infinite: สร้างสำเนาจาก template โดยไม่ลดจำนวนในถุง
         if (infiniteMode)
         {
-            var template = initialLetters[Random.Range(0, initialLetters.Count)].data;
-            LetterData data = new LetterData
+            if (initialLetters == null || initialLetters.Count == 0) return null;
+
+            var template = initialLetters[Random.Range(0, initialLetters.Count)]?.data;
+            if (template == null) return null;
+
+            var data = new LetterData
             {
                 letter    = template.letter,
                 sprite    = template.sprite,
                 score     = template.score,
                 isSpecial = false
             };
+
             drawsSinceSpecial++;
             if (drawsSinceSpecial >= 6)
             {
@@ -122,14 +152,19 @@ public class TileBag : MonoBehaviour
             return data;
         }
 
+        // โหมดปกติ: ดึงจาก pool (ลดจำนวน)
         if (pool.Count == 0) return null;
 
         int idx = Random.Range(0, pool.Count);
         var templateNormal = pool[idx];
         pool.RemoveAt(idx);
+        if (pool.Count == 0)
+            LevelManager.Instance?.EnterPrepareFailMode();
         TurnManager.Instance?.UpdateBagUI();
 
-        LetterData dataNorm = new LetterData
+        if (templateNormal == null) return null;
+
+        var dataNorm = new LetterData
         {
             letter    = templateNormal.letter,
             sprite    = templateNormal.sprite,
@@ -143,44 +178,99 @@ public class TileBag : MonoBehaviour
             dataNorm.isSpecial = true;
             drawsSinceSpecial = 0;
         }
+
         return dataNorm;
     }
 
+    /// <summary>คืนตัวอักษรกลับถุง (เฉพาะโหมดปกติเท่านั้น)</summary>
+    public void ReturnTile(LetterData data)
+    {
+        if (!infiniteMode && data != null)
+            pool.Add(data);
+    }
+
+    /// <summary>
+    /// รีฟิลถุงทั้งหมดใหม่ (คำนวณ TotalInitial จาก progress ล่าสุด แล้วสร้างพูลใหม่)
+    /// ใช้ในจังหวะออกจาก Shop/อัปเกรดจำนวนไทล์ เป็นต้น
+    /// </summary>
     public void RefillTileBag()
     {
-        // 1) เคลียร์ถุงเก่า
+        // 1) ล้างถุงเดิม
         pool.Clear();
 
         // 2) เติมตัวอักษรพื้นฐาน
         int baseCount = 0;
-        foreach (var lc in initialLetters)
+        if (initialLetters != null)
         {
-            baseCount += lc.count;
-            for (int i = 0; i < lc.count; i++)
-                pool.Add(lc.data);
+            foreach (var lc in initialLetters)
+            {
+                if (lc == null || lc.data == null || lc.count <= 0) continue;
+                baseCount += lc.count;
+                for (int i = 0; i < lc.count; i++) pool.Add(lc.data);
+            }
         }
 
-        // 3) เอา extraTiles จาก Progress มาเติม (ซื้อเพิ่มครั้งละ 10)
-        int extra = PlayerProgressSO.Instance.data.extraTiles;  // :contentReference[oaicite:0]{index=0}
+        // 3) อ่าน extraTiles ปัจจุบัน
+        int extra = Mathf.Max(0, PlayerProgressSO.Instance?.data?.extraTiles ?? 0);
 
-        // 4) คำนวณ TotalInitial ใหม่ = พื้นฐาน + เพิ่มเติม
+        // 4) อัปเดต TotalInitial = base + extra
         TotalInitial = baseCount + extra;
 
         // 5) เติมตัวอักษรสุ่มจำนวน extra
-        for (int i = 0; i < extra; i++)
-            pool.Add(initialLetters[Random.Range(0, initialLetters.Count)].data);
+        if (initialLetters != null && initialLetters.Count > 0)
+        {
+            for (int i = 0; i < extra; i++)
+            {
+                var pick = initialLetters[Random.Range(0, initialLetters.Count)];
+                if (pick?.data != null) pool.Add(pick.data);
+            }
+        }
 
-        // 6) รีเซ็ต counter พิเศษ
+        // 6) รีเซ็ตตัวนับพิเศษ
         drawsSinceSpecial = 0;
 
-        // 7) อัปเดต UI ถุงให้ทันที
+        // 7) ซิงก์ UI
+        if (pool.Count > 0) LevelManager.Instance?.CancelPrepareFailMode();
         TurnManager.Instance?.UpdateBagUI();
     }
 
-    /// <summary>คืนตัวอักษรกลับถุง (กรณี Undo / ยกเลิก)</summary>
-    public void ReturnTile(LetterData data)
+    /* -------------------------------------------------- Internal -------------------------------------------------- */
+
+    /// <summary>สร้าง (หรือสร้างใหม่) พูลทั้งหมดจาก initialLetters + extra (อิงค่า TotalInitial ปัจจุบัน)</summary>
+    void RebuildPool()
     {
-        if (!infiniteMode)
-            pool.Add(data);
+        pool.Clear();
+
+        // เติมพื้นฐาน
+        if (initialLetters != null)
+        {
+            foreach (var lc in initialLetters)
+            {
+                if (lc == null || lc.data == null || lc.count <= 0) continue;
+                for (int i = 0; i < lc.count; i++)
+                    pool.Add(lc.data);
+            }
+        }
+
+        // เติม extras = TotalInitial - baseCapacity (กันค่าติดลบ)
+        int extra = Mathf.Max(0, TotalInitial - baseCapacity);
+
+        if (initialLetters != null && initialLetters.Count > 0)
+        {
+            for (int i = 0; i < extra; i++)
+            {
+                var pick = initialLetters[Random.Range(0, initialLetters.Count)];
+                if (pick?.data != null) pool.Add(pick.data);
+            }
+        }
+    }
+
+    /// <summary>คอร์รุตีนปิดโหมด Infinite อัตโนมัติหลังครบเวลา</summary>
+    private IEnumerator DeactivateInfiniteAfter(float duration)
+    {
+        yield return new WaitForSeconds(duration);
+        infiniteMode = false;
+        infiniteCoroutine = null;
+        Debug.Log("[TileBag] InfiniteTiles Mode OFF (หมดเวลา)");
     }
 }

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 6
   displayName: Echo Burst
   description: All Word in This Turn X2
-  icon: {fileID: 0}
+  icon: {fileID: 2493568023971435921, guid: 0182cb3118d57484eb28936d7a2372d6, type: 3}
   effectType: 4
   Mana: 5
   maxUsagePerTurn: 3

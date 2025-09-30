@@ -25,7 +25,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3187480401493750358}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -100,7 +100,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5214297753645806812}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -162,6 +162,7 @@ GameObject:
   - component: {fileID: 1741108383358452817}
   - component: {fileID: 7649932864458847749}
   - component: {fileID: 7538443070253028550}
+  - component: {fileID: 1985837306992162197}
   m_Layer: 0
   m_Name: BoardSlot 1
   m_TagString: Untagged
@@ -218,7 +219,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 7915817703201023726, guid: bfbfac3954726c740a794734ca455200, type: 3}
+  m_Sprite: {fileID: 1261082389059357776, guid: c519301b494ad1c4cac663a0fc1c5743, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -243,8 +244,65 @@ MonoBehaviour:
   bg: {fileID: 7649932864458847749}
   highlight: {fileID: 7054613361395114249}
   icon: {fileID: 4693991998688993310}
+  specialBg: {fileID: 0}
   manaGain: 0
   row: 0
   col: 0
   type: 0
   IsLocked: 0
+  pulseRoot: {fileID: 0}
+  hoverAnimator: {fileID: 1985837306992162197}
+  pulseTrigger: Pulse
+  pulseStateTag: Pulse
+  previewBool: PreviewOn
+  useUnscaledTimeForAnimator: 1
+  hoverScale: 1.097
+  hoverDuration: 0.18
+  hoverOutDuration: 0.06
+  hoverEase:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  idleStateName: Idel
+--- !u!95 &1985837306992162197
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6223383681551687179}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 6c9c93bf8d62dc94b8617bcb9c108467, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0

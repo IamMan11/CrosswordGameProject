@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 5
   displayName: Double Reacast
   description: Chose 2 more Card
-  icon: {fileID: 0}
+  icon: {fileID: -6664470572883296045, guid: 574c803872f85e045b81f0aa550a62fc, type: 3}
   effectType: 8
   Mana: 4
   maxUsagePerTurn: 2

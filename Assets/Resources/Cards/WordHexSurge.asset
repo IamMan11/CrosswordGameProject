@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 27
   displayName: Word Hex Surge
   description: Make Special Slot Word x3 to x6
-  icon: {fileID: 0}
+  icon: {fileID: 1375184204454939317, guid: 80b6074219faf294795d5d2bf82caa6a, type: 3}
   effectType: 3
   Mana: 6
   maxUsagePerTurn: 5

@@ -7,9 +7,23 @@ using UnityEngine;
 using UnityEngine.Networking;
 using SQLite4Unity3d;
 
+/// <summary>
+/// WordChecker
+/// - โหลดฐานข้อมูลคำ (SQLite) จาก StreamingAssets → คัดลอกไป persistentDataPath แล้วเปิดแบบ ReadOnly
+/// - ตรวจคำแบบ 2 ชั้น: in-memory cache (HashSet) → DB (พร้อม memoize ลง cache)
+/// - รองรับ 2 โหมด:
+///     1) preloadAllOnStart = true  : ดึงทั้งตารางเข้าหน่วยความจำ (เร็วมาก RAM มาก)
+///     2) preloadAllOnStart = false : อุ่น cache อัตโนมัติหลังเชื่อมต่อ (โหลดเฉพาะคอลัมน์ Word)
+/// - ยืดหยุ่นกับ schema: ตรวจหาตารางที่มีคอลัมน์ Word และเช็กว่ามี Type/Translation/len หรือไม่
+/// - เวลาตรวจคำ จะเคารพกฎ minWordLength (เช่น ตัดคำ 1 ตัวอักษรทิ้งก่อน)
+/// 
+/// หมายเหตุ: คงเมธอด/ฟิลด์เดิมครบถ้วนเพื่อไม่กระทบสคริปต์อื่น
+/// </summary>
 public class WordChecker : MonoBehaviour
 {
     public static WordChecker Instance { get; private set; }
+
+    #region Inspector
 
     [Header("Database")]
     [Tooltip("ชื่อไฟล์ฐานข้อมูล .db ใน Assets/StreamingAssets")]
@@ -24,6 +38,10 @@ public class WordChecker : MonoBehaviour
     [Header("Rules")]
     [Tooltip("ความยาวคำขั้นต่ำที่จะนับว่าถูกต้อง")]
     public int minWordLength = 2;   // กันคำ 1 ตัวอักษร
+
+    #endregion
+
+    #region Runtime fields
 
     private SQLiteConnection conn;
     private string tableName = null;              // จะถูกตั้งหลังตรวจเจอ schema
@@ -40,8 +58,12 @@ public class WordChecker : MonoBehaviour
     // อุ่นแคชครั้งเดียว
     private bool cacheWarmedUp = false;
 
-    // (ออปชัน) นับสถิติเล็ก ๆ
+    // (ออปชัน) นับสถิติเล็ก ๆ (โชว์ผ่าน Context Menu)
     private int cacheHit = 0, dbHit = 0;
+
+    #endregion
+
+    #region DTOs
 
     [Serializable]
     public class Entry
@@ -51,13 +73,17 @@ public class WordChecker : MonoBehaviour
         public string Translation;
     }
 
-    // ====== READY ======
-    public bool IsReady()
-    {
-        if (entries.Count > 0 || dict.Count > 0) return true; // preload แล้ว
-        return conn != null && tablesReady && !string.IsNullOrEmpty(tableName);
-    }
+    // ใช้ map ผล query แบบ lightweight
+    private class Row { public string w { get; set; } }
+    private class Info { public string Type { get; set; } public string Translation { get; set; } }
+    private class TableRow { public string name { get; set; } public string type { get; set; } }
+    private class ColInfo { public int cid { get; set; } public string name { get; set; } public string type { get; set; } }
 
+    #endregion
+
+    #region Unity lifecycle
+
+    /// <summary>พร้อมใช้งานแบบซิงเกิลตันข้ามซีน</summary>
     void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
@@ -65,6 +91,7 @@ public class WordChecker : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
+    /// <summary>คัดลอก DB → เปิด ReadOnly → ตรวจ schema → (ออปชัน) preload/อุ่น cache</summary>
     IEnumerator Start()
     {
         dbPathRuntime = Path.Combine(Application.persistentDataPath, databaseFileName);
@@ -148,9 +175,23 @@ public class WordChecker : MonoBehaviour
 
     void OnDestroy() { conn?.Close(); }
 
-    // ===== Core API =====
+    #endregion
+
+    #region Public API
+
+    /// <summary>
+    /// ตัวชี้วัดความพร้อมของระบบตรวจคำ
+    /// - true เมื่อมี cache/entries แล้ว หรือมี connection และเจอตารางที่ถูกต้อง
+    /// </summary>
+    public bool IsReady()
+    {
+        if (entries.Count > 0 || dict.Count > 0) return true; // preload แล้ว
+        return conn != null && tablesReady && !string.IsNullOrEmpty(tableName);
+    }
+
     /// <summary>
     /// ตรวจคำแบบ 2 ชั้น: cache (dict) → DB; ถ้า DB เจอ จะ cache ลง dict ด้วย
+    /// - เคารพ minWordLength ก่อน query
     /// </summary>
     public bool IsWordValid(string w)
     {
@@ -218,7 +259,7 @@ public class WordChecker : MonoBehaviour
     }
 
     /// <summary>
-    /// คืนลิสต์คำตามความยาว ถ้ามีคอลัมน์ len จะใช้ WHERE len=? (เร็วกว่า)
+    /// คืนลิสต์คำตามความยาว (ใช้ WHERE len=? ถ้าตารางมีคอลัมน์ len)
     /// </summary>
     public List<string> GetWordsByLength(int len, int limit = 10000)
     {
@@ -241,7 +282,7 @@ public class WordChecker : MonoBehaviour
     }
 
     /// <summary>
-    /// คืนลิสต์คำทั้งหมดเรียงตามตัวอักษร
+    /// คืนลิสต์คำทั้งหมดเรียงตามตัวอักษร (ถ้า preload ไว้จะดึงจากหน่วยความจำ)
     /// </summary>
     public List<string> GetAllWordsSorted()
     {
@@ -261,7 +302,7 @@ public class WordChecker : MonoBehaviour
     }
 
     /// <summary>
-    /// คืนข้อมูลชนิดคำ/คำแปล ถ้า schema มี; ถ้าไม่มีคอลัมน์ดังกล่าว จะ fallback เป็นตรวจว่ามีคำไหม
+    /// คืนข้อมูลชนิดคำ/คำแปล ถ้ามีคอลัมน์รองรับ; ถ้าไม่มี ให้ fallback เป็นตรวจว่ามีคำไหม
     /// </summary>
     public bool TryGetInfo(string word, out string pos, out string translation)
     {
@@ -319,9 +360,21 @@ public class WordChecker : MonoBehaviour
         }
     }
 
-    // ===== Helpers =====
-    private static string Q(string ident) => "\"" + ident.Replace("\"", "\"\"") + "\"";
+    #endregion
 
+    #region Internal helpers
+
+    /// <summary>ใส่ Double-quote ปลอดภัยสำหรับชื่อ object (table/column)</summary>
+    private static string Q(string ident)
+    {
+        if (string.IsNullOrEmpty(ident)) return "\"\"";
+        return "\"" + ident.Replace("\"", "\"\"") + "\"";
+    }
+
+    /// <summary>
+    /// ตรวจ/ค้นหาตารางที่ใช้งานเป็นพจนานุกรมจาก connection ที่ให้มา
+    /// เลือกตารางตัวแรกที่พบคอลัมน์ "Word" และรายงานว่ามีคอลัมน์ประกอบอื่น ๆ ไหม
+    /// </summary>
     private bool DetectDictionaryTable(SQLiteConnection c,
                                        out string foundTable,
                                        out bool hasType,
@@ -377,7 +430,10 @@ public class WordChecker : MonoBehaviour
         return false;
     }
 
-    // อุ่น cache (โหลด Word ทั้งหมดเข้าชุดความจำครั้งเดียว)
+    /// <summary>
+    /// อุ่น cache ในหน่วยความจำ (โหลดคอลัมน์ Word ทั้งหมดครั้งเดียว)
+    /// เรียกอัตโนมัติเมื่อยังไม่อุ่นและไม่มี preload
+    /// </summary>
     private void WarmUpCacheIfNeeded()
     {
         if (cacheWarmedUp || dict.Count > 0 || entries.Count > 0) return;
@@ -401,13 +457,10 @@ public class WordChecker : MonoBehaviour
         }
     }
 
-    // ===== DTOs ภายใน =====
-    private class Row { public string w { get; set; } }
-    private class Info { public string Type { get; set; } public string Translation { get; set; } }
-    private class TableRow { public string name { get; set; } public string type { get; set; } }
-    private class ColInfo { public int cid { get; set; } public string name { get; set; } public string type { get; set; } }
+    #endregion
 
-    // ===== Utilities / Debug menus =====
+    #region Editor Context Menu (ช่วยดีบัก)
+
 #if UNITY_EDITOR
     [ContextMenu("WordChecker/Open persistentDataPath")]
     void _OpenPersistentPath() => UnityEditor.EditorUtility.RevealInFinder(Application.persistentDataPath);
@@ -432,4 +485,6 @@ public class WordChecker : MonoBehaviour
         cacheWarmedUp = false;
         Debug.Log("[WordChecker] Cleared in-memory cache.");
     }
+
+    #endregion
 }

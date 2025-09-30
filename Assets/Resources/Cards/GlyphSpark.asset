@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 10
   displayName: Glyph Spark
   description: Turn 1 Letter in bench to Special Letter
-  icon: {fileID: 0}
+  icon: {fileID: 7970043500296465006, guid: 4de27425ea5e75e42b61794e2a16488f, type: 3}
   effectType: 10
   Mana: 2
   maxUsagePerTurn: 10

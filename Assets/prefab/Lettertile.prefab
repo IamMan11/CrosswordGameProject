@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 6040130711176298517}
   - component: {fileID: 6603939504563227421}
   - component: {fileID: 4245157064495115131}
+  - component: {fileID: 8401218625076841821}
   m_Layer: 0
   m_Name: Text_Letter
   m_TagString: Untagged
@@ -136,6 +137,28 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!95 &8401218625076841821
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1134077039588280267}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: a006e582eb432d242a2217513db7c201, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &4562617307008826577
 GameObject:
   m_ObjectHideFlags: 0
@@ -222,6 +245,7 @@ GameObject:
   - component: {fileID: 816068252295336098}
   - component: {fileID: 841849308936924433}
   - component: {fileID: 7231654151831777163}
+  - component: {fileID: 8765402203327903429}
   m_Layer: 0
   m_Name: Text_Score
   m_TagString: Untagged
@@ -347,6 +371,28 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!95 &8765402203327903429
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5230413193839391482}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: a006e582eb432d242a2217513db7c201, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &7611389272195252624
 GameObject:
   m_ObjectHideFlags: 0
@@ -360,6 +406,7 @@ GameObject:
   - component: {fileID: 604053045338733320}
   - component: {fileID: 7642126956220534543}
   - component: {fileID: 5192042116673106632}
+  - component: {fileID: 5422086867527327043}
   m_Layer: 0
   m_Name: Lettertile
   m_TagString: Untagged
@@ -439,6 +486,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 008a74e1e4487334cb3b9c5bdc972024, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  isBlankTile: 0
+  isLocked: 0
+  IsInSpace: 0
+  OriginalParent: {fileID: 0}
   icon: {fileID: 604053045338733320}
   letterText: {fileID: 4245157064495115131}
   scoreText: {fileID: 7231654151831777163}
@@ -469,14 +520,9 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  STATE_IDLE: Idle
   STATE_DRAG: Draggloop
   STATE_SETTLE: Settle
-  settleDuration: 0.22
   settleDebounce: 0.1
-  isLocked: 0
-  OriginalParent: {fileID: 0}
-  IsInSpace: 0
 --- !u!95 &5192042116673106632
 Animator:
   serializedVersion: 7
@@ -499,3 +545,15 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!225 &5422086867527327043
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7611389272195252624}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
