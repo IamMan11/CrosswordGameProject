@@ -1,3 +1,4 @@
+// ========================== TurnManager.cs ==========================
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -69,7 +70,6 @@ public class TurnManager : MonoBehaviour
 
     // cache yields
     static readonly WaitForSeconds WFS_06 = new WaitForSeconds(0.6f);
-    static readonly WaitForSeconds WFS_2s = new WaitForSeconds(2f);
 
     void Awake()
     {
@@ -93,9 +93,17 @@ public class TurnManager : MonoBehaviour
 
     void Start()
     {
-        var prog = PlayerProgressSO.Instance.data;
-        maxMana = prog.maxMana;
-        currentMana = maxMana;
+        var prog = PlayerProgressSO.Instance?.data;
+        if (prog != null)
+        {
+            maxMana = prog.maxMana;
+            currentMana = maxMana;
+        }
+        else
+        {
+            currentMana = maxMana;
+        }
+
         usageCountThisTurn.Clear();
         UpdateScoreUI();
         UpdateManaUI();
@@ -106,6 +114,17 @@ public class TurnManager : MonoBehaviour
 
     void Update()
     {
+        // กันปุ่มเด้งกลับมา active ระหว่างกำลังคิดคะแนน/มี blocker
+        if (confirmBtn != null)
+        {
+            if ((inputBlocker && inputBlocker.activeSelf) ||
+                (scoreOverlayAnimator && scoreOverlayAnimator.GetBool("Scoring")))
+            {
+                confirmBtn.interactable = false;
+                return;
+            }
+        }
+
         if (inConfirmProcess) return;
         if (confirmBtn == null) return;
 
@@ -151,15 +170,14 @@ public class TurnManager : MonoBehaviour
         if (inputBlocker) inputBlocker.SetActive(true);
         if (scoreOverlayAnimator)
         {
-            scoreOverlayAnimator.updateMode = AnimatorUpdateMode.UnscaledTime;
+            if (pauseTimeDuringScoring)
+                scoreOverlayAnimator.updateMode = AnimatorUpdateMode.UnscaledTime;
             scoreOverlayAnimator.SetBool("Scoring", true);
         }
-        if (pauseTimeDuringScoring) Time.timeScale = 0f;
     }
 
     void EndScoreSequence()
     {
-        if (pauseTimeDuringScoring) Time.timeScale = 1f;
         if (inputBlocker != null) inputBlocker.SetActive(false);
         if (scoreOverlayAnimator != null) scoreOverlayAnimator.SetBool("Scoring", false);
 
@@ -180,10 +198,10 @@ public class TurnManager : MonoBehaviour
         if (confirmBtn != null) confirmBtn.interactable = true;
         UpdateScoreUI();
         UpdateBagUI();
-        usageCountThisTurn.Clear();
         usedDictionaryThisTurn = false;
         freePassActiveThisTurn = false;
         nextWordMul = 1;
+        usageCountThisTurn.Clear();
 
         ScoreManager.ClearZeroScoreTiles();
 
@@ -324,12 +342,12 @@ public class TurnManager : MonoBehaviour
 
     IEnumerator FadeOut()
     {
-        yield return WFS_2s;
+        yield return new WaitForSecondsRealtime(2f);
         float t = 0f;
         Color start = messageText.color;
         while (t < 1f)
         {
-            t += Time.deltaTime * 2f;
+            t += Time.unscaledDeltaTime * 2f;
             messageText.color = new Color(start.r, start.g, start.b, 1 - t);
             yield return null;
         }
@@ -357,6 +375,7 @@ public class TurnManager : MonoBehaviour
             }
             if (hasTile) break;
         }
+        // ถ้า scoring overlay ยังเปิดอยู่ Update() จะปิดให้อัตโนมัติ
         confirmBtn.interactable = hasTile;
     }
 
@@ -364,7 +383,7 @@ public class TurnManager : MonoBehaviour
     {
         UIConfirmPopup.Show(
             "การเปิดพจนานุกรมจะลดคะแนนคำในเทิร์นนี้ 50%\nยังต้องการเปิดหรือไม่?",
-            () => DictionaryUI.Instance.Open(),
+            () => { SetDictionaryUsed(); DictionaryUI.Instance.Open(); },
             null
         );
     }
@@ -401,7 +420,7 @@ public class TurnManager : MonoBehaviour
                 var t = s.GetLetterTile(); if (!t) continue;
                 int baseSc = Mathf.Max(0, t.GetData().score);
 
-                // NEW: รองรับ bench issue zero-score
+                // รองรับ bench issue zero-score
                 if (ScoreManager.IsZeroScoreTile(t)) baseSc = 0;
 
                 int lm = ScoreManager.EffectiveLetterMulFor(s.type); // DL/TL
@@ -421,7 +440,7 @@ public class TurnManager : MonoBehaviour
                 var t = s.GetLetterTile(); if (!t) continue;
                 int baseSc = Mathf.Max(0, t.GetData().score);
 
-                // NEW: รองรับ bench issue zero-score
+                // รองรับ bench issue zero-score
                 if (ScoreManager.IsZeroScoreTile(t)) baseSc = 0;
 
                 int lm = ScoreManager.EffectiveLetterMulFor(s.type); // DL/TL
@@ -433,6 +452,7 @@ public class TurnManager : MonoBehaviour
 
     ScorePopUI SpawnPop(RectTransform anchor, int startValue = 0)
     {
+        if (!scorePopPrefab || !anchor) return null;
         var ui = Instantiate(scorePopPrefab, anchor);
         ui.transform.localPosition = Vector3.zero;
         ui.transform.localScale = Vector3.one;
@@ -469,10 +489,12 @@ public class TurnManager : MonoBehaviour
     {
         LevelManager.Instance?.PauseLevelTimer();
         float prevTimeScale = Time.timeScale;
-        Time.timeScale = 0f;
-
-        if (scoreOverlayAnimator)
-            scoreOverlayAnimator.updateMode = AnimatorUpdateMode.UnscaledTime;
+        if (pauseTimeDuringScoring)
+        {
+            Time.timeScale = 0f;
+            if (scoreOverlayAnimator)
+                scoreOverlayAnimator.updateMode = AnimatorUpdateMode.UnscaledTime;
+        }
 
         try
         {
@@ -482,7 +504,7 @@ public class TurnManager : MonoBehaviour
             var mulFactors = BuildMultiplierFactors(correct);
 
             int lettersRunning = 0;
-            int mulRunning = 0;
+            int mulRunning = 1; // ใช้คูณ
 
             // Part A: Letters
             var steps = BuildLetterSteps(correct);
@@ -494,22 +516,28 @@ public class TurnManager : MonoBehaviour
                 step.t.Pulse();
 
                 lettersRunning += step.add;
-                uiA.SetValue(lettersRunning);
-                uiA.PopByDelta(step.add, tier2Min, tier3Min);
+                if (uiA != null)
+                {
+                    uiA.SetValue(lettersRunning);
+                    uiA.PopByDelta(step.add, tier2Min, tier3Min);
+                }
                 SfxPlayer.Play(SfxId.ScoreLetterTick);
 
                 yield return new WaitForSecondsRealtime(stepDelay);
             }
             yield return new WaitForSecondsRealtime(sectionDelay);
 
-            // Part B: Multipliers
+            // Part B: Multipliers (word tiles + overrides)
             var uiB = SpawnPop(anchorMults, 0);
 
             foreach (var f in mulFactors)
             {
-                mulRunning += f;
-                uiB.SetText("x" + mulRunning);
-                uiB.PopByDelta(f, tier2Min, tier3Min);
+                mulRunning *= Mathf.Max(1, f);
+                if (uiB != null)
+                {
+                    uiB.SetText("x" + mulRunning);
+                    uiB.PopByDelta(f, tier2Min, tier3Min);
+                }
                 SfxPlayer.Play(SfxId.ScoreMultTick);
                 yield return new WaitForSecondsRealtime(stepDelay);
             }
@@ -526,9 +554,13 @@ public class TurnManager : MonoBehaviour
                     s.Flash(new Color(1f, 0.55f, 0.20f, 1f), 1, 0.08f);
                 }
 
-                mulRunning += 1;
-                uiB.SetText("x" + mulRunning);
-                uiB.PopByDelta(1, tier2Min, tier3Min);
+                // วิชวลคอมโบ: เพิ่มตัวคูณเพื่อเอฟเฟกต์เท่านั้น (คะแนนจริง reconcile ทีหลัง)
+                mulRunning *= 2;
+                if (uiB != null)
+                {
+                    uiB.SetText("x" + mulRunning);
+                    uiB.PopByDelta(1, tier2Min, tier3Min);
+                }
                 SfxPlayer.Play(SfxId.ScoreMultTick);
                 yield return new WaitForSecondsRealtime(stepDelay);
             }
@@ -536,40 +568,46 @@ public class TurnManager : MonoBehaviour
             yield return new WaitForSecondsRealtime(sectionDelay);
             if (mulRunning <= 0) mulRunning = 1;
 
-            // Join to total
+            // Join to total (visual)
             float joinDur = 0.35f;
-            var flyA = uiA.FlyTo(anchorTotal, joinDur);
-            var flyB = uiB.FlyTo(anchorTotal, joinDur);
+            var flyA = uiA ? uiA.FlyTo(anchorTotal, joinDur) : null;
+            var flyB = uiB ? uiB.FlyTo(anchorTotal, joinDur) : null;
             SfxPlayer.Play(SfxId.ScoreJoin);
-            StartCoroutine(flyA);
-            yield return StartCoroutine(flyB);
+            if (flyA != null) StartCoroutine(flyA);
+            if (flyB != null) yield return StartCoroutine(flyB);
 
-            int displayedTotal = lettersRunning * mulRunning;
+            int displayedTotal = Mathf.Max(0, lettersRunning * Mathf.Max(1, mulRunning));
             var uiC = SpawnPop(anchorTotal, displayedTotal);
-            uiC.transform.localScale = uiA.transform.localScale;
-            uiC.PopByDelta(displayedTotal, tier2Min, tier3Min);
+            if (uiC != null && uiA != null) uiC.transform.localScale = uiA.transform.localScale;
+            if (uiC != null)
+            {
+                uiC.PopByDelta(displayedTotal, tier2Min, tier3Min);
+            }
             yield return new WaitForSecondsRealtime(0.8f);
 
             // Penalty from dictionary use (visual -XX%)
-            if (dictPenaltyPercent > 0)
+            if (dictPenaltyPercent > 0 && uiC != null)
             {
                 var uiPenalty = SpawnPop(anchorTotal, 0);
-                uiPenalty.SetText($"-{dictPenaltyPercent}%");
-                if (uiPenalty.text != null) uiPenalty.text.color = Color.red;
+                if (uiPenalty != null)
+                {
+                    uiPenalty.SetText($"-{dictPenaltyPercent}%");
+                    if (uiPenalty.text != null) uiPenalty.text.color = Color.red;
 
-                var pRT = (RectTransform)uiPenalty.transform;
-                pRT.anchoredPosition += new Vector2(0f, -300f);
+                    var pRT = (RectTransform)uiPenalty.transform;
+                    pRT.anchoredPosition += new Vector2(0f, -300f);
 
-                uiPenalty.PopByDelta(1, tier2Min, tier3Min);
-                SfxPlayer.Play(SfxId.ScorePenalty);
-                yield return StartCoroutine(uiPenalty.FlyTo(anchorTotal, 0.8f));
+                    uiPenalty.PopByDelta(1, tier2Min, tier3Min);
+                    SfxPlayer.Play(SfxId.ScorePenalty);
+                    yield return StartCoroutine(uiPenalty.FlyTo(anchorTotal, 0.8f));
+                }
 
                 int penalized = Mathf.CeilToInt(displayedTotal * (100 - dictPenaltyPercent) / 100f);
                 float t = 0f, dur = 0.8f;
                 int last = displayedTotal;
                 while (t < 1f)
                 {
-                    t += Time.unscaledDeltaTime / Mathf.Max(0.0001f, dur);
+                    t += (pauseTimeDuringScoring ? Time.unscaledDeltaTime : Time.deltaTime) / Mathf.Max(0.0001f, dur);
                     int v = Mathf.RoundToInt(Mathf.Lerp(displayedTotal, penalized, 1 - Mathf.Pow(1 - t, 3)));
                     if (v != last) { uiC.SetValue(v); last = v; }
                     yield return null;
@@ -585,10 +623,10 @@ public class TurnManager : MonoBehaviour
             int hudStart = Score;
             int hudTarget = hudStart + displayedTotal;
             SfxPlayer.Play(SfxId.ScoreCommit);
-            var fly = uiC.FlyTo(scoreHud, flyDur);
+            var fly = uiC ? uiC.FlyTo(scoreHud, flyDur) : null;
             var tweenHud = TweenHudScoreTemp(hudStart, hudTarget, flyDur);
             StartCoroutine(tweenHud);
-            yield return StartCoroutine(fly);
+            if (fly != null) yield return StartCoroutine(fly);
 
             AddScore(displayedTotal);
 
@@ -607,11 +645,14 @@ public class TurnManager : MonoBehaviour
             UpdateBagUI();
             EnableConfirm();
 
+            // รีเซ็ตแฟล็กที่เป็นรายเทิร์น
+            ResetTurnFlags();
+
             EndScoreSequence();
         }
         finally
         {
-            Time.timeScale = prevTimeScale;
+            if (pauseTimeDuringScoring) Time.timeScale = prevTimeScale;
             LevelManager.Instance?.ResumeLevelTimer();
         }
     }
@@ -642,6 +683,7 @@ public class TurnManager : MonoBehaviour
     {
         yield return WFS_06;
         EnableConfirm();
+        ResetTurnFlags();
     }
 
     void OnConfirm()
@@ -693,13 +735,13 @@ public class TurnManager : MonoBehaviour
             // ------ 1) แยกหมวดคำ ------
             int minLen = WordChecker.Instance?.minWordLength ?? 2;
             bool IsShort(MoveValidator.WordInfo wi)
-                => string.IsNullOrWhiteSpace(wi.word) || wi.word.Trim().Length < minLen;
+                => string.IsNullOrWhiteSpace(wi.word) || Norm(wi.word).Length < minLen;
 
-            var shortOnes  = words.Where(IsShort).ToList();
-            var invalidDict = words.Except(shortOnes).Where(w => !WordChecker.Instance.IsWordValid(w.word)).ToList();
-            var duplicate  = words.Where(w => boardWords.Contains(w.word)).ToList();
-            var correct    = words.Except(shortOnes).Except(invalidDict).Except(duplicate).ToList();
-            var bounced    = new HashSet<LetterTile>();
+            var shortOnes   = words.Where(IsShort).ToList();
+            var invalidDict = words.Except(shortOnes).Where(w => !WordChecker.Instance.IsWordValid(Norm(w.word))).ToList();
+            var duplicate   = words.Where(w => boardWords.Contains(Norm(w.word))).ToList();
+            var correct     = words.Except(shortOnes).Except(invalidDict).Except(duplicate).ToList();
+            var bounced     = new HashSet<LetterTile>();
 
             if (correct.Count == 0)
             {
@@ -721,16 +763,16 @@ public class TurnManager : MonoBehaviour
 
             if (placed.Count == 1)
             {
-                mainWord = words.OrderByDescending(w => (w.word ?? string.Empty).Length).FirstOrDefault();
-                hasMain = !string.IsNullOrEmpty(mainWord.word);
+                mainWord = words.OrderByDescending(w => (Norm(w.word)).Length).FirstOrDefault();
+                hasMain = !string.IsNullOrEmpty(Norm(mainWord.word));
             }
             else
             {
                 mainWord = words.FirstOrDefault(w => CountNewInWord(w, placedSet) >= 2);
-                hasMain = !string.IsNullOrEmpty(mainWord.word);
+                hasMain = !string.IsNullOrEmpty(Norm(mainWord.word));
             }
 
-            LastConfirmedWord = hasMain ? mainWord.word : string.Empty;
+            LastConfirmedWord = hasMain ? Norm(mainWord.word) : string.Empty;
 
             // ------ 3) เตรียมคำที่จะเด้ง + โทษ ------
             int penalty = 0;
@@ -739,13 +781,13 @@ public class TurnManager : MonoBehaviour
             var toBounceDup    = new List<MoveValidator.WordInfo>();
 
             bool mainShort     = hasMain && IsShort(mainWord);
-            bool mainInvalid   = hasMain && !mainShort && invalidDict.Any(w => w.word == mainWord.word);
-            bool mainDuplicate = hasMain && duplicate.Any(w => w.word == mainWord.word);
+            bool mainInvalid   = hasMain && !mainShort && invalidDict.Any(w => Norm(w.word) == Norm(mainWord.word));
+            bool mainDuplicate = hasMain && duplicate.Any(w => Norm(w.word) == Norm(mainWord.word));
 
             if (mainShort)
             {
                 toBounceYellow.Add(mainWord);
-                toBounceYellow.AddRange(shortOnes.Where(w => w.word != mainWord.word));
+                toBounceYellow.AddRange(shortOnes.Where(w => Norm(w.word) != Norm(mainWord.word)));
                 toBounceDup.AddRange(duplicate);
                 ShowMessage($"คำสั้นเกินไป (ขั้นต่ำ {minLen}) – เด้งกลับ", Color.yellow);
             }
@@ -756,7 +798,7 @@ public class TurnManager : MonoBehaviour
                 toBounceRed.Add(mainWord);
                 ShowMessage($"คำผิด -{penalty}", Color.red);
 
-                foreach (var w in invalidDict.Where(w => w.word != mainWord.word))
+                foreach (var w in invalidDict.Where(w => Norm(w.word) != Norm(mainWord.word)))
                 {
                     int sc = ScoreManager.CalcWord(w.r0, w.c0, w.r1, w.c1);
                     penalty += Mathf.CeilToInt(sc * 0.5f);
@@ -767,7 +809,7 @@ public class TurnManager : MonoBehaviour
             else if (mainDuplicate)
             {
                 toBounceDup.Add(mainWord);
-                toBounceDup.AddRange(duplicate.Where(w => w.word != mainWord.word));
+                toBounceDup.AddRange(duplicate.Where(w => Norm(w.word) != Norm(mainWord.word)));
                 ShowMessage("คำซ้ำ – เด้งกลับ", Color.yellow);
             }
 
@@ -784,7 +826,7 @@ public class TurnManager : MonoBehaviour
             ScoreManager.ClearZeroScoreTiles();
             if (LevelManager.Instance != null &&
                 LevelManager.Instance.CurrentLevel >= 0 &&
-                LevelManager.Instance.GetCurrentLevelIndex() == 2 &&     // helper we’ll add in LevelManager
+                LevelManager.Instance.GetCurrentLevelIndex() == 2 &&
                 LevelManager.Instance.Level2_IsBenchIssueActive())
             {
                 int k = LevelManager.Instance.Level2_SelectZeroCount(placed.Count);
@@ -813,10 +855,11 @@ public class TurnManager : MonoBehaviour
                 newWordCountThisMove = correct.Count;
                 foreach (var w in correct)
                 {
-                    if (!boardWords.Contains(w.word))
+                    string norm = Norm(w.word);
+                    if (!boardWords.Contains(norm))
                     {
                         moveScore += ScoreManager.CalcWord(w.r0, w.c0, w.r1, w.c1);
-                        boardWords.Add(w.word);
+                        boardWords.Add(norm);
                     }
                 }
             }
@@ -836,7 +879,7 @@ public class TurnManager : MonoBehaviour
 
             moveScore = Mathf.Max(0, moveScore - penalty);
 
-            // COMBO
+            // COMBO (ตัวจริงใช้จำนวนคำใหม่)
             int comboMul = Mathf.Clamp(newWordCountThisMove, 1, 4);
             if (comboMul > 1) moveScore = Mathf.CeilToInt(moveScore * comboMul);
 
@@ -875,7 +918,26 @@ public class TurnManager : MonoBehaviour
             }
 
             // รายงานคำถูก (สำหรับด่าน 1)
-            LevelManager.Instance?.RegisterConfirmedWords(correct.Select(w => w.word));
+            LevelManager.Instance?.RegisterConfirmedWords(correct.Select(w => Norm(w.word)));
+
+            // ====== (NEW) ส่งดาเมจไปที่บอสของเลเวล 3 ======
+            int placedLetterDamageSum = 0;
+            foreach (var (tile, slot) in placed)
+            {
+                int baseSc = Mathf.Max(0, tile.GetData().score);
+                if (ScoreManager.IsZeroScoreTile(tile)) baseSc = 0;
+                int lm = ScoreManager.EffectiveLetterMulFor(slot.type);
+                placedLetterDamageSum += baseSc * Mathf.Max(1, lm);
+            }
+            int mainLenForCrit = hasMain ? (Norm(mainWord.word).Length) : 0;
+            var placedCoords = placed.Select(p => new Vector2Int(p.s.row, p.s.col)).ToList();
+            LevelManager.Instance?.Level3_OnPlayerDealtWord(
+                placedCount: placed.Count,
+                placedLettersDamageSum: placedLetterDamageSum,
+                mainWordLen: mainLenForCrit,
+                placedCoords: placedCoords
+            );
+            // ===============================================
 
             StartCoroutine(AnimateAndFinalizeScoring(
                 placed,
@@ -888,13 +950,8 @@ public class TurnManager : MonoBehaviour
         }
         finally
         {
-            if (inConfirmProcess) inConfirmProcess = false;
+            // ไม่รีเซ็ต inConfirmProcess ตรงนี้ — ให้ EnableConfirm/SkipTurnAfterBounce/RejectMove เป็นคนรีเซ็ต
         }
-
-        BenchManager.Instance.RefillEmptySlots();
-        UpdateBagUI();
-        EnableConfirm();
-        return;
     }
 
     int CountNewInWord(MoveValidator.WordInfo w, HashSet<(int r, int c)> coords)
@@ -933,6 +990,7 @@ public class TurnManager : MonoBehaviour
         ShowMessage(msg, Color.red);
         UpdateBagUI();
         EnableConfirm();
+        ResetTurnFlags();
     }
 
     // ===== Small helper for tween HUD =====
@@ -941,7 +999,7 @@ public class TurnManager : MonoBehaviour
         float t = 0f; int last = -1;
         while (t < 1f)
         {
-            t += Time.unscaledDeltaTime / Mathf.Max(0.001f, dur);
+            t += (pauseTimeDuringScoring ? Time.unscaledDeltaTime : Time.deltaTime) / Mathf.Max(0.001f, dur);
             int v = Mathf.RoundToInt(Mathf.Lerp(start, target, 1 - Mathf.Pow(1 - t, 3)));
             if (v != last) { if (scoreText) scoreText.text = $"Score : {v}"; last = v; }
             yield return null;
@@ -955,5 +1013,16 @@ public class TurnManager : MonoBehaviour
         // LevelConfig.levelIndex (1-based) – return 1/2/3...
         var cfg = LevelManager.Instance != null ? LevelManager.Instance.levels[LevelManager.Instance.CurrentLevel] : null;
         return cfg != null ? cfg.levelIndex : 0;
+    }
+
+    // ===== Helpers =====
+    string Norm(string s) => (s ?? string.Empty).Trim();
+
+    void ResetTurnFlags()
+    {
+        usedDictionaryThisTurn = false;
+        freePassActiveThisTurn = false;
+        nextWordMul = 1;
+        usageCountThisTurn.Clear();
     }
 }
