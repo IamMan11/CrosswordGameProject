@@ -2,10 +2,13 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using UnityEngine.SceneManagement;
+using System;
 
 public class StageClearPanel : MonoBehaviour
 {
     public static StageClearPanel Instance { get; private set; }
+    public object nextButton { get; internal set; }
+
     public CanvasGroup root;
     public TMP_Text title, lines, scoreText, coinsText;
     public Button nextBtn;
@@ -37,5 +40,10 @@ public class StageClearPanel : MonoBehaviour
     {
         if (!root) return;
         root.alpha = 0; root.blocksRaycasts = false; root.interactable = false;
+    }
+
+    internal void SetResult(StageResult result)
+    {
+        throw new NotImplementedException();
     }
 }

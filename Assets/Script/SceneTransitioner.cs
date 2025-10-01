@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using System.Collections;
+using System;
 
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(-10000)]
@@ -159,5 +160,10 @@ public class SceneTransitioner : MonoBehaviour
         {
             _canvas.sortingOrder = fixedSortingOrder;
         }
+    }
+
+    internal static void LoadScene(object shopSceneName)
+    {
+        throw new NotImplementedException();
     }
 }
