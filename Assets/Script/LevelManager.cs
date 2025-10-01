@@ -1,4 +1,4 @@
-// ========================== LevelManager.cs ==========================
+// ========== LevelManager.cs (wired with UIManager) ==========
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -24,10 +24,9 @@ public class LevelManager : MonoBehaviour
     [Tooltip("Progress คำ IT ของด่าน 1 (ไม่ผูกก็ได้)")]
     public TMP_Text itProgressText;
 
-    /// <summary>
-    /// Zero-based index within the levels array.
-    /// </summary>
-    public int CurrentLevel => currentLevel;
+    [Header("Stage Clear UI")]
+    public StageClearPanel stageClearPanel;
+    public string shopSceneName = "Shop";
 
     // ===== Internal state =====
     private enum GamePhase { None, Setup, Ready, Running, Transition, GameOver }
@@ -36,8 +35,8 @@ public class LevelManager : MonoBehaviour
     private int currentLevel;
     private bool isGameOver;
 
-    private float levelTimeLimit;    // หมายถึง "เวลาสะสมสูงสุดตั้งแต่เริ่มเลเวล" (not remaining)
-    private float levelTimeElapsed;  // เวลาที่ผ่านไป
+    private float levelTimeLimit;
+    private float levelTimeElapsed;
     private bool levelTimerRunning;
     private bool timerStarted, timerPaused;
     [SerializeField] float panicTimeThresholdSec = 180f; // 3 นาที
@@ -45,9 +44,7 @@ public class LevelManager : MonoBehaviour
     bool pendingPrepareFailCheck = false; // จะเช็กแพ้หลังคอนเฟิร์มหนึ่งครั้ง
     bool panicBgmActive = false;          // โหมด BGM เวลาใกล้หมด
 
-    private Color _timerDefaultColor = Color.white; // จะ override จากสีจริงใน Awake()
-
-    // ===== Level 1 – IT words requirement =====
+    // ===== Level 1 – IT words objective (progress) =====
     [Header("Level 1 – IT Words")]
     public int itWordsTargetLevel1 = 5;
     public string[] itKeywordsLevel1 = new string[] {
@@ -123,7 +120,6 @@ public class LevelManager : MonoBehaviour
     [Min(1)] public int level2_lockedSegmentCount = 3;
     public Color level2_lockedOverlayColor = new Color(0f, 0f, 0f, 0.55f);
     private readonly List<BoardSlot> level2_lockedSegmentSlots = new();
-
     // =============== Level 3 – The Black Hydra (Boss) ===============
     [Header("Level 3 – Black Hydra (Boss)")]
     public bool  level3_enableBoss = true;
@@ -204,14 +200,14 @@ public class LevelManager : MonoBehaviour
     public event Action<float> OnBossLockCardSlotRequest;
     // =====================================================
 
+
     // ----------------------------------------
 
     private void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
-        if (levelTimerText) _timerDefaultColor = levelTimerText.color; // เก็บสี default ไว้
-        SetPhase(GamePhase.None);
+        phase = GamePhase.None;
     }
 
     private void Start()
@@ -370,38 +366,7 @@ public class LevelManager : MonoBehaviour
             if (prev != level2_triangleLinkedCount)
                 LevelTaskUI.I?.Refresh();
         }
-
-<<<<<<<<< Temporary merge branch 1
-        // ----- Win condition -----
-        if (CheckWinConditions(cfg) && !(TurnManager.Instance?.IsScoringAnimation ?? false))
-            ShowStageClearAndShop(cfg);
-=========
-        // ===== Level 2 tick =====
-        if (cfg.levelIndex == 2)
-        {
-            // Triangle check (throttle)
-            if (level2_useTriangleObjective && level2_triangleTargets != null && level2_triangleTargets.Length >= 3)
-            {
-                level2_triangleCheckTimer += Time.unscaledDeltaTime;
-                if (level2_triangleCheckTimer >= level2_triangleCheckPeriod)
-                {
-                    level2_triangleCheckTimer = 0f;
-                    level2_triangleComplete = CheckTriangleComplete();
-                    // >>> อัปเดต UI Indicator ทุกครั้งที่เช็ก
-                    UIManager.Instance?.UpdateTriangleHint(level2_triangleComplete);
-                }
-            }
-
-            // Periodic x2 waves
-            if (level2_enablePeriodicX2Zones && level2_x2Routine == null)
-                level2_x2Routine = StartCoroutine(Level2_PeriodicX2Zones(spawnImmediately: true));
-
-            // Bench issue
-            if (level2_enableBenchIssue && level2_benchIssueRoutine == null)
-                level2_benchIssueRoutine = StartCoroutine(Level2_BenchIssueLoop());
-        }
-
-        // ===== Level 3 tick =====
+                // ===== Level 3 tick =====
         if (cfg.levelIndex == 3 && level3_enableBoss)
         {
             // เช็คพัซเซิลเชื่อมจุดตอน vanish
@@ -439,12 +404,9 @@ public class LevelManager : MonoBehaviour
             }
         }
 
-        // เงื่อนไขผ่านด่าน (ยกเว้นเลเวล 3 ให้บอสจัดการเอง)
-        if (cfg.levelIndex != 3 && CheckWinConditions(cfg))
-        {
-            AnnounceLevelComplete();
-            _ = StartCoroutine(GoToNextLevel());
-        }
+        // ----- Win condition -----
+        if (CheckWinConditions(cfg) && !(TurnManager.Instance?.IsScoringAnimation ?? false))
+            ShowStageClearAndShop(cfg);
     }
 
     // ------------------------------ Public hooks ------------------------------
@@ -462,12 +424,8 @@ public class LevelManager : MonoBehaviour
             if (level2_benchPenaltyPerMove > 0) Level2_TryApplyBenchPenalty();
         }
 
-        var cfg = GetCurrentConfig();
-        if (cfg != null && cfg.levelIndex != 3 && CheckWinConditions(cfg))
-        {
-            AnnounceLevelComplete();
-            _ = StartCoroutine(GoToNextLevel());
-        }
+        if (CheckWinConditions(currentLevelConfig) && !(TurnManager.Instance?.IsScoringAnimation ?? false))
+            ShowStageClearAndShop(currentLevelConfig);
     }
 
     public void RegisterConfirmedWords(IEnumerable<string> words)
@@ -501,16 +459,11 @@ public class LevelManager : MonoBehaviour
 
     public void OnFirstConfirm()
     {
-        if (isGameOver) return false;
-        if (TurnManager.Instance == null) return false;
+        if (phase != GamePhase.Ready) return;
 
-        // ด่าน 3 ให้ระบบบอสจัดการจบเกมเอง
-        if (cfg.levelIndex == 3) return false;
-
-        bool baseOK =
-            TurnManager.Instance.Score >= cfg.requiredScore &&
-            TurnManager.Instance.CheckedWordCount >= cfg.requiredWords;
->>>>>>>>> Temporary merge branch 2
+        if (levelTimeLimit > 0f) StartLevelTimer();
+        if (!timerStarted) { timerStarted = true; timerPaused = false; }
+        phase = GamePhase.Running;
 
         // เริ่ม wave x2 ของด่าน 2 ถ้ายังไม่เริ่ม
         var cfg = currentLevelConfig;
@@ -538,15 +491,10 @@ public class LevelManager : MonoBehaviour
         phase = GamePhase.Setup;
 
         currentLevel = idx;
+        currentLevelConfig = levels[currentLevel];
 
-        var cfg = levels[currentLevel];
-
-        if (levelText) levelText.text = $"Level {cfg.levelIndex}";
-        if (timerText) timerText.gameObject.SetActive(false);
-        if (levelTimerText) levelTimerText.color = _timerDefaultColor; // รีเซ็ตสีที่อาจถูกเปลี่ยนตอนจบเกมก่อนหน้า
-
-        // Timer setup
->>>>>>>>> Temporary merge branch 2
+        // UI
+        if (levelText) levelText.text = $"Level {currentLevelConfig.levelIndex}";
         levelTimeElapsed = 0f;
         levelTimeLimit = Mathf.Max(0f, currentLevelConfig.timeLimit);
         levelTimerRunning = false;
@@ -573,14 +521,8 @@ public class LevelManager : MonoBehaviour
         TurnManager.Instance?.UpdateBagUI();
         if (currentLevelConfig?.levelIndex == 2)
         {
-<<<<<<<<< Temporary merge branch 1
             Level2_ClearLockedSegments();
             Level2_SpawnLockedSegments();
-=========
-            TurnManager.Instance.ResetForNewLevel();
-            if (TileBag.Instance != null) TileBag.Instance.RefillTileBag();
-            if (BenchManager.Instance != null) BenchManager.Instance.RefillEmptySlots();
-            TurnManager.Instance.UpdateBagUI(); // เรียกครั้งเดียวหลังเติมครบ
         }
 
         // เรียก Garbled ครั้งเดียวพอ
@@ -594,19 +536,8 @@ public class LevelManager : MonoBehaviour
             Level2Controller.Instance?.Setup();   // ← สร้าง Triangle ก่อน
             Level2_SpawnLockedSegments();         // ← แล้วค่อยวางล็อก
         }
-
-<<<<<<<<< Temporary merge branch 1
-        Debug.Log($"▶ เริ่มด่าน {currentLevelConfig.levelIndex} | Time: {currentLevelConfig.timeLimit}s | Score target: {currentLevelConfig.requiredScore}");
-        LevelTaskUI.I?.Refresh();    // <-- เพิ่ม
-        phase = GamePhase.Ready;
-    }
-    void SetupLevel_Level2Hook()
-    {
-        if (currentLevelConfig != null && currentLevelConfig.levelIndex == 2)
-            Level2Controller.Instance?.Setup(); // <-- ไม่มีพารามิเตอร์แล้ว
-=========
         // ด่าน 3: Boss
-        if (cfg.levelIndex == 3)
+        if (currentLevelConfig?.levelIndex == 3)
         {
             // ธีม
             Debug.Log("[Level3] Apply theme: black-purple background, Hydra behind board.");
@@ -631,9 +562,14 @@ public class LevelManager : MonoBehaviour
             }
         }
 
-        Debug.Log($"▶ เริ่มด่าน {cfg.levelIndex} | Time: {cfg.timeLimit}s | Score target: {cfg.requiredScore}");
-        SetPhase(GamePhase.Ready);
->>>>>>>>> Temporary merge branch 2
+        Debug.Log($"▶ เริ่มด่าน {currentLevelConfig.levelIndex} | Time: {currentLevelConfig.timeLimit}s | Score target: {currentLevelConfig.requiredScore}");
+        LevelTaskUI.I?.Refresh();    // <-- เพิ่ม
+        phase = GamePhase.Ready;
+    }
+    void SetupLevel_Level2Hook()
+    {
+        if (currentLevelConfig != null && currentLevelConfig.levelIndex == 2)
+            Level2Controller.Instance?.Setup(); // <-- ไม่มีพารามิเตอร์แล้ว
     }
 
     void Update_Level2Hook()
@@ -800,32 +736,12 @@ public class LevelManager : MonoBehaviour
         if (level3_deleteRoutine   != null) { StopCoroutine(level3_deleteRoutine);   level3_deleteRoutine   = null; }
         L3_ClearZonesAndLocks();
     }
-
-    private void AnnounceLevelComplete()
+    private void L3_UpdateBossUI()
     {
-        var cfg = GetCurrentConfig();
-        Debug.Log($"✅ ผ่านด่าน {cfg?.levelIndex}");
+        if (bossHpText) bossHpText.text = $"Hydra HP: {Mathf.Max(0, level3_bossHP)}/{level3_bossMaxHP}";
     }
 
-    private LevelConfig GetCurrentConfig()
-    {
-        if (levels == null || levels.Length == 0) return null;
-        int idx = Mathf.Clamp(currentLevel, 0, levels.Length - 1);
-        return levels[idx];
-    }
-
-    // >>> Public API ที่ TurnManager หรือไฟล์อื่นอาจเรียก <<<
-    /// <summary>
-    /// 1-based LevelConfig.levelIndex shown to players.
-    /// </summary>
-    public int GetCurrentLevelIndex()
-    {
-        var cfg = GetCurrentConfig();
-        return cfg != null ? cfg.levelIndex : 0; // 1-based index ใน LevelConfig
-    }
-
-    private void SetPhase(GamePhase next) => phase = next;
-
+    // ------------------------------ Utils ------------------------------
     private static string Normalize(string s) => (s ?? string.Empty).Trim().ToLowerInvariant();
     private bool IsITWord(string w)
     {
@@ -840,116 +756,7 @@ public class LevelManager : MonoBehaviour
         return false;
     }
 
-    private void L3_UpdateBossUI()
-    {
-        if (bossHpText) bossHpText.text = $"Hydra HP: {Mathf.Max(0, level3_bossHP)}/{level3_bossMaxHP}";
-    }
-
-    // ==============================
-    // Level 1: Garbled IT Obstacle
-    // ==============================
-    private IEnumerator Level1_GarbleLoop()
-    {
-        while (!isGameOver && GetCurrentConfig() != null && GetCurrentConfig().levelIndex == 1 && level1_enableGarbled)
-        {
-            // ถ้า suspended ให้รอจนถึงเวลา resume โดยไม่ kill คอรุตีน
-            if (level1_garbleSuspended)
-            {
-                while (level1_garbleSuspended && !isGameOver && GetCurrentConfig()?.levelIndex == 1)
-                {
-                    if (Time.unscaledTime >= level1_garbleResumeTime) level1_garbleSuspended = false;
-                    yield return null;
-                }
-                if (isGameOver || GetCurrentConfig()?.levelIndex != 1) break;
-            }
-
-            yield return new WaitForSecondsRealtime(Mathf.Max(0.25f, level1_garbleTickSec));
-            if (!level1_garbleSuspended)
-                TryGarbledShuffle(level1_garbleClusterSize);
-        }
-        level1_garbleRoutine = null;
-    }
-
-    public bool Level1_SubmitFixGuess(string guess)
-    {
-        if (GetCurrentConfig()?.levelIndex != 1 || string.IsNullOrWhiteSpace(guess)) return false;
-        string g = Normalize(guess);
-
-        if (IsITWord(g))
-        {
-            level1_garbleSuspended = true;
-            level1_garbleResumeTime = Time.unscaledTime + Mathf.Max(1f, level1_garbleSuspendDuration);
-            UIManager.Instance?.ShowMessage($"✅ Fix: \"{guess}\" — หยุดสลับชั่วคราว", 2f);
-            return true;
-        }
-        else
-        {
-            if (TurnManager.Instance != null)
-                TurnManager.Instance.AddScore(-Mathf.Abs(level1_wrongGuessPenalty));
-
-            UIManager.Instance?.ShowMessage($"❌ เดาผิด -{Mathf.Abs(level1_wrongGuessPenalty)}", 2f);
-            TryGarbledShuffle(level1_garbleClusterSize + 2);
-            return false;
-        }
-    }
-
-    private void TryGarbledShuffle(int clusterSize)
-    {
-        var bm = BoardManager.Instance;
-        if (bm == null || bm.grid == null) return;
-
-        var candidates = new List<BoardSlot>();
-        int rows = bm.rows, cols = bm.cols;
-
-        for (int r = 0; r < rows; r++)
-        for (int c = 0; c < cols; c++)
-        {
-            var s = bm.grid[r, c];
-            if (s == null) continue;
-            var t = s.GetLetterTile();
-            if (t == null) continue;
-            if (t.isLocked) continue; // ไม่ยุ่งกับไทล์ที่ล็อกไปแล้ว
-            candidates.Add(s);
-        }
-        if (candidates.Count < 2) return;
-
-        int take = Mathf.Clamp(clusterSize, 2, candidates.Count);
-        var picked = new List<BoardSlot>(take);
-        for (int i = 0; i < take; i++)
-        {
-            int idx = UnityEngine.Random.Range(0, candidates.Count);
-            picked.Add(candidates[idx]);
-            candidates.RemoveAt(idx);
-        }
-
-        var tiles = new List<LetterTile>(picked.Count);
-        foreach (var s in picked) tiles.Add(s.RemoveLetter());
-
-        if (tiles.Count >= 2)
-        {
-            var last = tiles[tiles.Count - 1];
-            for (int i = tiles.Count - 1; i >= 1; i--) tiles[i] = tiles[i - 1];
-            tiles[0] = last;
-        }
-
-        for (int i = 0; i < picked.Count; i++)
-        {
-            var slot = picked[i];
-            var tile = tiles[i];
-            if (slot == null || tile == null) continue;
-
-            tile.transform.SetParent(slot.transform, false);
-            var rt = tile.GetComponent<RectTransform>();
-            if (rt != null) { rt.anchoredPosition = Vector2.zero; rt.localScale = Vector3.one; }
-            else { tile.transform.localPosition = Vector3.zero; tile.transform.localScale = Vector3.one; }
-
-            slot.Flash(new Color(1f, 1f, 0.6f, 1f), 1, 0.06f);
-        }
-    }
-
-    // ==============================
-    // Level 2: Objectives & Obstacles
-    // ==============================
+    // ======== Level 2 (เหมือนเดิม) ========
     private void Level2_ApplyThemeAndUpgrades()
     {
         if (level2_applyThemeOnStart)
@@ -968,14 +775,13 @@ public class LevelManager : MonoBehaviour
         int rows = bm.rows, cols = bm.cols;
         var all = new List<BoardSlot>();
         for (int r = 0; r < rows; r++)
-        for (int c = 0; c < cols; c++)
-        {
-            var s = bm.grid[r, c];
-            if (s == null) continue;
-            if (s.IsLocked) continue; // อย่าล็อกซ้ำ
-            all.Add(s);                // ✅ อนุญาตล็อกทั้งช่องว่างและช่องที่มีตัวอักษร
-        }
->>>>>>>>> Temporary merge branch 2
+            for (int c = 0; c < cols; c++)
+            {
+                var s = bm.grid[r, c];
+                if (s == null) continue;
+                if (s.HasLetterTile()) continue;
+                all.Add(s);
+            }
         if (all.Count == 0) return;
 
         int want = Mathf.Clamp(level2_lockedCount, 0, all.Count);
@@ -990,7 +796,6 @@ public class LevelManager : MonoBehaviour
             int reqLen = UnityEngine.Random.Range(level2_requiredLenRange.x, level2_requiredLenRange.y + 1);
             slot.IsLocked = true;
             slot.bg.color = new Color32(120, 120, 120, 255);
-            slot.ApplyVisual();
             level2_lockedSlots[slot] = reqLen;
         }
 
@@ -1205,10 +1010,10 @@ public class LevelManager : MonoBehaviour
                     var slot = bm.grid[rr, cc];
                     if (slot == null) continue;
 
-                level2_activeZoneChanges.Add((new Vector2Int(rr, cc), slot.type, slot.manaGain)); // NOTE: prevMana เก็บไว้เผื่อในอนาคต
-                slot.type = level2_multiplierSlotType; // ปัจจุบันเปลี่ยนเฉพาะ type
-                slot.ApplyVisual();
-            }
+                    level2_activeZoneChanges.Add((new Vector2Int(rr, cc), slot.type, slot.manaGain));
+                    slot.type = level2_multiplierSlotType;
+                    slot.ApplyVisual();
+                }
         }
 
         if (level2_activeZoneChanges.Count > 0)
@@ -1240,7 +1045,7 @@ public class LevelManager : MonoBehaviour
             if (s == null) continue;
 
             s.type = it.prevType;
-            s.manaGain = it.prevMana; // แม้ตอนนี้จะไม่ได้แก้ manaGain ก็ restore ให้เคสในอนาคต
+            s.manaGain = it.prevMana;
             s.ApplyVisual();
         }
         level2_activeZoneChanges.Clear();
@@ -1270,400 +1075,7 @@ public class LevelManager : MonoBehaviour
         }
         catch (Exception ex) { Debug.LogWarning($"[Level2] Reward hook exception: {ex.Message}"); }
     }
-<<<<<<<<< Temporary merge branch 1
     public void TriggerBenchIssueAfterRefill()
-=========
-
-    // ==============================
-    // Level 3: Boss Hydra – APIs
-    // ==============================
-    /// <summary>
-    /// TurnManager เรียกเมื่อยืนยันคำ: ส่งจำนวนตัวอักษรที่ "วางใหม่" (placedCount),
-    /// ผลรวมคะแนนตัวอักษร (หลัง DL/TL และ zero score) ของ "ตัวอักษรที่วางใหม่เท่านั้น",
-    /// ความยาวคำหลัก และตำแหน่งไทล์ที่ผู้เล่นวาง (ไว้เช็กโซน buff/debuff)
-    /// </summary>
-    public void Level3_OnPlayerDealtWord(int placedCount, int placedLettersDamageSum, int mainWordLen, List<Vector2Int> placedCoords)
-    {
-        if (!level3_enableBoss) return;
-        var cfg = GetCurrentConfig();
-        if (cfg == null || cfg.levelIndex != 3) return;
-        if (phase != GamePhase.Running) return;
-        if (level3_phaseChangeActive) return; // vanish อยู่ – ยังตีบอสไม่ได้
-
-        int sum = Mathf.Max(0, placedLettersDamageSum);
-        if (sum <= 0 || placedCount <= 0) return;
-
-        // “สุ่มจากจำนวนตัวอักษรที่ลงเป็นช่องในการสุ่ม” → best-of-N roll ในช่วง [1..sum]
-        int draws = Mathf.Max(1, placedCount);
-        int best = 0;
-        for (int i = 0; i < draws; i++)
-        {
-            int roll = UnityEngine.Random.Range(1, sum + 1); // inclusive max
-            if (roll > best) best = roll;
-        }
-
-        float dmg = best;
-
-        // Field Effects
-        bool hitBuff = false, hitDebuff = false;
-        if (placedCoords != null && placedCoords.Count > 0 && level3_activeZones.Count > 0)
-        {
-            foreach (var z in level3_activeZones)
-            {
-                if (Time.unscaledTime > z.end) continue;
-                foreach (var p in placedCoords)
-                {
-                    if (z.rect.Contains(new Vector2Int(p.x, p.y)))
-                    {
-                        if (z.isBuff) hitBuff = true; else hitDebuff = true;
-                    }
-                }
-            }
-        }
-        if (hitBuff)   dmg *= 2f;
-        if (hitDebuff) dmg *= 0.5f;
-
-        // Critical
-        if (mainWordLen >= level3_criticalLength)
-            dmg *= (1f + Mathf.Max(0f, level3_criticalBonus));
-
-        int final = Mathf.Max(0, Mathf.RoundToInt(dmg));
-        if (final <= 0) return;
-
-        level3_bossHP = Mathf.Max(0, level3_bossHP - final);
-        L3_UpdateBossUI();
-        UIManager.Instance?.ShowMessage($"🗡 Hydra -{final}", 1.5f);
-
-        // Thresholds
-        int hp50 = Mathf.CeilToInt(level3_bossMaxHP * level3_phaseChangeHPPercent);
-        int hp25 = Mathf.CeilToInt(level3_bossMaxHP * level3_sprintHPPercent);
-
-        if (!level3_phaseTriggered && level3_bossHP <= hp50)
-        {
-            level3_phaseTriggered = true;
-            StartCoroutine(L3_StartPhaseChange());
-        }
-
-        if (!level3_sprintTriggered && level3_bossHP <= hp25)
-        {
-            level3_sprintTriggered = true;
-            // บีบเวลาให้เหลือ 3:00 (ถ้าน้อยกว่านี้ก็เซ็ตเป็น 3:00 อยู่ดี)
-            levelTimeLimit = levelTimeElapsed + Mathf.Max(0f, level3_sprintRemainingSec);
-            UpdateLevelTimerText(level3_sprintRemainingSec);
-            UIManager.Instance?.ShowMessage("⏱ Hydra enraged: time set to 3:00!", 2.5f);
-        }
-
-        if (level3_bossHP <= 0)
-        {
-            AnnounceLevelComplete();
-            GameOver(true); // จบเกมตามสเป็ค
-        }
-    }
-
-    private IEnumerator L3_StartPhaseChange()
-    {
-        if (level3_phaseChangeActive) yield break;
-
-        // หยุดคลื่น/โซน/ลบต่าง ๆ ชั่วคราว
-        if (level3_conveyorRoutine != null) { StopCoroutine(level3_conveyorRoutine); level3_conveyorRoutine = null; }
-        if (level3_lockRoutine     != null) { StopCoroutine(level3_lockRoutine);     level3_lockRoutine     = null; }
-        if (level3_fieldRoutine    != null) { StopCoroutine(level3_fieldRoutine);    level3_fieldRoutine    = null; }
-        if (level3_deleteRoutine   != null) { StopCoroutine(level3_deleteRoutine);   level3_deleteRoutine   = null; }
-        L3_ClearZonesAndLocks();
-
-        level3_phaseChangeActive = true;
-        level3_puzzleStage = 1;
-
-        // + เวลา 7:30 (เพราะ levelTimeLimit คือ "เวลาสูงสุดนับจากเริ่ม")
-        levelTimeLimit += Mathf.Max(0f, level3_phaseTimeBonusSec);
-
-        // reset board → เหลือเติม 1/3
-        L3_ResetBoardToFill(1f/3f);
-        L3_PickPuzzlePoints();
-
-        UIManager.Instance?.ShowMessage("Hydra vanished! Connect the two points (1/3 → 3/3).", 3f);
-        yield break;
-    }
-
-    private void L3_ResetBoardToFill(float fraction)
-    {
-        var bm = BoardManager.Instance; if (bm == null) return;
-        // สร้างบอร์ดใหม่ทั้งหมด แล้วตัดให้เหลือตาม fraction
-        bm.GenerateBoard();
-
-        int rows = bm.rows, cols = bm.cols;
-        var filled = new List<BoardSlot>();
-        for (int r = 0; r < rows; r++)
-            for (int c = 0; c < cols; c++)
-            {
-                var s = bm.grid[r, c];
-                if (s != null && s.HasLetterTile()) filled.Add(s);
-            }
-
-        int wantKeep = Mathf.Clamp(Mathf.RoundToInt(rows * cols * Mathf.Clamp01(fraction)), 0, filled.Count);
-        int toRemove = Mathf.Max(0, filled.Count - wantKeep);
-
-        for (int i = 0; i < toRemove; i++)
-        {
-            int idx = UnityEngine.Random.Range(0, filled.Count);
-            var s = filled[idx]; filled.RemoveAt(idx);
-            var t = s.RemoveLetter();
-            if (t != null) SpaceManager.Instance.RemoveTile(t); // ทิ้ง
-        }
-    }
-
-    private void L3_PickPuzzlePoints()
-    {
-        var bm = BoardManager.Instance; if (bm == null) return;
-
-        var candidates = new List<Vector2Int>();
-        for (int r = 0; r < bm.rows; r++)
-            for (int c = 0; c < bm.cols; c++)
-                if (bm.grid[r, c] != null && bm.grid[r, c].HasLetterTile())
-                    candidates.Add(new Vector2Int(r, c));
-
-        if (candidates.Count < 2) { level3_puzzleA = Vector2Int.zero; level3_puzzleB = Vector2Int.zero; return; }
-
-        level3_puzzleA = candidates[UnityEngine.Random.Range(0, candidates.Count)];
-        level3_puzzleB = candidates[UnityEngine.Random.Range(0, candidates.Count)];
-        UIManager.Instance?.UpdateTriangleHint(false); // reuse indicator ถ้าต้องการ
-        UIManager.Instance?.SetTriangleHintVisible(true);
-    }
-
-    private bool L3_CheckPuzzleConnected(Vector2Int a, Vector2Int b)
-    {
-        var bm = BoardManager.Instance; if (bm == null || bm.grid == null) return false;
-        if (a == b) return true;
-
-        bool[,] vis = new bool[bm.rows, bm.cols];
-        var q = new Queue<Vector2Int>();
-        if (a.x < 0 || a.x >= bm.rows || a.y < 0 || a.y >= bm.cols) return false;
-        if (b.x < 0 || b.x >= bm.rows || b.y < 0 || b.y >= bm.cols) return false;
-        if (bm.grid[a.x, a.y] == null || !bm.grid[a.x, a.y].HasLetterTile()) return false;
-        if (bm.grid[b.x, b.y] == null || !bm.grid[b.x, b.y].HasLetterTile()) return false;
-
-        q.Enqueue(a); vis[a.x, a.y] = true;
-        int[] dr = {-1,1,0,0}; int[] dc = {0,0,-1,1};
-
-        while (q.Count > 0)
-        {
-            var cur = q.Dequeue();
-            for (int k = 0; k < 4; k++)
-            {
-                int nr = cur.x + dr[k], nc = cur.y + dc[k];
-                if (nr < 0 || nr >= bm.rows || nc < 0 || nc >= bm.cols) continue;
-                if (vis[nr,nc]) continue;
-                var s = bm.grid[nr, nc];
-                if (s == null || !s.HasLetterTile()) continue;
-
-                vis[nr, nc] = true;
-                if (nr == b.x && nc == b.y) return true;
-                q.Enqueue(new Vector2Int(nr, nc));
-            }
-        }
-        return false;
-    }
-
-    private IEnumerator L3_ConveyorLoop()
-    {
-        while (!isGameOver && GetCurrentConfig()?.levelIndex == 3 && !level3_phaseChangeActive)
-        {
-            yield return new WaitForSecondsRealtime(Mathf.Max(5f, level3_conveyorIntervalSec));
-            var bm = BoardManager.Instance;
-            if (bm == null || bm.grid == null) continue;
-
-            var slots = new List<BoardSlot>();
-            for (int r = 0; r < bm.rows; r++)
-                for (int c = 0; c < bm.cols; c++)
-                {
-                    var s = bm.grid[r,c];
-                    if (s == null) continue;
-                    var t = s.GetLetterTile();
-                    if (t == null) continue;
-                    if (t.isLocked) continue; // อย่าแตะไทล์ที่ล็อกแล้ว
-                    slots.Add(s);
-                }
-            if (slots.Count < 2) { continue; }
-
-            var tiles = new List<LetterTile>(slots.Count);
-            foreach (var s in slots) tiles.Add(s.RemoveLetter());
-
-            int shift = Mathf.Max(1, level3_conveyorShift) % tiles.Count;
-            if (shift > 0)
-            {
-                var rotated = new List<LetterTile>(tiles.Count);
-                for (int i = 0; i < tiles.Count; i++)
-                    rotated.Add(tiles[(i - shift + tiles.Count) % tiles.Count]);
-                tiles = rotated;
-            }
-
-            for (int i = 0; i < slots.Count; i++)
-            {
-                var slot = slots[i];
-                var tile = tiles[i];
-                if (!slot || !tile) continue;
-                tile.transform.SetParent(slot.transform, false);
-                var rt = tile.GetComponent<RectTransform>();
-                if (rt != null) { rt.anchoredPosition = Vector2.zero; rt.localScale = Vector3.one; }
-                else { tile.transform.localPosition = Vector3.zero; tile.transform.localScale = Vector3.one; }
-                slot.Flash(new Color(0.7f,0.7f,1f,1f), 1, 0.06f);
-            }
-            UIManager.Instance?.ShowMessage("Conveyor Shuffle!", 1.5f);
-        }
-        level3_conveyorRoutine = null;
-    }
-
-    private IEnumerator L3_LockWaveLoop()
-    {
-        while (!isGameOver && GetCurrentConfig()?.levelIndex == 3 && !level3_phaseChangeActive)
-        {
-            yield return new WaitForSecondsRealtime(Mathf.Max(10f, level3_lockWaveIntervalSec));
-            var bm = BoardManager.Instance; if (bm == null || bm.grid == null) continue;
-
-            // เลือกสุ่มและล็อกชั่วคราว
-            var all = new List<BoardSlot>();
-            for (int r = 0; r < bm.rows; r++)
-                for (int c = 0; c < bm.cols; c++)
-                {
-                    var s = bm.grid[r,c];
-                    if (s != null && !s.IsLocked) all.Add(s);
-                }
-            int want = Mathf.Min(level3_lockCountPerWave, all.Count);
-            for (int i = 0; i < want; i++)
-            {
-                int idx = UnityEngine.Random.Range(0, all.Count);
-                var s = all[idx]; all.RemoveAt(idx);
-                s.IsLocked = true; s.ApplyVisual(); s.Flash(Color.gray, 2, 0.08f);
-                level3_lockedByBoss.Add(s);
-            }
-            UIManager.Instance?.ShowMessage($"Hydra locks {want} slots!", 1.5f);
-
-            yield return new WaitForSecondsRealtime(Mathf.Max(3f, level3_lockDurationSec));
-            // ปลดล็อก
-            foreach (var s in level3_lockedByBoss) { if (s) { s.IsLocked = false; s.ApplyVisual(); } }
-            level3_lockedByBoss.Clear();
-        }
-        level3_lockRoutine = null;
-    }
-
-    private IEnumerator L3_FieldEffectsLoop()
-    {
-        while (!isGameOver && GetCurrentConfig()?.levelIndex == 3 && !level3_phaseChangeActive)
-        {
-            yield return new WaitForSecondsRealtime(Mathf.Max(8f, level3_fieldEffectIntervalSec));
-            var bm = BoardManager.Instance; if (bm == null) continue;
-
-            level3_activeZones.RemoveAll(z => Time.unscaledTime > z.end);
-
-            // spawn buff/debuff zones
-            int toSpawnEach = Mathf.Max(1, level3_zonesPerType);
-            for (int t = 0; t < toSpawnEach; t++)
-            {
-                var buff = new L3Zone { rect = L3_RandomRectInBoard(bm, level3_zoneSize), isBuff = true,  end = Time.unscaledTime + level3_fieldEffectDurationSec };
-                var debf = new L3Zone { rect = L3_RandomRectInBoard(bm, level3_zoneSize), isBuff = false, end = Time.unscaledTime + level3_fieldEffectDurationSec };
-                level3_activeZones.Add(buff);
-                level3_activeZones.Add(debf);
-            }
-            UIManager.Instance?.ShowMessage("Zones: Green x2 / Red x0.5", 1.8f);
-        }
-        level3_fieldRoutine = null;
-    }
-
-    private RectInt L3_RandomRectInBoard(BoardManager bm, int size)
-    {
-        // NOTE: RectInt(x=row, y=col, width=heightInRows, height=widthInCols) – กำหนดตามแกนของบอร์ด
-        int w = Mathf.Clamp(size, 1, Mathf.Max(1, bm.cols));
-        int h = Mathf.Clamp(size, 1, Mathf.Max(1, bm.rows));
-        int x = UnityEngine.Random.Range(0, Mathf.Max(1, bm.rows - h + 1));
-        int y = UnityEngine.Random.Range(0, Mathf.Max(1, bm.cols - w + 1));
-        return new RectInt(x, y, h, w); // x=row, y=col
-    }
-
-    private IEnumerator L3_DeleteActionLoop()
-    {
-        while (!isGameOver && GetCurrentConfig()?.levelIndex == 3 && !level3_phaseChangeActive)
-        {
-            yield return new WaitForSecondsRealtime(Mathf.Max(5f, level3_deleteActionIntervalSec));
-
-            // สุ่มว่าจะลบ "ตัวอักษรบนบอร์ด/เบนช์" หรือ "การ์ด"
-            bool tryLetters = UnityEngine.Random.value < 0.6f; // 60% ลบตัวอักษร
-            if (tryLetters && Time.unscaledTime >= level3_nextLetterDeleteTime)
-            {
-                bool deleted = L3_DeleteLettersFromBoard(level3_deleteBoardCount);
-                if (!deleted && OnBossDeleteBenchRequest != null)
-                {
-                    OnBossDeleteBenchRequest.Invoke(Mathf.Max(1, level3_deleteBenchCount));
-                    UIManager.Instance?.ShowMessage("Hydra deletes bench letters!", 1.5f);
-                }
-                else if (!deleted)
-                {
-                    UIManager.Instance?.ShowMessage("Hydra tried to delete letters", 1.2f);
-                }
-                level3_nextLetterDeleteTime = Time.unscaledTime + level3_deleteLettersCooldownSec;
-            }
-            else if (!tryLetters && Time.unscaledTime >= level3_nextCardDeleteTime)
-            {
-                if (OnBossDeleteRandomCardRequest != null)
-                {
-                    OnBossDeleteRandomCardRequest.Invoke();
-                    UIManager.Instance?.ShowMessage("Hydra deletes a card!", 1.5f);
-                }
-                else if (OnBossLockCardSlotRequest != null)
-                {
-                    OnBossLockCardSlotRequest.Invoke(level3_cardSlotLockDurationSec);
-                    UIManager.Instance?.ShowMessage("Hydra locks card slot!", 1.5f);
-                }
-                else
-                {
-                    UIManager.Instance?.ShowMessage("Hydra tried to mess with cards", 1.2f);
-                }
-                level3_nextCardDeleteTime = Time.unscaledTime + level3_deleteCardsCooldownSec;
-            }
-        }
-        level3_deleteRoutine = null;
-    }
-
-    private bool L3_DeleteLettersFromBoard(int count)
-    {
-        var bm = BoardManager.Instance; if (bm == null || bm.grid == null) return false;
-        var filled = new List<BoardSlot>();
-        for (int r = 0; r < bm.rows; r++)
-            for (int c = 0; c < bm.cols; c++)
-            {
-                var s = bm.grid[r,c];
-                if (s != null && s.HasLetterTile())
-                {
-                    var t = s.GetLetterTile();
-                    if (t && !t.isLocked) filled.Add(s);
-                }
-            }
-        if (filled.Count == 0) return false;
-
-        int k = Mathf.Clamp(count, 1, filled.Count);
-        for (int i = 0; i < k; i++)
-        {
-            int idx = UnityEngine.Random.Range(0, filled.Count);
-            var s = filled[idx]; filled.RemoveAt(idx);
-            var t = s.RemoveLetter();
-            if (t) SpaceManager.Instance.RemoveTile(t);
-            s.Flash(Color.red, 2, 0.08f);
-        }
-        UIManager.Instance?.ShowMessage($"Hydra deletes {k} letters on board!", 1.4f);
-        return true;
-    }
-
-    private void L3_ClearZonesAndLocks()
-    {
-        level3_activeZones.Clear();
-        // ปลดล็อกที่ล็อกโดยบอส
-        foreach (var s in level3_lockedByBoss) { if (s) { s.IsLocked = false; s.ApplyVisual(); } }
-        level3_lockedByBoss.Clear();
-    }
-
-#if UNITY_EDITOR
-    [ContextMenu("Validate Levels")]
-    private void ValidateLevels()
->>>>>>>>> Temporary merge branch 2
     {
         if (!level2_enableBenchIssue) return;
         if (currentLevelConfig == null || currentLevelConfig.levelIndex != 2) return;
@@ -1819,6 +1231,390 @@ public class LevelManager : MonoBehaviour
             }
         }
     }
+    // ==============================
+    // Level 3: Boss Hydra – APIs
+    // ==============================
+    /// <summary>
+    /// TurnManager เรียกเมื่อยืนยันคำ: ส่งจำนวนตัวอักษรที่ "วางใหม่" (placedCount),
+    /// ผลรวมคะแนนตัวอักษร (หลัง DL/TL และ zero score) ของ "ตัวอักษรที่วางใหม่เท่านั้น",
+    /// ความยาวคำหลัก และตำแหน่งไทล์ที่ผู้เล่นวาง (ไว้เช็กโซน buff/debuff)
+    /// </summary>
+    public void Level3_OnPlayerDealtWord(int placedCount, int placedLettersDamageSum, int mainWordLen, List<Vector2Int> placedCoords)
+    {
+        if (!level3_enableBoss) return;
+        var cfg = currentLevelConfig;
+        if (cfg == null || cfg.levelIndex != 3) return;
+        if (phase != GamePhase.Running) return;
+        if (level3_phaseChangeActive) return; // vanish อยู่ – ยังตีบอสไม่ได้
+
+        int sum = Mathf.Max(0, placedLettersDamageSum);
+        if (sum <= 0 || placedCount <= 0) return;
+
+        // “สุ่มจากจำนวนตัวอักษรที่ลงเป็นช่องในการสุ่ม” → best-of-N roll ในช่วง [1..sum]
+        int draws = Mathf.Max(1, placedCount);
+        int best = 0;
+        for (int i = 0; i < draws; i++)
+        {
+            int roll = UnityEngine.Random.Range(1, sum + 1); // inclusive max
+            if (roll > best) best = roll;
+        }
+
+        float dmg = best;
+
+        // Field Effects
+        bool hitBuff = false, hitDebuff = false;
+        if (placedCoords != null && placedCoords.Count > 0 && level3_activeZones.Count > 0)
+        {
+            foreach (var z in level3_activeZones)
+            {
+                if (Time.unscaledTime > z.end) continue;
+                foreach (var p in placedCoords)
+                {
+                    if (z.rect.Contains(new Vector2Int(p.x, p.y)))
+                    {
+                        if (z.isBuff) hitBuff = true; else hitDebuff = true;
+                    }
+                }
+            }
+        }
+        if (hitBuff)   dmg *= 2f;
+        if (hitDebuff) dmg *= 0.5f;
+
+        // Critical
+        if (mainWordLen >= level3_criticalLength)
+            dmg *= (1f + Mathf.Max(0f, level3_criticalBonus));
+
+        int final = Mathf.Max(0, Mathf.RoundToInt(dmg));
+        if (final <= 0) return;
+
+        level3_bossHP = Mathf.Max(0, level3_bossHP - final);
+        L3_UpdateBossUI();
+        UIManager.Instance?.ShowMessage($"🗡 Hydra -{final}", 1.5f);
+
+        // Thresholds
+        int hp50 = Mathf.CeilToInt(level3_bossMaxHP * level3_phaseChangeHPPercent);
+        int hp25 = Mathf.CeilToInt(level3_bossMaxHP * level3_sprintHPPercent);
+
+        if (!level3_phaseTriggered && level3_bossHP <= hp50)
+        {
+            level3_phaseTriggered = true;
+            StartCoroutine(L3_StartPhaseChange());
+        }
+
+        if (!level3_sprintTriggered && level3_bossHP <= hp25)
+        {
+            level3_sprintTriggered = true;
+            // บีบเวลาให้เหลือ 3:00 (ถ้าน้อยกว่านี้ก็เซ็ตเป็น 3:00 อยู่ดี)
+            levelTimeLimit = levelTimeElapsed + Mathf.Max(0f, level3_sprintRemainingSec);
+            UpdateLevelTimerText(level3_sprintRemainingSec);
+            UIManager.Instance?.ShowMessage("⏱ Hydra enraged: time set to 3:00!", 2.5f);
+        }
+
+        if (level3_bossHP <= 0)
+        {
+            GameOver(true); // จบเกมตามสเป็ค
+        }
+    }
+
+    private IEnumerator L3_StartPhaseChange()
+    {
+        if (level3_phaseChangeActive) yield break;
+
+        // หยุดคลื่น/โซน/ลบต่าง ๆ ชั่วคราว
+        if (level3_conveyorRoutine != null) { StopCoroutine(level3_conveyorRoutine); level3_conveyorRoutine = null; }
+        if (level3_lockRoutine     != null) { StopCoroutine(level3_lockRoutine);     level3_lockRoutine     = null; }
+        if (level3_fieldRoutine    != null) { StopCoroutine(level3_fieldRoutine);    level3_fieldRoutine    = null; }
+        if (level3_deleteRoutine   != null) { StopCoroutine(level3_deleteRoutine);   level3_deleteRoutine   = null; }
+        L3_ClearZonesAndLocks();
+
+        level3_phaseChangeActive = true;
+        level3_puzzleStage = 1;
+
+        // + เวลา 7:30 (เพราะ levelTimeLimit คือ "เวลาสูงสุดนับจากเริ่ม")
+        levelTimeLimit += Mathf.Max(0f, level3_phaseTimeBonusSec);
+
+        // reset board → เหลือเติม 1/3
+        L3_ResetBoardToFill(1f/3f);
+        L3_PickPuzzlePoints();
+
+        UIManager.Instance?.ShowMessage("Hydra vanished! Connect the two points (1/3 → 3/3).", 3f);
+        yield break;
+    }
+
+    private void L3_ResetBoardToFill(float fraction)
+    {
+        var bm = BoardManager.Instance; if (bm == null) return;
+        // สร้างบอร์ดใหม่ทั้งหมด แล้วตัดให้เหลือตาม fraction
+        bm.GenerateBoard();
+
+        int rows = bm.rows, cols = bm.cols;
+        var filled = new List<BoardSlot>();
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+            {
+                var s = bm.grid[r, c];
+                if (s != null && s.HasLetterTile()) filled.Add(s);
+            }
+
+        int wantKeep = Mathf.Clamp(Mathf.RoundToInt(rows * cols * Mathf.Clamp01(fraction)), 0, filled.Count);
+        int toRemove = Mathf.Max(0, filled.Count - wantKeep);
+
+        for (int i = 0; i < toRemove; i++)
+        {
+            int idx = UnityEngine.Random.Range(0, filled.Count);
+            var s = filled[idx]; filled.RemoveAt(idx);
+            var t = s.RemoveLetter();
+            if (t != null) SpaceManager.Instance.RemoveTile(t); // ทิ้ง
+        }
+    }
+
+    private void L3_PickPuzzlePoints()
+    {
+        var bm = BoardManager.Instance; if (bm == null) return;
+
+        var candidates = new List<Vector2Int>();
+        for (int r = 0; r < bm.rows; r++)
+            for (int c = 0; c < bm.cols; c++)
+                if (bm.grid[r, c] != null && bm.grid[r, c].HasLetterTile())
+                    candidates.Add(new Vector2Int(r, c));
+
+        if (candidates.Count < 2) { level3_puzzleA = Vector2Int.zero; level3_puzzleB = Vector2Int.zero; return; }
+
+        level3_puzzleA = candidates[UnityEngine.Random.Range(0, candidates.Count)];
+        level3_puzzleB = candidates[UnityEngine.Random.Range(0, candidates.Count)];
+        UIManager.Instance?.UpdateTriangleHint(false); // reuse indicator ถ้าต้องการ
+    }
+
+    private bool L3_CheckPuzzleConnected(Vector2Int a, Vector2Int b)
+    {
+        var bm = BoardManager.Instance; if (bm == null || bm.grid == null) return false;
+        if (a == b) return true;
+
+        bool[,] vis = new bool[bm.rows, bm.cols];
+        var q = new Queue<Vector2Int>();
+        if (a.x < 0 || a.x >= bm.rows || a.y < 0 || a.y >= bm.cols) return false;
+        if (b.x < 0 || b.x >= bm.rows || b.y < 0 || b.y >= bm.cols) return false;
+        if (bm.grid[a.x, a.y] == null || !bm.grid[a.x, a.y].HasLetterTile()) return false;
+        if (bm.grid[b.x, b.y] == null || !bm.grid[b.x, b.y].HasLetterTile()) return false;
+
+        q.Enqueue(a); vis[a.x, a.y] = true;
+        int[] dr = {-1,1,0,0}; int[] dc = {0,0,-1,1};
+
+        while (q.Count > 0)
+        {
+            var cur = q.Dequeue();
+            for (int k = 0; k < 4; k++)
+            {
+                int nr = cur.x + dr[k], nc = cur.y + dc[k];
+                if (nr < 0 || nr >= bm.rows || nc < 0 || nc >= bm.cols) continue;
+                if (vis[nr,nc]) continue;
+                var s = bm.grid[nr, nc];
+                if (s == null || !s.HasLetterTile()) continue;
+
+                vis[nr, nc] = true;
+                if (nr == b.x && nc == b.y) return true;
+                q.Enqueue(new Vector2Int(nr, nc));
+            }
+        }
+        return false;
+    }
+
+    private IEnumerator L3_ConveyorLoop()
+    {
+        while (!isGameOver && currentLevelConfig?.levelIndex == 3 && !level3_phaseChangeActive)
+        {
+            yield return new WaitForSecondsRealtime(Mathf.Max(5f, level3_conveyorIntervalSec));
+            var bm = BoardManager.Instance;
+            if (bm == null || bm.grid == null) continue;
+
+            var slots = new List<BoardSlot>();
+            for (int r = 0; r < bm.rows; r++)
+                for (int c = 0; c < bm.cols; c++)
+                {
+                    var s = bm.grid[r,c];
+                    if (s == null) continue;
+                    var t = s.GetLetterTile();
+                    if (t == null) continue;
+                    if (t.isLocked) continue; // อย่าแตะไทล์ที่ล็อกแล้ว
+                    slots.Add(s);
+                }
+            if (slots.Count < 2) { continue; }
+
+            var tiles = new List<LetterTile>(slots.Count);
+            foreach (var s in slots) tiles.Add(s.RemoveLetter());
+
+            int shift = Mathf.Max(1, level3_conveyorShift) % tiles.Count;
+            if (shift > 0)
+            {
+                var rotated = new List<LetterTile>(tiles.Count);
+                for (int i = 0; i < tiles.Count; i++)
+                    rotated.Add(tiles[(i - shift + tiles.Count) % tiles.Count]);
+                tiles = rotated;
+            }
+
+            for (int i = 0; i < slots.Count; i++)
+            {
+                var slot = slots[i];
+                var tile = tiles[i];
+                if (!slot || !tile) continue;
+                tile.transform.SetParent(slot.transform, false);
+                var rt = tile.GetComponent<RectTransform>();
+                if (rt != null) { rt.anchoredPosition = Vector2.zero; rt.localScale = Vector3.one; }
+                else { tile.transform.localPosition = Vector3.zero; tile.transform.localScale = Vector3.one; }
+                slot.Flash(new Color(0.7f,0.7f,1f,1f), 1, 0.06f);
+            }
+            UIManager.Instance?.ShowMessage("Conveyor Shuffle!", 1.5f);
+        }
+        level3_conveyorRoutine = null;
+    }
+
+    private IEnumerator L3_LockWaveLoop()
+    {
+        while (!isGameOver && currentLevelConfig?.levelIndex == 3 && !level3_phaseChangeActive)
+        {
+            yield return new WaitForSecondsRealtime(Mathf.Max(10f, level3_lockWaveIntervalSec));
+            var bm = BoardManager.Instance; if (bm == null || bm.grid == null) continue;
+
+            // เลือกสุ่มและล็อกชั่วคราว
+            var all = new List<BoardSlot>();
+            for (int r = 0; r < bm.rows; r++)
+                for (int c = 0; c < bm.cols; c++)
+                {
+                    var s = bm.grid[r,c];
+                    if (s != null && !s.IsLocked) all.Add(s);
+                }
+            int want = Mathf.Min(level3_lockCountPerWave, all.Count);
+            for (int i = 0; i < want; i++)
+            {
+                int idx = UnityEngine.Random.Range(0, all.Count);
+                var s = all[idx]; all.RemoveAt(idx);
+                s.IsLocked = true; s.ApplyVisual(); s.Flash(Color.gray, 2, 0.08f);
+                level3_lockedByBoss.Add(s);
+            }
+            UIManager.Instance?.ShowMessage($"Hydra locks {want} slots!", 1.5f);
+
+            yield return new WaitForSecondsRealtime(Mathf.Max(3f, level3_lockDurationSec));
+            // ปลดล็อก
+            foreach (var s in level3_lockedByBoss) { if (s) { s.IsLocked = false; s.ApplyVisual(); } }
+            level3_lockedByBoss.Clear();
+        }
+        level3_lockRoutine = null;
+    }
+
+    private IEnumerator L3_FieldEffectsLoop()
+    {
+        while (!isGameOver && currentLevelConfig?.levelIndex == 3 && !level3_phaseChangeActive)
+        {
+            yield return new WaitForSecondsRealtime(Mathf.Max(8f, level3_fieldEffectIntervalSec));
+            var bm = BoardManager.Instance; if (bm == null) continue;
+
+            level3_activeZones.RemoveAll(z => Time.unscaledTime > z.end);
+
+            // spawn buff/debuff zones
+            int toSpawnEach = Mathf.Max(1, level3_zonesPerType);
+            for (int t = 0; t < toSpawnEach; t++)
+            {
+                var buff = new L3Zone { rect = L3_RandomRectInBoard(bm, level3_zoneSize), isBuff = true,  end = Time.unscaledTime + level3_fieldEffectDurationSec };
+                var debf = new L3Zone { rect = L3_RandomRectInBoard(bm, level3_zoneSize), isBuff = false, end = Time.unscaledTime + level3_fieldEffectDurationSec };
+                level3_activeZones.Add(buff);
+                level3_activeZones.Add(debf);
+            }
+            UIManager.Instance?.ShowMessage("Zones: Green x2 / Red x0.5", 1.8f);
+        }
+        level3_fieldRoutine = null;
+    }
+
+    private RectInt L3_RandomRectInBoard(BoardManager bm, int size)
+    {
+        // NOTE: RectInt(x=row, y=col, width=heightInRows, height=widthInCols) – กำหนดตามแกนของบอร์ด
+        int w = Mathf.Clamp(size, 1, Mathf.Max(1, bm.cols));
+        int h = Mathf.Clamp(size, 1, Mathf.Max(1, bm.rows));
+        int x = UnityEngine.Random.Range(0, Mathf.Max(1, bm.rows - h + 1));
+        int y = UnityEngine.Random.Range(0, Mathf.Max(1, bm.cols - w + 1));
+        return new RectInt(x, y, h, w); // x=row, y=col
+    }
+
+    private IEnumerator L3_DeleteActionLoop()
+    {
+        while (!isGameOver && currentLevelConfig?.levelIndex == 3 && !level3_phaseChangeActive)
+        {
+            yield return new WaitForSecondsRealtime(Mathf.Max(5f, level3_deleteActionIntervalSec));
+
+            // สุ่มว่าจะลบ "ตัวอักษรบนบอร์ด/เบนช์" หรือ "การ์ด"
+            bool tryLetters = UnityEngine.Random.value < 0.6f; // 60% ลบตัวอักษร
+            if (tryLetters && Time.unscaledTime >= level3_nextLetterDeleteTime)
+            {
+                bool deleted = L3_DeleteLettersFromBoard(level3_deleteBoardCount);
+                if (!deleted && OnBossDeleteBenchRequest != null)
+                {
+                    OnBossDeleteBenchRequest.Invoke(Mathf.Max(1, level3_deleteBenchCount));
+                    UIManager.Instance?.ShowMessage("Hydra deletes bench letters!", 1.5f);
+                }
+                else if (!deleted)
+                {
+                    UIManager.Instance?.ShowMessage("Hydra tried to delete letters", 1.2f);
+                }
+                level3_nextLetterDeleteTime = Time.unscaledTime + level3_deleteLettersCooldownSec;
+            }
+            else if (!tryLetters && Time.unscaledTime >= level3_nextCardDeleteTime)
+            {
+                if (OnBossDeleteRandomCardRequest != null)
+                {
+                    OnBossDeleteRandomCardRequest.Invoke();
+                    UIManager.Instance?.ShowMessage("Hydra deletes a card!", 1.5f);
+                }
+                else if (OnBossLockCardSlotRequest != null)
+                {
+                    OnBossLockCardSlotRequest.Invoke(level3_cardSlotLockDurationSec);
+                    UIManager.Instance?.ShowMessage("Hydra locks card slot!", 1.5f);
+                }
+                else
+                {
+                    UIManager.Instance?.ShowMessage("Hydra tried to mess with cards", 1.2f);
+                }
+                level3_nextCardDeleteTime = Time.unscaledTime + level3_deleteCardsCooldownSec;
+            }
+        }
+        level3_deleteRoutine = null;
+    }
+
+    private bool L3_DeleteLettersFromBoard(int count)
+    {
+        var bm = BoardManager.Instance; if (bm == null || bm.grid == null) return false;
+        var filled = new List<BoardSlot>();
+        for (int r = 0; r < bm.rows; r++)
+            for (int c = 0; c < bm.cols; c++)
+            {
+                var s = bm.grid[r,c];
+                if (s != null && s.HasLetterTile())
+                {
+                    var t = s.GetLetterTile();
+                    if (t && !t.isLocked) filled.Add(s);
+                }
+            }
+        if (filled.Count == 0) return false;
+
+        int k = Mathf.Clamp(count, 1, filled.Count);
+        for (int i = 0; i < k; i++)
+        {
+            int idx = UnityEngine.Random.Range(0, filled.Count);
+            var s = filled[idx]; filled.RemoveAt(idx);
+            var t = s.RemoveLetter();
+            if (t) SpaceManager.Instance.RemoveTile(t);
+            s.Flash(Color.red, 2, 0.08f);
+        }
+        UIManager.Instance?.ShowMessage($"Hydra deletes {k} letters on board!", 1.4f);
+        return true;
+    }
+
+    private void L3_ClearZonesAndLocks()
+    {
+        level3_activeZones.Clear();
+        // ปลดล็อกที่ล็อกโดยบอส
+        foreach (var s in level3_lockedByBoss) { if (s) { s.IsLocked = false; s.ApplyVisual(); } }
+        level3_lockedByBoss.Clear();
+    }
+
     void TriggerStageFail(string reason)
     {
         if (isGameOver || phase == GamePhase.GameOver) return;

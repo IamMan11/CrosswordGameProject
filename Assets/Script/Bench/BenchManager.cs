@@ -335,12 +335,25 @@ public class BenchManager : MonoBehaviour
     /// <summary>รอจน Scoring จบก่อน แล้วค่อยเติมแบบแอนิเมชัน</summary>
     private IEnumerator RefillAfterScoringThenAnimate()
     {
-        while (TurnManager.Instance != null && TurnManager.Instance.IsScoringAnimation)
+        // ✅ รอแบบมี timeout กันค้างถาวร
+        float t = 0f, timeout = 5f;
+        while (TurnManager.Instance != null && TurnManager.Instance.IsScoringAnimation && t < timeout)
+        {
+            t += Time.unscaledDeltaTime;
             yield return null;
+        }
 
         _refillQueued = false;
 
-        if (_refillCo != null) yield break;           // ยังมีการเติมค้างอยู่ → ไม่เริ่มซ้ำ
+        // ถ้าครบเวลาแล้วยังบอกว่ากำลังคิดคะแนน → บังคับเติมแบบทันที (no FX) เป็น fallback
+        if (TurnManager.Instance != null && TurnManager.Instance.IsScoringAnimation)
+        {
+            Debug.LogWarning("[BenchManager] Scoring flag stuck – fallback to immediate refill.");
+            RefillImmediate();
+            yield break;
+        }
+
+        if (_refillCo != null) yield break;
         _refillCo = StartCoroutine(RefillAnimatedCo());
     }
 
@@ -477,8 +490,22 @@ public class BenchManager : MonoBehaviour
 
     private IEnumerator RefillOneAfterScoring(Transform slotT)
     {
-        while (TurnManager.Instance != null && TurnManager.Instance.IsScoringAnimation)
+        float t = 0f, timeout = 5f;
+        while (TurnManager.Instance != null && TurnManager.Instance.IsScoringAnimation && t < timeout)
+        {
+            t += Time.unscaledDeltaTime;
             yield return null;
+        }
+
+        if (TurnManager.Instance != null && TurnManager.Instance.IsScoringAnimation)
+        {
+            Debug.LogWarning("[BenchManager] RefillOne: scoring stuck – fallback immediate.");
+            // ตัดแอนิเมชัน เติมทันทีเพื่อให้เกมเดินต่อ
+            var data = TileBag.Instance?.DrawRandomTile();
+            if (data != null) CreateTileInSlot(slotT, data);
+            yield break;
+        }
+
         yield return RefillOneAnimated(slotT);
     }
 

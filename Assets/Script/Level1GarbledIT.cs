@@ -243,6 +243,11 @@ public class Level1GarbledIT : MonoBehaviour
                 TurnManager.Instance?.AddScore(-penalty);
                 UIToast($"ผิด! -{penalty}", Color.red);
             }
+            if (!set.solved)
+            {
+                set.touched = false;
+                SetOutlineColor(set, _colOutlineDefault); // คืนสีกรอบเป็น "ยังไม่ได้แตะ"
+            }
             LevelTaskUI.I?.Refresh();    // <-- เพิ่ม
 
             yield return new WaitForSecondsRealtime(0.12f);
