@@ -638,8 +638,10 @@ public class TurnManager : MonoBehaviour
         int                               comboMul,
         HashSet<LetterTile>               bounced,
         int                               dictPenaltyPercent
+        
     )
     {
+        bool guardPushed = false;
         LevelManager.Instance?.PauseLevelTimer();
         float prevTimeScale = Time.timeScale;
 
@@ -818,6 +820,7 @@ public class TurnManager : MonoBehaviour
             //---------------------------------------------------------------------------------
             EndScoreSequence();
             UiGuard.Push();
+            guardPushed = true;
             BenchManager.Instance.RefillEmptySlots();
 
             // เปลี่ยนชื่อกันชนกับข้อ 1
@@ -827,7 +830,7 @@ public class TurnManager : MonoBehaviour
                 waitElapsed += Time.unscaledDeltaTime;
                 yield return null;
             }
-            UiGuard.Pop();
+            if (guardPushed) { UiGuard.Pop(); guardPushed = false; }
 
             if (BenchManager.Instance.IsRefilling())
             {
@@ -854,6 +857,11 @@ public class TurnManager : MonoBehaviour
         }
         finally
         {
+            // ✅ การันตีว่าถ้าหลุดด้วยเหตุใด ๆ ก็ “เลิกคิดคะแนน” ให้แน่ใจ
+            try { EndScoreSequence(); } catch {}
+
+            // ✅ การันตีคืน UiGuard ถ้ายังค้าง
+            if (guardPushed) { try { UiGuard.Pop(); } catch {} }
             Time.timeScale = prevTimeScale;
             Level2Controller.SetZoneTimerFreeze(false);   // NEW: safety เผื่อจบผิดปกติ
             LevelManager.Instance?.ResumeLevelTimer();

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
+using UnityEngine.SceneManagement;
 
 public class SimpleTutorialManager : MonoBehaviour
 {
@@ -67,6 +68,10 @@ public class SimpleTutorialManager : MonoBehaviour
     float advanceCooldownUntil = 0f;
     [SerializeField] float firstStepInputBlock = 0.15f; // กันคลิก/คีย์ค้างจากก่อนเข้าทิวทอเรียล
     [SerializeField] float skipToNextCooldown = 0.3f;   // กันกดเพื่อจบการพิมพ์แล้วทะลุไปสเต็ปถัดไป
+    string SceneSeenKey =>
+    (sequence != null)
+    ? $"{sequence.seenPlayerPrefKey}@{SceneManager.GetActiveScene().name}"
+    : $"SIMPLE_TUTORIAL_SCENE_SEEN@{SceneManager.GetActiveScene().name}";
 
     float _blockInputUntil;       // ใช้กันเหตุสเต็ปแรกข้าม
     float _cooldownUntil;         // ใช้กันกดทะลุไปสเต็ปถัด
@@ -80,15 +85,14 @@ public class SimpleTutorialManager : MonoBehaviour
 
         bool sessionWant = PlayerPrefs.GetInt(TUT_SESSION_KEY, 0) == 1;
 
-        // ถ้าผู้เล่นเลือก Yes ในเมนู: บังคับรันเสมอ
         if (sessionWant)
         {
             StartSequence();
         }
         else
         {
-            // โหมดเดิม: รันเฉพาะครั้งแรก/หรือไม่บังคับ one-time
-            if (!sequence.runOnFirstLaunch || PlayerPrefs.GetInt(sequence.seenPlayerPrefKey, 0) == 0)
+            // เดิม: PlayerPrefs.GetInt(sequence.seenPlayerPrefKey, 0)
+            if (!sequence.runOnFirstLaunch || PlayerPrefs.GetInt(SceneSeenKey, 0) == 0)
                 StartSequence();
         }
     }
@@ -104,13 +108,20 @@ public class SimpleTutorialManager : MonoBehaviour
     public void StartSequence()
     {
         if (running) return;
+        enabled = true;
         running = true;
         index = -1;
 
         // เปิดปุ่ม Skip — ปิดเฉพาะซีนนี้ ไม่แตะ PlayerPrefs และไม่ปิด session key
         ui.SetSkip(() =>
         {
-            EndSequence(markSeen: false);   // จบซีนนี้ แต่ไม่มาร์กว่าเคยดู
+            // ข้ามทั้งทิวทอเรียลของซีนนี้ และบันทึกว่า "เคยดูแล้ว" เพื่อไม่ให้ขึ้นอีกในครั้งถัดไป
+            EndSequence(markSeen: true);
+
+            // ถ้าซีนนี้ถูกบังคับรันเพราะ session (กด Yes จากหน้าก่อนเข้าเกม)
+            // ให้ปิดคีย์ session ทิ้งด้วย เพื่อไม่กลับมาเปิดซ้ำภายในรอบเล่นนี้
+            PlayerPrefs.SetInt(TUT_SESSION_KEY, 0);
+            PlayerPrefs.Save();
         }, true);
 
         Next();
@@ -119,6 +130,16 @@ public class SimpleTutorialManager : MonoBehaviour
 
     void Update()
     {
+        
+        if (!running) return;
+
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            EndSequence(markSeen: true);
+            PlayerPrefs.SetInt(TUT_SESSION_KEY, 0);
+            PlayerPrefs.Save();
+            return;
+        }
         // กันอินพุตค้างจากก่อนเข้า/ก่อนขึ้นสเต็ป
         if (Time.unscaledTime < _blockInputUntil)
         {
@@ -158,10 +179,12 @@ public class SimpleTutorialManager : MonoBehaviour
     }
     public void OnOverlayClicked()
     {
-        _overlayClickQueued = true; // แค่ตั้งธง เดี๋ยว Update จะตัดสินใจ
+        if (!running) return;        // ✅ กันคลิกฝัง overlay หลังปิดไปแล้ว
+        _overlayClickQueued = true;
     }
     public void Next()
     {
+        if (!running) return;
         // ตัด watcher เก่า
         if (watcherCo != null) { StopCoroutine(watcherCo); watcherCo = null; }
 
@@ -220,8 +243,12 @@ public class SimpleTutorialManager : MonoBehaviour
         ExitPreviousStepIfAny();
         running = false;
         ui.HideAll();
+
+        // เดิม: PlayerPrefs.SetInt(sequence.seenPlayerPrefKey, 1);
         if (markSeen && sequence && sequence.runOnFirstLaunch)
-            PlayerPrefs.SetInt(sequence.seenPlayerPrefKey, 1);
+            PlayerPrefs.SetInt(SceneSeenKey, 1);
+
+        enabled = false;
     }
 
     RectTransform EnsureTempAnchor()
@@ -347,18 +374,17 @@ public class SimpleTutorialManager : MonoBehaviour
     public void ResetTutorialAndRestart()
     {
         if (sequence == null) return;
-        PlayerPrefs.DeleteKey(sequence.seenPlayerPrefKey); // ลบ flag ว่าเคยดู
+        PlayerPrefs.DeleteKey(SceneSeenKey);  // เดิมลบ sequence.seenPlayerPrefKey
         PlayerPrefs.Save();
         ui.HideAll();
         running = false;
         StartSequence();
     }
 
-    // ถ้าอยากแค่ล้างสถานะ แต่ยังไม่เริ่ม ให้เรียกอันนี้แทน
     public void ResetTutorialFlagOnly()
     {
         if (sequence == null) return;
-        PlayerPrefs.DeleteKey(sequence.seenPlayerPrefKey);
+        PlayerPrefs.DeleteKey(SceneSeenKey);  // เดิมลบ sequence.seenPlayerPrefKey
         PlayerPrefs.Save();
     }
     // ---------- Builders ----------

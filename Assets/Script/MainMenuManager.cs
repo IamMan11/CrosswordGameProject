@@ -36,6 +36,22 @@ public class MainMenuManager : MonoBehaviour
             btnNo.onClick.AddListener(() => OnConfirmNewPlay(false));
         }
     }
+    void Update()
+    {
+        // Check for ESC key press to close the tutorial
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            CloseTutorial();
+        }
+    }
+
+    void CloseTutorial()
+    {
+        if (newPlayPopup != null && newPlayPopup.activeSelf)
+        {
+            newPlayPopup.SetActive(false);  // Close the tutorial popup
+        }
+    }
     public void OnNewPlayClicked()
     {
         Time.timeScale = 1f;
