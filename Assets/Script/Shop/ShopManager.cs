@@ -262,7 +262,6 @@ public class ShopManager : MonoBehaviour
 
         RefreshUI();
         RefreshRerollInteractable();
-        TutorialManager.Instance?.Fire(TutorialEvent.ShopReroll);
     }
     List<CardData> BuildOwnedPurchasablePool()
     {
@@ -287,7 +286,7 @@ public class ShopManager : MonoBehaviour
 
     // ใน Awake/Start/OnEnable (หลัง RefreshUI()) ให้เรียก:
     void OnEnable() { RefreshUI(); RefreshRerollInteractable(); }
-    void Start() { RefreshUI(); TryRerollAtStart(); RefreshRerollInteractable(); TutorialManager.Instance?.Fire(TutorialEvent.ShopOpened); }
+    void Start() { RefreshUI(); TryRerollAtStart(); RefreshRerollInteractable();}
 
     // เมื่อซื้อการ์ดเสร็จจาก slot ให้เรียกเมธอดนี้ (จะเขียนไว้ด้านล่าง)
     public void OnCardPurchased(ShopCardSlot slot, CardData card)
@@ -296,7 +295,6 @@ public class ShopManager : MonoBehaviour
         RefreshRerollInteractable();
         ShowToast($"ซื้อ {card.displayName} สำเร็จ");
 
-        TutorialManager.Instance?.Fire(TutorialEvent.ShopBuy);   // NEW ✅
     }
 
     public void OnBuyMana()
@@ -315,7 +313,6 @@ public class ShopManager : MonoBehaviour
 
         RefreshUI();
 
-        TutorialManager.Instance?.Fire(TutorialEvent.ShopBuy);   // NEW ✅
 
         ShowMsg("+2 Mana สำเร็จ");
     }
@@ -338,7 +335,6 @@ public class ShopManager : MonoBehaviour
         so.slotUpCount = slotBought;
 
         RefreshUI();
-        TutorialManager.Instance?.Fire(TutorialEvent.ShopBuy);
         ShowMsg("+1 Card Slot สำเร็จ");
     }
 
@@ -357,7 +353,6 @@ public class ShopManager : MonoBehaviour
         so.tileUpCount = tileBought;
 
         RefreshUI();
-        TutorialManager.Instance?.Fire(TutorialEvent.ShopBuy);
         ShowMsg("+10 Tiles สำเร็จ");
     }
 

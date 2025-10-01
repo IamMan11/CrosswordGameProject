@@ -62,8 +62,6 @@ public class BoardManager : MonoBehaviour
     public Sprite centerSlotSprite;
 
     [Header("Highlight UI")]
-    [SerializeField] private BoardHighlighterUI highlighter;
-
     // legacy
     [HideInInspector] public int manaGain;
 
@@ -185,8 +183,6 @@ public class BoardManager : MonoBehaviour
                 slot.Setup(r, c, st, manaGainLocal, overlaySprite);
                 grid[r, c] = slot;
             }
-
-        HighlightSpecialCells();
     }
 
     // ====================================================================== //
@@ -221,7 +217,6 @@ public class BoardManager : MonoBehaviour
             specials.Add(new SpecialSlotData { row = rr, col = cc, type = newType, manaGain = 0 });
         }
 
-        HighlightSpecialCells();
     }
 
     public void AddRandomSpecialSlotsTemporary(int count)
@@ -309,7 +304,6 @@ public class BoardManager : MonoBehaviour
             if (targetedFluxRemaining == 0)
             {
                 UIManager.Instance?.ShowMessage("Targeted Flux: เสร็จสิ้นการเลือกช่อง!", 2f);
-                HighlightSpecialCells(1.2f);
             }
         }
         else
@@ -499,18 +493,6 @@ public class BoardManager : MonoBehaviour
         return list;
     }
 
-    // ไฮไลท์ช่องการ์ดตาม index หลายช่อง
-    // ===== Single-card-slot highlight =====
-    public void HighlightCardSlot(int slotIndex, float duration = 1.6f)
-    {
-        if (highlighter == null) return;
-        RectTransform target = FindCardSlotRect(slotIndex);
-        if (!target) return;
-
-        highlighter.Clear();
-        highlighter.PulseOne(target, BoardHighlighterUI.HighlightKind.CardSlot, duration);
-    }
-
     private RectTransform FindCardSlotRect(int idx)
     {
 #if UNITY_2023_1_OR_NEWER
@@ -525,122 +507,7 @@ public class BoardManager : MonoBehaviour
         return go ? go.GetComponent<RectTransform>() : null;
     }
 
-    // ไฮไลท์ “ทุกช่องการ์ด” ที่หาเจอ
-    public void HighlightAllCardSlots(float duration = 1.6f)
-    {
-        if (highlighter == null) return;
-        var rects = FindCardSlotRects(null);
-        if (rects.Count == 0) return;
-
-        highlighter.Clear();
-        highlighter.PulseCells(rects, BoardHighlighterUI.HighlightKind.CardSlot, duration);
-    }
-
-    public void HighlightCell(int row, int col, float duration = 1.6f)
-    {
-        if (highlighter == null || grid == null || !InBounds(row, col)) return;
-        var slot = grid[row, col]; if (!slot) return;
-        var rt = slot.GetComponent<RectTransform>(); if (!rt) return;
-
-        var kind =
-            (slot.type == SlotType.DoubleWord || slot.type == SlotType.TripleWord)
-                ? BoardHighlighterUI.HighlightKind.WordMultiplier
-                : (slot.type == SlotType.DoubleLetter || slot.type == SlotType.TripleLetter)
-                    ? BoardHighlighterUI.HighlightKind.LetterMultiplier
-                    : BoardHighlighterUI.HighlightKind.SpecialTile;
-
-        highlighter.Clear();
-        highlighter.PulseOne(rt, kind, duration);
-    }
-
-    public void HighlightFirstOfType(SlotType type, float duration = 1.6f)
-    {
-        if (highlighter == null || grid == null) return;
-        for (int r = 0; r < rows; r++)
-            for (int c = 0; c < cols; c++)
-                if (grid[r, c] && grid[r, c].type == type)
-                { HighlightCell(r, c, duration); return; }
-    }
-
-    public void ClearHighlights() => highlighter?.Clear();
-
-    public void HighlightSpecialCells(float duration = 1.8f)
-    {
-        if (highlighter == null || grid == null) return;
-
-        var letterMul = new List<RectTransform>();
-        var wordMul = new List<RectTransform>();
-
-        for (int r = 0; r < rows; r++)
-            for (int c = 0; c < cols; c++)
-            {
-                var slot = grid[r, c];
-                if (!slot) continue;
-                var rt = slot.GetComponent<RectTransform>(); if (!rt) continue;
-
-                switch (slot.type)
-                {
-                    case SlotType.DoubleLetter:
-                    case SlotType.TripleLetter: letterMul.Add(rt); break;
-                    case SlotType.DoubleWord:
-                    case SlotType.TripleWord: wordMul.Add(rt); break;
-                }
-            }
-
-        highlighter.Clear();
-        highlighter.PulseCells(letterMul, BoardHighlighterUI.HighlightKind.LetterMultiplier, duration);
-        highlighter.PulseCells(wordMul, BoardHighlighterUI.HighlightKind.WordMultiplier, duration);
-    }
-
-    public void HighlightWordPath(IEnumerable<BoardSlot> pathCells, float duration = 1.2f)
-    {
-        if (highlighter == null || pathCells == null) return;
-        var list = new List<RectTransform>();
-        foreach (var c in pathCells)
-        {
-            if (!c) continue;
-            var rt = c.GetComponent<RectTransform>();
-            if (rt) list.Add(rt);
-        }
-        highlighter.FlashPath(list, new Color(1f, 0.9f, 0.2f, 0.55f), duration);
-    }
-
-    public void HighlightWordPathByIndices(IEnumerable<(int r, int c)> indices, float duration = 1.2f)
-    {
-        if (highlighter == null || indices == null || grid == null) return;
-        var list = new List<RectTransform>();
-        foreach (var (r, c) in indices)
-        {
-            if (!InBounds(r, c)) continue;
-            var slot = grid[r, c];
-            if (!slot) continue;
-            var rt = slot.GetComponent<RectTransform>();
-            if (rt) list.Add(rt);
-        }
-        highlighter.FlashPath(list, new Color(1f, 0.9f, 0.2f, 0.55f), duration);
-    }
-
-    // ไฮไลท์เป็น “บล็อกสี่เหลี่ยม” และใช้กับ spotlight ได้
-    public void HighlightCellsRect(int r0, int c0, int r1, int c1, float duration = 1.6f)
-    {
-        if (highlighter == null || grid == null) return;
-        if (r0 > r1) (r0, r1) = (r1, r0);
-        if (c0 > c1) (c0, c1) = (c1, c0);
-        r0 = Mathf.Clamp(r0, 0, rows - 1);
-        r1 = Mathf.Clamp(r1, 0, rows - 1);
-        c0 = Mathf.Clamp(c0, 0, cols - 1);
-        c1 = Mathf.Clamp(c1, 0, cols - 1);
-
-        var rects = new List<RectTransform>();
-        for (int r = r0; r <= r1; r++)
-            for (int c = c0; c <= c1; c++)
-            {
-                var slot = grid[r, c]; if (!slot) continue;
-                var rt = slot.GetComponent<RectTransform>(); if (rt) rects.Add(rt);
-            }
-        highlighter.Clear();
-        highlighter.PulseCells(rects, BoardHighlighterUI.HighlightKind.SpecialTile, duration);
-    }
+    // ไฮไลท์เป็น “บล็อกสี่เหลี่ยม” และใช้กับ spotlight ได
 
     public List<RectTransform> CollectCellRectsRect(int r0, int c0, int r1, int c1)
     {
