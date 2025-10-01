@@ -1145,6 +1145,23 @@ public class TurnManager : MonoBehaviour
             }
 
             LevelManager.Instance?.RegisterConfirmedWords(correct.Select(w => w.word));
+            // ====== (NEW) ส่งดาเมจไปที่บอสของเลเวล 3 ======
+            int placedLetterDamageSum = 0;
+            foreach (var (tile, slot) in placed)
+            {
+                int baseSc = Mathf.Max(0, tile.GetData().score);
+                if (ScoreManager.IsZeroScoreTile(tile)) baseSc = 0;
+                int lm = ScoreManager.EffectiveLetterMulFor(slot.type);
+                placedLetterDamageSum += baseSc * Mathf.Max(1, lm);
+            }
+            int mainLenForCrit = hasMain ? (Norm(mainWord.word).Length) : 0;
+            var placedCoords = placed.Select(p => new Vector2Int(p.s.row, p.s.col)).ToList();
+            LevelManager.Instance?.Level3_OnPlayerDealtWord(
+                placedCount: placed.Count,
+                placedLettersDamageSum: placedLetterDamageSum,
+                mainWordLen: mainLenForCrit,
+                placedCoords: placedCoords
+            );
             ApplyBgmStreakAfterConfirm(dictPenaltyApplied);
             ApplyFireStackAfterTurn(scoreDeductedThisTurn: false);
 
@@ -1164,6 +1181,16 @@ public class TurnManager : MonoBehaviour
         }
     }
 
+    // ===== Helpers =====
+    string Norm(string s) => (s ?? string.Empty).Trim();
+
+    void ResetTurnFlags()
+    {
+        usedDictionaryThisTurn = false;
+        freePassActiveThisTurn = false;
+        nextWordMul = 1;
+        usageCountThisTurn.Clear();
+    }
     int CountNewInWord(MoveValidator.WordInfo w, HashSet<(int r, int c)> coords)
     {
         int cnt = 0;
