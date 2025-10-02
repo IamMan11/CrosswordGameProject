@@ -51,7 +51,7 @@ public class SimpleTutorialStep
 
     [Header("Advance")]
     public bool clickAnywhereToAdvance = true;
-    
+
     [Header("Typing")]
     [Tooltip("เวลาพิมพ์ซับไตเติล (วินาที) ถ้า <=0 จะใช้ค่าดีฟอลต์จาก UI")]
     public float typewriterSeconds = -1f;
@@ -67,4 +67,13 @@ public class SimpleTutorialStep
     [Header("Discard (optional)")]
     public bool forceShowDiscardDuringStep = false;   // บังคับให้โชว์ Discard ระหว่าง step นี้
     public bool revertDiscardStateOnExit = true;      // ออกจาก step แล้วให้กลับสภาพเดิมไหม
+    [Header("Speaker (optional per step)")]
+    public bool speakerShow = false;                      // เปิด/ปิดการแสดง speaker ในสเต็ปนี้
+    public Sprite speakerSprite;                          // รูปที่จะใช้แสดง
+    public bool speakerUseSlot = true;                    // วางตาม slot แบบเดียวกับ subtitle หรือไม่
+    public SubtitleAnchorSlot speakerSlot = SubtitleAnchorSlot.Default;
+    public SimpleTutAnchor speakerAnchor = SimpleTutAnchor.ScreenCenter; // ใช้ anchor mapping เดิม
+    public Vector2 speakerOffset = new Vector2(0, -140);  // ขยับตำแหน่งจาก anchor
+    public bool speakerMirrorX = false;                   // กลับซ้าย/ขวา
+    [Range(0f, 1f)] public float speakerAlpha = 1f;       // ความโปร่งใส
 }

@@ -650,6 +650,14 @@ MonoBehaviour:
   discardClipDuration: 0.18
   triggerKick: Kick
   triggerDiscard: Discard
+  trainingTarget: 
+  wordleGreen: {r: 0, g: 1, b: 0, a: 0.35}
+  wordleYellow: {r: 1, g: 0.92, b: 0.016, a: 0.35}
+  wordleRed: {r: 1, g: 0, b: 0, a: 0.35}
+  wordleNone: {r: 1, g: 1, b: 1, a: 0}
+  autoDetectTarget: 0
+  autoArrangeFromBenchToTarget: 0
+  minTargetLength: 2
 --- !u!1 &57858568
 GameObject:
   m_ObjectHideFlags: 0
@@ -3735,6 +3743,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0e1a91caf3ae973418e92fcd07ec80d6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  bg: {fileID: 0}
+  defaultBg: {r: 1, g: 1, b: 1, a: 0}
 --- !u!1 &287685800
 GameObject:
   m_ObjectHideFlags: 0
@@ -3823,6 +3833,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0e1a91caf3ae973418e92fcd07ec80d6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  bg: {fileID: 0}
+  defaultBg: {r: 1, g: 1, b: 1, a: 0}
 --- !u!1 &290363948
 GameObject:
   m_ObjectHideFlags: 0
@@ -6071,6 +6083,7 @@ RectTransform:
   - {fileID: 880912803}
   - {fileID: 117497058}
   - {fileID: 1720620200}
+  - {fileID: 1868956156}
   - {fileID: 232375}
   - {fileID: 297668890}
   - {fileID: 98078149}
@@ -6092,7 +6105,6 @@ RectTransform:
   - {fileID: 1914259708}
   - {fileID: 1645984076}
   - {fileID: 1363637684}
-  - {fileID: 1868956156}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -9582,6 +9594,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0e1a91caf3ae973418e92fcd07ec80d6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  bg: {fileID: 0}
+  defaultBg: {r: 1, g: 1, b: 1, a: 0}
 --- !u!1 &774911180
 GameObject:
   m_ObjectHideFlags: 0
@@ -13183,6 +13197,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0e1a91caf3ae973418e92fcd07ec80d6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  bg: {fileID: 0}
+  defaultBg: {r: 1, g: 1, b: 1, a: 0}
 --- !u!1 &1091270161
 GameObject:
   m_ObjectHideFlags: 0
@@ -13505,6 +13521,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0e1a91caf3ae973418e92fcd07ec80d6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  bg: {fileID: 0}
+  defaultBg: {r: 1, g: 1, b: 1, a: 0}
 --- !u!1 &1128510238
 GameObject:
   m_ObjectHideFlags: 0
@@ -14106,6 +14124,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0e1a91caf3ae973418e92fcd07ec80d6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  bg: {fileID: 0}
+  defaultBg: {r: 1, g: 1, b: 1, a: 0}
 --- !u!1 &1175656377
 GameObject:
   m_ObjectHideFlags: 0
@@ -16788,6 +16808,10 @@ MonoBehaviour:
   refillStagger: 0.05
   spawnHoverTime: 0.05
   spawnHoverHeight: 0
+  enableTrainingRefillInThisScene: 0
+  shuffleTrainingOrder: 1
+  trainingRefillFromDictionary: 1
+  trainingWordLength: {x: 3, y: 7}
   draggingTile: {fileID: 0}
 --- !u!1 &1420355086
 GameObject:
@@ -17095,9 +17119,9 @@ MonoBehaviour:
   damagePopPrefab: {fileID: 5345666862900907408, guid: 990d52b15ea48b443ba82f0c416825f1, type: 3}
   damageStartAnchor: {fileID: 250377546}
   bossImage: {fileID: 1868956157}
-  bossIdle: {fileID: -5233005295852019085, guid: 5a05b29658cc7524a83965d73ab96983, type: 3}
-  bossCast: {fileID: -2545667547925191845, guid: 4f58ea5a9a5ecbd42a0dda8fba152c82, type: 3}
-  bossHurt: {fileID: 1083804429095897585, guid: 1a268f9f204ba8b42b9c1ce5cccb8f48, type: 3}
+  bossIdle: {fileID: -8619563832902293735, guid: e83d385cfb65a734ea1b2d0a6050a456, type: 3}
+  bossCast: {fileID: 2515463813400925968, guid: 8dd931c67012eea4abc428ec379c3240, type: 3}
+  bossHurt: {fileID: -7005354965793503871, guid: 2441d09da5f0454439cc5ee684effba8, type: 3}
   bossHurtHoldSec: 0.5
   bossCastTelegraphSec: 0.6
   puzzleCheckPeriod: 0.5
@@ -21189,6 +21213,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0e1a91caf3ae973418e92fcd07ec80d6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  bg: {fileID: 0}
+  defaultBg: {r: 1, g: 1, b: 1, a: 0}
 --- !u!1 &1770465584
 GameObject:
   m_ObjectHideFlags: 0
@@ -22616,6 +22642,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0e1a91caf3ae973418e92fcd07ec80d6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  bg: {fileID: 0}
+  defaultBg: {r: 1, g: 1, b: 1, a: 0}
 --- !u!1 &1906547465
 GameObject:
   m_ObjectHideFlags: 0
@@ -24509,6 +24537,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0e1a91caf3ae973418e92fcd07ec80d6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  bg: {fileID: 0}
+  defaultBg: {r: 1, g: 1, b: 1, a: 0}
 --- !u!1 &2014620741
 GameObject:
   m_ObjectHideFlags: 0
@@ -25584,6 +25614,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0e1a91caf3ae973418e92fcd07ec80d6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  bg: {fileID: 0}
+  defaultBg: {r: 1, g: 1, b: 1, a: 0}
 --- !u!1 &2121643223
 GameObject:
   m_ObjectHideFlags: 0

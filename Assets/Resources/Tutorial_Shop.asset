@@ -25,6 +25,7 @@ MonoBehaviour:
     subtitleOffset: {x: 0, y: -315}
     subtitleAnchor: 0
     clickAnywhereToAdvance: 1
+    typewriterSeconds: -1
     highlightTarget: 0
     highlightPadding: 0
     dimBackground: 0
@@ -32,6 +33,14 @@ MonoBehaviour:
     specialWhere: 0
     forceShowDiscardDuringStep: 0
     revertDiscardStateOnExit: 0
+    speakerShow: 1
+    speakerSprite: {fileID: -8056547234989420582, guid: bd796e6df9778de46ad06bc7124dda7f, type: 3}
+    speakerUseSlot: 1
+    speakerSlot: 0
+    speakerAnchor: 1
+    speakerOffset: {x: 0, y: -140}
+    speakerMirrorX: 0
+    speakerAlpha: 1
   - id: 
     text: "\"\u0E15\u0E23\u0E07\u0E19\u0E35\u0E49\u0E04\u0E37\u0E2D Coin \u0E40\u0E1B\u0E47\u0E19\u0E2B\u0E19\u0E48\u0E27\u0E22\u0E40\u0E07\u0E34\u0E19\u0E43\u0E19\u0E01\u0E32\u0E23\u0E43\u0E0A\u0E49\u0E08\u0E48\u0E32\u0E22\""
     type: 1
@@ -40,6 +49,7 @@ MonoBehaviour:
     subtitleOffset: {x: 0, y: -315}
     subtitleAnchor: 16
     clickAnywhereToAdvance: 1
+    typewriterSeconds: -1
     highlightTarget: 16
     highlightPadding: 0
     dimBackground: 0
@@ -47,6 +57,14 @@ MonoBehaviour:
     specialWhere: 0
     forceShowDiscardDuringStep: 0
     revertDiscardStateOnExit: 0
+    speakerShow: 1
+    speakerSprite: {fileID: 123222739785079796, guid: 575f3b8369484ed49ab82601a43dfc3c, type: 3}
+    speakerUseSlot: 1
+    speakerSlot: 0
+    speakerAnchor: 1
+    speakerOffset: {x: 0, y: -140}
+    speakerMirrorX: 0
+    speakerAlpha: 1
   - id: 
     text: "\"\u0E2A\u0E48\u0E27\u0E19\u0E19\u0E35\u0E49\u0E04\u0E37\u0E2D Mana \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E1A\u0E2D\u0E01\u0E27\u0E48\u0E32\u0E15\u0E2D\u0E19\u0E19\u0E35\u0E49\u0E40\u0E23\u0E32\u0E21\u0E35
       Mana \u0E2A\u0E39\u0E07\u0E2A\u0E38\u0E14\u0E40\u0E17\u0E48\u0E32\u0E44\u0E2B\u0E23\u0E48\""
@@ -56,6 +74,7 @@ MonoBehaviour:
     subtitleOffset: {x: 0, y: -315}
     subtitleAnchor: 31
     clickAnywhereToAdvance: 1
+    typewriterSeconds: -1
     highlightTarget: 31
     highlightPadding: 0
     dimBackground: 0
@@ -63,6 +82,14 @@ MonoBehaviour:
     specialWhere: 0
     forceShowDiscardDuringStep: 0
     revertDiscardStateOnExit: 0
+    speakerShow: 1
+    speakerSprite: {fileID: 123222739785079796, guid: 575f3b8369484ed49ab82601a43dfc3c, type: 3}
+    speakerUseSlot: 1
+    speakerSlot: 0
+    speakerAnchor: 1
+    speakerOffset: {x: 0, y: -140}
+    speakerMirrorX: 0
+    speakerAlpha: 1
   - id: 
     text: "\"\u0E15\u0E48\u0E2D\u0E21\u0E32\u0E04\u0E37\u0E2D Card Slot \u0E40\u0E1B\u0E47\u0E19\u0E08\u0E33\u0E19\u0E27\u0E19\u0E0A\u0E48\u0E2D\u0E07\u0E17\u0E35\u0E48\u0E40\u0E23\u0E32\u0E2A\u0E32\u0E21\u0E32\u0E23\u0E16\u0E40\u0E01\u0E47\u0E1A
       Card \u0E02\u0E13\u0E30\u0E40\u0E25\u0E48\u0E19\u0E44\u0E14\u0E49\""
@@ -72,6 +99,7 @@ MonoBehaviour:
     subtitleOffset: {x: 0, y: -315}
     subtitleAnchor: 0
     clickAnywhereToAdvance: 1
+    typewriterSeconds: -1
     highlightTarget: 32
     highlightPadding: 0
     dimBackground: 0
@@ -79,6 +107,14 @@ MonoBehaviour:
     specialWhere: 0
     forceShowDiscardDuringStep: 0
     revertDiscardStateOnExit: 0
+    speakerShow: 1
+    speakerSprite: {fileID: 123222739785079796, guid: 575f3b8369484ed49ab82601a43dfc3c, type: 3}
+    speakerUseSlot: 1
+    speakerSlot: 0
+    speakerAnchor: 1
+    speakerOffset: {x: 0, y: -140}
+    speakerMirrorX: 0
+    speakerAlpha: 1
   - id: 
     text: "\"\u0E2D\u0E35\u0E01\u0E2D\u0E31\u0E19\u0E04\u0E37\u0E2D TilePack \u0E40\u0E1B\u0E47\u0E19\u0E08\u0E33\u0E19\u0E27\u0E19\u0E15\u0E31\u0E27\u0E2D\u0E31\u0E01\u0E29\u0E23\u0E17\u0E35\u0E48\u0E40\u0E23\u0E32\u0E21\u0E35\u0E2D\u0E22\u0E39\u0E48\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14\""
     type: 1
@@ -87,6 +123,7 @@ MonoBehaviour:
     subtitleOffset: {x: 0, y: -315}
     subtitleAnchor: 0
     clickAnywhereToAdvance: 1
+    typewriterSeconds: -1
     highlightTarget: 33
     highlightPadding: 0
     dimBackground: 0
@@ -94,6 +131,14 @@ MonoBehaviour:
     specialWhere: 0
     forceShowDiscardDuringStep: 0
     revertDiscardStateOnExit: 0
+    speakerShow: 1
+    speakerSprite: {fileID: 2058601289022788544, guid: d1562e69a163432478565b623dc73e87, type: 3}
+    speakerUseSlot: 1
+    speakerSlot: 0
+    speakerAnchor: 1
+    speakerOffset: {x: 0, y: -140}
+    speakerMirrorX: 0
+    speakerAlpha: 1
   - id: 
     text: "\"\u0E21\u0E32\u0E14\u0E39 Upgrade \u0E01\u0E31\u0E19\u0E1A\u0E49\u0E32\u0E07\u0E14\u0E35\u0E01\u0E27\u0E48\u0E32
       \u0E15\u0E31\u0E27\u0E41\u0E23\u0E01\u0E40\u0E25\u0E22\u0E04\u0E37\u0E2D MaxMana
@@ -104,6 +149,7 @@ MonoBehaviour:
     subtitleOffset: {x: 0, y: -315}
     subtitleAnchor: 0
     clickAnywhereToAdvance: 1
+    typewriterSeconds: -1
     highlightTarget: 17
     highlightPadding: 0
     dimBackground: 0
@@ -111,6 +157,14 @@ MonoBehaviour:
     specialWhere: 0
     forceShowDiscardDuringStep: 0
     revertDiscardStateOnExit: 0
+    speakerShow: 1
+    speakerSprite: {fileID: -8056547234989420582, guid: bd796e6df9778de46ad06bc7124dda7f, type: 3}
+    speakerUseSlot: 1
+    speakerSlot: 0
+    speakerAnchor: 1
+    speakerOffset: {x: 0, y: -140}
+    speakerMirrorX: 0
+    speakerAlpha: 1
   - id: 
     text: "\"\u0E15\u0E31\u0E27\u0E17\u0E35\u0E48\u0E2A\u0E2D\u0E07\u0E04\u0E37\u0E2D
       MaxTilePack \u0E0B\u0E37\u0E49\u0E2D\u0E40\u0E1E\u0E34\u0E48\u0E2D\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E04\u0E27\u0E32\u0E21\u0E08\u0E38\u0E02\u0E2D\u0E07\u0E16\u0E38\u0E07\u0E15\u0E31\u0E27\u0E2D\u0E31\u0E01\u0E29\u0E23\""
@@ -120,6 +174,7 @@ MonoBehaviour:
     subtitleOffset: {x: 0, y: -315}
     subtitleAnchor: 0
     clickAnywhereToAdvance: 1
+    typewriterSeconds: -1
     highlightTarget: 18
     highlightPadding: 0
     dimBackground: 0
@@ -127,6 +182,14 @@ MonoBehaviour:
     specialWhere: 0
     forceShowDiscardDuringStep: 0
     revertDiscardStateOnExit: 0
+    speakerShow: 1
+    speakerSprite: {fileID: 2058601289022788544, guid: d1562e69a163432478565b623dc73e87, type: 3}
+    speakerUseSlot: 1
+    speakerSlot: 0
+    speakerAnchor: 1
+    speakerOffset: {x: 0, y: -140}
+    speakerMirrorX: 0
+    speakerAlpha: 1
   - id: 
     text: "\"\u0E15\u0E31\u0E27\u0E17\u0E35\u0E48\u0E2A\u0E32\u0E21\u0E04\u0E37\u0E2D
       MaxCardslot \u0E0B\u0E37\u0E49\u0E2D\u0E40\u0E1E\u0E34\u0E48\u0E2D\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E0A\u0E48\u0E2D\u0E07\u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A\u0E16\u0E37\u0E2DCard\""
@@ -136,6 +199,7 @@ MonoBehaviour:
     subtitleOffset: {x: 0, y: -315}
     subtitleAnchor: 0
     clickAnywhereToAdvance: 1
+    typewriterSeconds: -1
     highlightTarget: 19
     highlightPadding: 0
     dimBackground: 0
@@ -143,6 +207,14 @@ MonoBehaviour:
     specialWhere: 0
     forceShowDiscardDuringStep: 0
     revertDiscardStateOnExit: 0
+    speakerShow: 1
+    speakerSprite: {fileID: 2058601289022788544, guid: d1562e69a163432478565b623dc73e87, type: 3}
+    speakerUseSlot: 1
+    speakerSlot: 0
+    speakerAnchor: 1
+    speakerOffset: {x: 0, y: -140}
+    speakerMirrorX: 0
+    speakerAlpha: 1
   - id: 
     text: "\"\u0E42\u0E14\u0E22\u0E17\u0E35\u0E48\u0E17\u0E31\u0E49\u0E07 3 Upgrade
       \u0E08\u0E30\u0E21\u0E35\u0E23\u0E32\u0E04\u0E32\u0E1A\u0E2D\u0E01\u0E2D\u0E22\u0E39\u0E48
@@ -153,6 +225,7 @@ MonoBehaviour:
     subtitleOffset: {x: 0, y: -315}
     subtitleAnchor: 0
     clickAnywhereToAdvance: 1
+    typewriterSeconds: -1
     highlightTarget: 34
     highlightPadding: 0
     dimBackground: 0
@@ -160,6 +233,14 @@ MonoBehaviour:
     specialWhere: 0
     forceShowDiscardDuringStep: 0
     revertDiscardStateOnExit: 0
+    speakerShow: 1
+    speakerSprite: {fileID: 123222739785079796, guid: 575f3b8369484ed49ab82601a43dfc3c, type: 3}
+    speakerUseSlot: 1
+    speakerSlot: 0
+    speakerAnchor: 1
+    speakerOffset: {x: 0, y: -140}
+    speakerMirrorX: 0
+    speakerAlpha: 1
   - id: 
     text: "\"\u0E41\u0E25\u0E30\u0E17\u0E31\u0E49\u0E07 3 Upgrade \u0E01\u0E47\u0E08\u0E30\u0E21\u0E35\u0E08\u0E33\u0E19\u0E27\u0E19\u0E2A\u0E39\u0E07\u0E2A\u0E38\u0E14\u0E17\u0E35\u0E48\u0E0B\u0E37\u0E49\u0E2D\u0E44\u0E14\u0E49\""
     type: 1
@@ -168,6 +249,7 @@ MonoBehaviour:
     subtitleOffset: {x: 0, y: -315}
     subtitleAnchor: 0
     clickAnywhereToAdvance: 1
+    typewriterSeconds: -1
     highlightTarget: 35
     highlightPadding: 0
     dimBackground: 0
@@ -175,6 +257,14 @@ MonoBehaviour:
     specialWhere: 0
     forceShowDiscardDuringStep: 0
     revertDiscardStateOnExit: 0
+    speakerShow: 1
+    speakerSprite: {fileID: 123222739785079796, guid: 575f3b8369484ed49ab82601a43dfc3c, type: 3}
+    speakerUseSlot: 1
+    speakerSlot: 0
+    speakerAnchor: 1
+    speakerOffset: {x: 0, y: -140}
+    speakerMirrorX: 0
+    speakerAlpha: 1
   - id: 
     text: "\"\u0E15\u0E48\u0E2D\u0E21\u0E32\u0E04\u0E37\u0E2D\u0E0B\u0E37\u0E49\u0E2D
       Card \u0E0B\u0E36\u0E48\u0E07 Card \u0E1A\u0E49\u0E32\u0E07\u0E2D\u0E31\u0E19\u0E08\u0E33\u0E40\u0E1B\u0E47\u0E19\u0E17\u0E35\u0E48\u0E08\u0E30\u0E15\u0E49\u0E2D\u0E07\u0E0B\u0E37\u0E49\u0E2D\u0E01\u0E48\u0E2D\u0E19\u0E16\u0E36\u0E07\u0E08\u0E30\u0E43\u0E0A\u0E49\u0E44\u0E14\u0E49
@@ -186,6 +276,7 @@ MonoBehaviour:
     subtitleOffset: {x: 0, y: -315}
     subtitleAnchor: 0
     clickAnywhereToAdvance: 1
+    typewriterSeconds: -1
     highlightTarget: 36
     highlightPadding: 0
     dimBackground: 0
@@ -193,6 +284,14 @@ MonoBehaviour:
     specialWhere: 0
     forceShowDiscardDuringStep: 0
     revertDiscardStateOnExit: 0
+    speakerShow: 1
+    speakerSprite: {fileID: 2058601289022788544, guid: d1562e69a163432478565b623dc73e87, type: 3}
+    speakerUseSlot: 1
+    speakerSlot: 0
+    speakerAnchor: 1
+    speakerOffset: {x: 0, y: -140}
+    speakerMirrorX: 0
+    speakerAlpha: 1
   - id: 
     text: "\"\u0E2B\u0E23\u0E37\u0E2D\u0E16\u0E49\u0E32\u0E40\u0E18\u0E2D\u0E44\u0E21\u0E48\u0E1E\u0E2D\u0E43\u0E08\u0E01\u0E31\u0E1A
       Card \u0E0A\u0E38\u0E14\u0E19\u0E35\u0E49\u0E40\u0E18\u0E2D\u0E2A\u0E32\u0E21\u0E32\u0E23\u0E16\u0E01\u0E14
@@ -204,6 +303,7 @@ MonoBehaviour:
     subtitleOffset: {x: 0, y: -410}
     subtitleAnchor: 0
     clickAnywhereToAdvance: 1
+    typewriterSeconds: -1
     highlightTarget: 29
     highlightPadding: 0
     dimBackground: 0
@@ -211,6 +311,14 @@ MonoBehaviour:
     specialWhere: 0
     forceShowDiscardDuringStep: 0
     revertDiscardStateOnExit: 0
+    speakerShow: 1
+    speakerSprite: {fileID: 2058601289022788544, guid: d1562e69a163432478565b623dc73e87, type: 3}
+    speakerUseSlot: 1
+    speakerSlot: 0
+    speakerAnchor: 1
+    speakerOffset: {x: 0, y: -140}
+    speakerMirrorX: 0
+    speakerAlpha: 1
   - id: 
     text: "\"\u0E2A\u0E38\u0E14\u0E17\u0E49\u0E32\u0E22\u0E04\u0E37\u0E2D\u0E1E\u0E2D\u0E40\u0E18\u0E2D
       Upgrade \u0E40\u0E2A\u0E23\u0E47\u0E08\u0E2B\u0E21\u0E14\u0E41\u0E25\u0E49\u0E27\u0E01\u0E47\u0E01\u0E14\u0E17\u0E35\u0E48
@@ -221,6 +329,7 @@ MonoBehaviour:
     subtitleOffset: {x: 0, y: -315}
     subtitleAnchor: 0
     clickAnywhereToAdvance: 1
+    typewriterSeconds: -1
     highlightTarget: 30
     highlightPadding: 0
     dimBackground: 0
@@ -228,3 +337,11 @@ MonoBehaviour:
     specialWhere: 0
     forceShowDiscardDuringStep: 0
     revertDiscardStateOnExit: 0
+    speakerShow: 1
+    speakerSprite: {fileID: -8056547234989420582, guid: bd796e6df9778de46ad06bc7124dda7f, type: 3}
+    speakerUseSlot: 1
+    speakerSlot: 0
+    speakerAnchor: 1
+    speakerOffset: {x: 0, y: -140}
+    speakerMirrorX: 0
+    speakerAlpha: 1

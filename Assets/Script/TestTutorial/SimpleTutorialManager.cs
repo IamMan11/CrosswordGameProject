@@ -211,6 +211,19 @@ public class SimpleTutorialManager : MonoBehaviour
         RectTransform subAnchor = step.subtitleUseSlot ? MapSubtitleSlot(step.subtitleSlot)
                                                     : MapAnchor(step.subtitleAnchor);
         ui.ShowSubtitle(step.text, subAnchor, step.subtitleOffset, step.typewriterSeconds);
+        if (step.speakerShow && step.speakerSprite != null && ui != null)
+        {
+            RectTransform spAnchor = step.speakerUseSlot
+                ? MapSubtitleSlot(step.speakerSlot)   // วางตามตำแหน่ง slot เดียวกับ subtitle
+                : MapAnchor(step.speakerAnchor);      // หรือวางตาม anchor ออบเจ็กต์
+
+            ui.ShowSpeaker(step.speakerSprite, spAnchor, step.speakerOffset, step.speakerMirrorX, step.speakerAlpha);
+        }
+        else
+        {
+            // ไม่แสดงในสเต็ปนี้ (หรือไม่มีรูป) → ซ่อน
+            if (ui != null) ui.HideSpeaker();
+        }
         _blockInputUntil = Time.unscaledTime + firstStepInputBlock; // กันอินพุตค้างเฟรมแรก
         _cooldownUntil   = Time.unscaledTime;                       // รีเซ็ตคูลดาวน์
         _overlayClickQueued = false;
