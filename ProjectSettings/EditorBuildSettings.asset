@@ -20,6 +20,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/UIHistoryScene.unity
     guid: 2a1299dbfff7f8748bbeec519110962a
+  - enabled: 1
+    path: Assets/Scenes/PlayTraining.unity
+    guid: 953e0b3a87fd9744d9723ef252d7f3d8
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
   m_UseUCBPForAssetBundles: 0

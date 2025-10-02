@@ -311,7 +311,8 @@ MonoBehaviour:
   wordleYellow: {r: 1, g: 0.92, b: 0.016, a: 0.35}
   wordleRed: {r: 1, g: 0, b: 0, a: 0.35}
   wordleNone: {r: 1, g: 1, b: 1, a: 0}
-  autoDetectTarget: 1
+  autoDetectTarget: 0
+  autoArrangeFromBenchToTarget: 0
   minTargetLength: 2
 --- !u!1 &87548817
 GameObject:

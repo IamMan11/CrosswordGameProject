@@ -59,16 +59,18 @@ public class SpaceManager : MonoBehaviour
     public Color wordleYellow = new Color(1f, 0.92f, 0.016f, 0.35f);
     public Color wordleRed    = new Color(1f, 0f, 0f, 0.35f);
     public Color wordleNone   = new Color(1f, 1f, 1f, 0f); // โปร่งใส
+    [Header("Auto Target (PlayTraining)")]
+    public bool autoDetectTarget = false; // ← ปิดค่าเริ่มต้น
+    [Tooltip("เมื่อ Bench เปลี่ยน ให้ย้ายตัวอักษรจาก Bench ลง Space ซ้าย→ขวาให้ตรงกับ Training Target")]
+    public bool autoArrangeFromBenchToTarget = false;
 
     /// <summary>ฝั่ง refill เรียกทุกครั้งที่เติม "คำฝึก" ใหม่</summary>
-    public void SetTrainingTarget(string target)
+    public void SetTrainingTarget(string word, bool shuffle = true)
     {
-        trainingTarget = string.IsNullOrWhiteSpace(target) ? "" : target.Trim().ToUpperInvariant();
-        RefreshWordleColorsRealtime();
+        BenchManager.Instance?.SetTrainingTarget(word, shuffle); // สั่ง Bench เตรียมคิวรีฟิล
+        trainingTarget = string.IsNullOrWhiteSpace(word) ? "" : word.Trim().ToUpperInvariant();
+        RefreshWordleColorsRealtime(); // อัปเดตสี Wordle ทันที
     }
-    [Header("Auto Target (PlayTraining)")]
-    [Tooltip("ให้ระบบเดาเป้าหมายจากตัวที่เติม (Bench) อัตโนมัติ")]
-    public bool autoDetectTarget = true;
 
     [Tooltip("ขั้นต่ำของความยาวคำที่จะยอมรับเป็น target (กันเคสเติม 1 ตัว)")]
     public int minTargetLength = 2;
@@ -103,6 +105,78 @@ public class SpaceManager : MonoBehaviour
             discardButton.gameObject.SetActive(false);
             RefreshDiscardButton();
         }
+        if (BenchManager.Instance != null)
+            BenchManager.Instance.OnTrainingWordChanged += OnTrainingWordChanged;
+    }
+    private void OnDisable()
+    {
+        if (BenchManager.Instance != null)
+            BenchManager.Instance.OnTrainingWordChanged -= OnTrainingWordChanged;
+    }
+
+    private void OnTrainingWordChanged(string w)
+    {
+        trainingTarget = string.IsNullOrEmpty(w) ? "" : w.ToUpperInvariant();
+        RefreshWordleColorsRealtime();
+    }
+    public void ArrangeSpaceToMatchTargetFromBench()
+    {
+        if (string.IsNullOrEmpty(trainingTarget)) return;
+
+        // สร้าง “ลายเซ็น” ของ Bench เอาไว้ ถ้าไม่เปลี่ยนจะไม่ทำงานซ้ำ
+        string benchSig = BuildWordFromSlots(benchSlots);
+        if (benchSig == _lastBenchSig) return;
+        _lastBenchSig = benchSig;
+
+        // เตรียมข้อมูล
+        var target = trainingTarget.ToUpperInvariant().ToCharArray();
+        int n = Mathf.Min(target.Length, slotTransforms.Count);
+
+        // รวบรวมไทล์บน Bench
+        var benchTiles = GetAllBenchTiles();              // มีอยู่แล้วในไฟล์
+        var used = new HashSet<LetterTile>();
+
+        for (int i = 0; i < n; i++)
+        {
+            char need = target[i];
+            var slot = slotTransforms[i];
+            if (!slot) continue;
+
+            // ถ้าช่องนี้มีตัวถูกต้องแล้ว ข้าม
+            LetterTile cur = (slot.childCount > 0) ? slot.GetChild(0).GetComponent<LetterTile>() : null;
+            string curS = cur ? cur.CurrentLetter : null;
+            if (!string.IsNullOrEmpty(curS) && char.ToUpperInvariant(curS[0]) == need) continue;
+
+            // หาไทล์ที่ต้องใช้จาก Bench (ยังไม่ถูกใช้ในลูปนี้)
+            LetterTile found = null;
+            foreach (var t in benchTiles)
+            {
+                if (!t || used.Contains(t)) continue;
+                var s = t.CurrentLetter;
+                if (!string.IsNullOrEmpty(s) && char.ToUpperInvariant(s[0]) == need)
+                {
+                    found = t; break;
+                }
+            }
+            if (found == null) continue; // ยังไม่ครบ ก็ปล่อยไปก่อน
+
+            // ถ้าช่องเป้าหมายไม่ว่าง → ส่งของเดิมกลับ Bench
+            if (slot.childCount > 0)
+            {
+                var exist = slot.GetChild(0).GetComponent<LetterTile>();
+                if (exist) BenchManager.Instance?.ReturnTileToBench(exist);
+            }
+
+            // ย้ายไทล์จาก Bench ลง Space
+            found.transform.SetParent(slot, false);
+            found.transform.localPosition = Vector3.zero;
+            found.AdjustSizeToParent();
+            found.IsInSpace = true;
+            used.Add(found);
+        }
+
+        RefreshWordleColorsRealtime(); // อัปเดตสีเรียลไทม์
+        UpdateDiscardButton();
     }
 
     /* ===================== Query / Index ===================== */
@@ -120,8 +194,8 @@ public class SpaceManager : MonoBehaviour
     }
     private void LateUpdate()
     {
-        if (autoDetectTarget)
-            TryAutoDetectTrainingTarget();
+        if (autoArrangeFromBenchToTarget)
+            ArrangeSpaceToMatchTargetFromBench();
     }
     /// <summary>
     /// เดา target จาก Bench (ก่อน) ถ้า Bench ไม่มีอะไรให้ fallback จาก Space

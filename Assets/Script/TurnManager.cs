@@ -849,7 +849,8 @@ public class TurnManager : MonoBehaviour
             UiGuard.Push();
             guardPushed = true;
             // ก่อนเติมเบนช์
-            BenchManager.Instance?.PrepareForcedRefillFromWord(LastConfirmedWord);
+            var confirmedWords = correct.Select(w => w.word);
+            BenchManager.Instance?.OnBoardWordsLocked(confirmedWords);
             BenchManager.Instance.RefillEmptySlots();
 
             // เปลี่ยนชื่อกันชนกับข้อ 1

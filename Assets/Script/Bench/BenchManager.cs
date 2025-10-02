@@ -61,7 +61,8 @@ public class BenchManager : MonoBehaviour
     [SerializeField] private Vector2Int trainingWordLength = new Vector2Int(3, 7); // ความยาวคำที่จะสุ่ม
     public string CurrentTrainingWord { get; private set; } = null;
     public event System.Action<string> OnTrainingWordChanged;
-
+    private readonly HashSet<string> _usedTrainingWords =
+        new(System.StringComparer.OrdinalIgnoreCase);
 
     // -------------------- Runtime State --------------------
     private readonly Dictionary<LetterTile, Coroutine> _moving = new();
@@ -125,7 +126,17 @@ public class BenchManager : MonoBehaviour
         draggingTile = tile;
         emptyIndex = fromIndex;
     }
-    // เรียกก่อนเติม: ใส่คิวตัวอักษรของคำล่าสุด
+    public void SetTrainingTarget(string word, bool shuffle = true)
+    {
+        shuffleTrainingOrder = shuffle;
+        PrepareForcedRefillFromWord(word);
+
+        CurrentTrainingWord = string.IsNullOrWhiteSpace(word) ? null : word.Trim();
+        if (!string.IsNullOrWhiteSpace(CurrentTrainingWord))
+            _usedTrainingWords.Add(CurrentTrainingWord);   // <<< จดจำว่าคำนี้ถูกใช้แล้ว
+
+        OnTrainingWordChanged?.Invoke(CurrentTrainingWord);
+    }
     public void PrepareForcedRefillFromWord(string word)
     {
         CurrentTrainingWord = string.IsNullOrWhiteSpace(word) ? null : word.Trim();
@@ -143,6 +154,83 @@ public class BenchManager : MonoBehaviour
             var ld = ResolveLetterData(ch);
             if (ld != null) _forcedRefillQueue.Enqueue(ld);
         }
+    }
+    // BenchManager.cs
+    /// <summary>
+    /// เรียกเมื่อ "มีคำที่ถูกล็อกบนบอร์ดแล้ว"
+    /// ถ้าคำนั้นตรงกับ Training Target ปัจจุบัน → สุ่ม Target ใหม่จาก DB แล้วรีฟิล Bench ต่อ
+    /// </summary>
+    public void OnBoardWordLocked(string lockedWord)
+    {
+        if (!IsTrainingScene()) return;
+        if (string.IsNullOrWhiteSpace(lockedWord)) return;
+        if (string.IsNullOrWhiteSpace(CurrentTrainingWord)) return;
+
+        string a = lockedWord.Trim().ToUpperInvariant();
+        string b = CurrentTrainingWord.Trim().ToUpperInvariant();
+
+        if (a == b)
+        {
+            string next = PickNextTrainingWord(trainingWordLength.x, trainingWordLength.y); // <<< เปลี่ยนมาใช้แบบเลี่ยงคำซ้ำ
+            if (!string.IsNullOrWhiteSpace(next))
+            {
+                SetTrainingTarget(next, shuffle: true);
+                RefillEmptySlots();
+            }
+            else
+            {
+                Debug.LogWarning("[Training] No next word from dictionary.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// เรียกแบบส่งหลายคำพร้อมกันได้ (กรณีบนบอร์ดเกิดหลายคำจากการไขว้)
+    /// </summary>
+    public void OnBoardWordsLocked(IEnumerable<string> lockedWords)
+    {
+        if (lockedWords == null) return;
+        foreach (var w in lockedWords)
+        {
+            OnBoardWordLocked(w);
+            // ถ้าตรงคำเป้าอันเดิม เมทอดด้านบนจะตั้งคำใหม่ให้เองอยู่แล้ว
+        }
+    }
+    // สุ่มคำ “ที่ยังไม่เคยใช้” ตามช่วงความยาว; ถ้าหมดจริง ๆ จะเคลียร์ความจำแล้วสุ่มได้อีกครั้ง
+    private string GetRandomUnusedWordFromDictionary(int minLen, int maxLen)
+    {
+        var wc = WordChecker.Instance;
+        if (wc == null) return null;
+
+        // รวบรวม pool ของทุกความยาวในช่วง
+        var pool = new List<string>();
+        for (int len = Mathf.Max(1, minLen); len <= Mathf.Max(minLen, maxLen); len++)
+        {
+            var byLen = wc.GetWordsByLength(len, limit: 100000);  // ใช้แคชในหน่วยความจำอยู่แล้ว
+            if (byLen != null && byLen.Count > 0) pool.AddRange(byLen);
+        }
+
+        // ตัดคำที่เคยใช้ไปแล้ว
+        var candidates = pool.Where(w => !_usedTrainingWords.Contains(w)).ToList();
+
+        // ถ้าไม่มีเหลือ → เคลียร์ความจำเพื่ออนุญาตวนกลับ (หลีกเลี่ยงตัน)
+        if (candidates.Count == 0)
+        {
+            _usedTrainingWords.Clear();
+            candidates = pool;
+        }
+        if (candidates.Count == 0) return null;
+
+        return candidates[Random.Range(0, candidates.Count)];
+    }
+
+    // ตัวห่อเลือกคำถัดไปในโหมดเทรนนิ่ง (พยายามหลีกเลี่ยงคำซ้ำก่อน)
+    private string PickNextTrainingWord(int minLen, int maxLen)
+    {
+        string next = GetRandomUnusedWordFromDictionary(minLen, maxLen);
+        if (string.IsNullOrWhiteSpace(next))
+            next = GetRandomWordFromDictionary(minLen, maxLen); // fallback เดิม
+        return next;
     }
 
     // ใช้แทนตอนจะหยิบไทล์มาเติมแต่ละช่อง
@@ -224,7 +312,7 @@ public class BenchManager : MonoBehaviour
         if (_forcedRefillQueue.Count > 0) return;
         if (!trainingRefillFromDictionary) return;
 
-        string w = GetRandomWordFromDictionary(trainingWordLength.x, trainingWordLength.y);
+        string w = PickNextTrainingWord(trainingWordLength.x, trainingWordLength.y); // <<< ใช้อันใหม่
         if (!string.IsNullOrEmpty(w))
             PrepareForcedRefillFromWord(w);
         else
@@ -464,22 +552,28 @@ public class BenchManager : MonoBehaviour
     private void RefillImmediate()
     {
         if (letterTilePrefab == null) { Debug.LogError("[BenchManager] letterTilePrefab is null."); return; }
-        if (TileBag.Instance == null) { Debug.LogWarning("[BenchManager] TileBag.Instance is null."); return; }
+
+        // เดิม: if (TileBag.Instance == null) return;
+        // ใหม่: อนุญาตใน Training
+        if (!IsTrainingScene() && TileBag.Instance == null)
+        {
+            Debug.LogWarning("[BenchManager] TileBag.Instance is null.");
+            return;
+        }
 
         int missing = MissingToCapacity();
         if (missing <= 0) return;
 
         foreach (Transform slot in slotTransforms)
         {
-            if (missing <= 0) break;           // เติมพอแค่ขาด
-            if (slot == null) continue;
-            if (slot.childCount > 0) continue;
+            if (missing <= 0) break;
+            if (slot == null || slot.childCount > 0) continue;
 
-            var data = NextTileForRefill();
+            var data = NextTileForRefill();   // ← ใน Training จะดึงจากคิวตัวอักษรของ Target
             if (data == null) break;
 
             CreateTileInSlot(slot, data);
-            missing--;                          // นับลดลงเมื่อเติม 1 ตัว
+            missing--;
         }
     }
 
@@ -515,10 +609,10 @@ public class BenchManager : MonoBehaviour
     {
         try
         {
-            if (letterTilePrefab == null || TileBag.Instance == null)
+            if (letterTilePrefab == null || (TileBag.Instance == null && !IsTrainingScene()))
             {
                 Debug.LogWarning("[BenchManager] RefillAnimatedCo aborted (prefab/bag null)");
-                yield break; // finally จะรันและเคลียร์ให้
+                yield break;
             }
 
             if (tileSpawnAnchor == null)
@@ -608,7 +702,8 @@ public class BenchManager : MonoBehaviour
         // มือเต็มแล้ว → นับเครดิตคืนถุงแทน (ใช้สำหรับเคสจากการ์ด)
         if (MissingToCapacity() <= 0)
         {
-            TileBag.Instance?.AddExtraLetters(1);
+            if (!IsTrainingScene())
+                TileBag.Instance?.AddExtraLetters(1);
             return;
         }
 
@@ -620,7 +715,8 @@ public class BenchManager : MonoBehaviour
             foreach (var s in slotTransforms)
                 if (s != null && s.childCount == 0) { slotT = s; break; }
         }
-        if (slotT == null || TileBag.Instance == null) return;
+        if (slotT == null) return;
+        if (!IsTrainingScene() && TileBag.Instance == null) return;
 
         bool wantAnim = animateRefill && !forceImmediate && tileSpawnAnchor && letterTilePrefab;
 
@@ -652,8 +748,7 @@ public class BenchManager : MonoBehaviour
         if (TurnManager.Instance != null && TurnManager.Instance.IsScoringAnimation)
         {
             Debug.LogWarning("[BenchManager] RefillOne: scoring stuck – fallback immediate.");
-            // ตัดแอนิเมชัน เติมทันทีเพื่อให้เกมเดินต่อ
-            var data = TileBag.Instance?.DrawRandomTile();
+            var data = NextTileForRefill();          // ← ใช้คิวของ target
             if (data != null) CreateTileInSlot(slotT, data);
             yield break;
         }
@@ -663,7 +758,8 @@ public class BenchManager : MonoBehaviour
 
     private IEnumerator RefillOneAnimated(Transform slotT)
     {
-        if (slotT == null || TileBag.Instance == null || letterTilePrefab == null || tileSpawnAnchor == null)
+        if (slotT == null || letterTilePrefab == null || tileSpawnAnchor == null ||
+            (TileBag.Instance == null && !IsTrainingScene()))
             yield break;
 
         if (tileBagAnimator) tileBagAnimator.SetTrigger("Refill");
