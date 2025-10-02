@@ -97,6 +97,8 @@ public class TurnManager : MonoBehaviour
 
     [Header("Dictionary Penalty")]
     [Range(0,100)] public int dictionaryPenaltyPercent = 50;
+    [Header("Boss Damage Pop (optional)")]
+    public RectTransform hydraDamageStart;
 
     Coroutine bagTweenCo = null;
     int lastBagShown = -1;
@@ -790,7 +792,32 @@ public class TurnManager : MonoBehaviour
                 displayedTotal = penalized;
                 yield return new WaitForSecondsRealtime(0.3f);
             }
+            if (LevelManager.Instance?.GetCurrentLevelIndex() == 3 &&
+                Level3Controller.Instance != null &&
+                Level3Controller.Instance.level3_enableBoss)
+            {
+                int damageFromScore = Mathf.Max(0, displayedTotal);
+                if (damageFromScore > 0)
+                {
+                    // จุดเริ่มต้น (ถ้าไม่ได้เซ็ต จะใช้ anchorTotal)
+                    var startAnchor = hydraDamageStart != null ? hydraDamageStart : anchorTotal;
 
+                    // สร้างป็อป
+                    var dmgPop = SpawnPop(startAnchor, 0);
+                    dmgPop.SetText("-" + damageFromScore);
+                    dmgPop.SetColor(dmgPop.colorTotal);          // เขียวอ่อน / จะเปลี่ยนเป็นแดงก็ได้
+                    dmgPop.PopByDelta(damageFromScore, tier2Min, tier3Min);
+
+                    // จุดหมาย = ข้อความ HP ของบอส
+                    RectTransform hpTarget = Level3Controller.Instance.bossHpText
+                        ? Level3Controller.Instance.bossHpText.rectTransform
+                        : scoreHud; // fallback
+
+                    // บินไปหา HP แล้วค่อย "หักเลือด" (ให้รู้สึกสัมพันธ์กับ UI)
+                    yield return StartCoroutine(dmgPop.FlyTo(hpTarget, flyDur));
+                    Level3Controller.Instance.ApplyBossDamage(damageFromScore);
+                }
+            }
             // ลอยเข้าหา HUD + อัปเดต HUD ชั่วคราว
             int hudStart = Score;
             int hudTarget = hudStart + displayedTotal;
@@ -1078,6 +1105,7 @@ public class TurnManager : MonoBehaviour
 
             // เริ่มจับเวลาเมื่อคอนเฟิร์มครั้งแรก
             LevelManager.Instance?.OnFirstConfirm();
+            Level3Controller.Instance?.ArmEffects();
 
             int moveScore = 0;
             int newWordCountThisMove = 0;

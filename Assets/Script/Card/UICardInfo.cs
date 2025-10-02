@@ -15,6 +15,7 @@ public class UICardInfo : MonoBehaviour
     public TMP_Text desc;
     public TMP_Text manaText;    // "Mana: X"
     public TMP_Text usingText;   // "Using: used/max"
+    private CardData _current;
 
     [Header("Anim")]
     public float slideDur = 0.18f;
@@ -35,18 +36,14 @@ public class UICardInfo : MonoBehaviour
     {
         if (!panel || !group || data == null) return;
 
-        if (icon) icon.sprite = data.icon;
-        if (title) title.text = data.displayName;
-        if (desc) desc.text = data.description;
-
-        // ✅ เติมค่า Mana + Using
-        if (manaText) manaText.text = $"Mana: {data.Mana}";
+        _current = data; // ✅ จำตัวที่แสดงอยู่
+        if (icon)  icon.sprite   = data.icon;
+        if (title) title.text    = data.displayName;
+        if (desc)  desc.text     = data.description;
+        if (manaText)  manaText.text = $"Mana: {data.Mana}";
         if (usingText)
         {
-            int used = 0;
-            if (TurnManager.Instance != null)
-                used = TurnManager.Instance.GetUsageCount(data);
-
+            int used = (TurnManager.Instance != null) ? TurnManager.Instance.GetUsageCount(data) : 0;
             string limit = (data.maxUsagePerTurn <= 0) ? "∞" : data.maxUsagePerTurn.ToString();
             usingText.text = $"Using: {used}/{limit}";
         }
@@ -60,17 +57,22 @@ public class UICardInfo : MonoBehaviour
         if (!panel || !group) return;
         if (co != null) StopCoroutine(co);
         co = StartCoroutine(Slide(false));
+        _current = null; // ✅ ล้างเมื่อซ่อน
     }
 
     void HideImmediate()
     {
         if (!panel || !group) return;
         group.alpha = 0f;
-        var p = panel.anchoredPosition;
-        p.x = offsetX;
+        var p = panel.anchoredPosition; p.x = offsetX;
         panel.anchoredPosition = p;
         group.blocksRaycasts = false;
         group.interactable = false;
+        _current = null; // ✅ ล้างเมื่อซ่อนทันที
+    }
+    public void HideIfShowing(CardData data)
+    {
+        if (data != null && _current == data) Hide();
     }
 
     IEnumerator Slide(bool show)

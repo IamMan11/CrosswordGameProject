@@ -6075,7 +6075,6 @@ RectTransform:
   - {fileID: 297668890}
   - {fileID: 98078149}
   - {fileID: 1153837802}
-  - {fileID: 956558048}
   - {fileID: 1068498661}
   - {fileID: 1591817098}
   - {fileID: 439927135}
@@ -6089,9 +6088,11 @@ RectTransform:
   - {fileID: 1192320634}
   - {fileID: 1906547466}
   - {fileID: 250377546}
+  - {fileID: 956558048}
   - {fileID: 1914259708}
   - {fileID: 1645984076}
   - {fileID: 1363637684}
+  - {fileID: 1868956156}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -9891,7 +9892,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 503.80005, y: 435}
+  m_AnchoredPosition: {x: 770, y: 402}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &799081709
@@ -16518,6 +16519,7 @@ MonoBehaviour:
   bgmTier2At: 2
   bgmTier3At: 5
   dictionaryPenaltyPercent: 50
+  hydraDamageStart: {fileID: 250377546}
 --- !u!1 &1388610062
 GameObject:
   m_ObjectHideFlags: 0
@@ -17055,29 +17057,49 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   level3_enableBoss: 1
-  level3_bossMaxHP: 300
+  level3_bossMaxHP: 1000
   level3_criticalLength: 7
   level3_criticalBonus: 0.5
-  level3_conveyorIntervalSec: 65
+  level3_conveyorIntervalSec: 30
   level3_conveyorShift: 1
-  level3_lockWaveIntervalSec: 90
-  level3_lockCountPerWave: 6
-  level3_lockDurationSec: 25
-  level3_fieldEffectIntervalSec: 75
+  level3_lockWaveIntervalSec: 45
+  level3_lockRunsPerWave: 4
+  level3_lockRunLength: 5
+  level3_lockAllowHorizontal: 1
+  level3_lockAllowVertical: 1
+  level3_lockDurationSec: 45
+  level3_lockSafeZoneWidth: 3
+  level3_lockSafeZoneHeight: 3
+  level3_fieldEffectIntervalSec: 90
   level3_fieldEffectDurationSec: 30
   level3_zoneSize: 4
-  level3_zonesPerType: 1
-  level3_deleteActionIntervalSec: 50
+  level3_zonesPerType: 2
+  level3_zoneBuffColor: {r: 0.25, g: 0.9, b: 1, a: 0.28}
+  level3_zoneDebuffColor: {r: 1, g: 0.45, b: 0.1, a: 0.28}
+  randomDeletionsEnabled: 1
+  level3_deleteActionIntervalSec: 30
   level3_deleteBoardCount: 2
+  level3_deleteLettersCooldownSec: 10
   level3_deleteBenchCount: 2
-  level3_deleteLettersCooldownSec: 20
-  level3_deleteCardsCooldownSec: 35
-  level3_cardSlotLockDurationSec: 20
+  level3_cardSlotLockDurationSec: 30
+  level3_deleteCardsCooldownSec: 30
+  level3_deleteBenchCooldownSec: 5
   level3_phaseChangeHPPercent: 0.5
   level3_phaseTimeBonusSec: 450
   level3_sprintHPPercent: 0.25
   level3_sprintRemainingSec: 180
   bossHpText: {fileID: 1720620201}
+  level3_lockOverlayColor: {r: 0, g: 0, b: 0, a: 0.55}
+  vanishLockOrientation: 0
+  vanishExpandRightOrBottomFirst: 1
+  damagePopPrefab: {fileID: 5345666862900907408, guid: 990d52b15ea48b443ba82f0c416825f1, type: 3}
+  damageStartAnchor: {fileID: 250377546}
+  bossImage: {fileID: 1868956157}
+  bossIdle: {fileID: -5233005295852019085, guid: 5a05b29658cc7524a83965d73ab96983, type: 3}
+  bossCast: {fileID: -2545667547925191845, guid: 4f58ea5a9a5ecbd42a0dda8fba152c82, type: 3}
+  bossHurt: {fileID: 1083804429095897585, guid: 1a268f9f204ba8b42b9c1ce5cccb8f48, type: 3}
+  bossHurtHoldSec: 0.5
+  bossCastTelegraphSec: 0.6
   puzzleCheckPeriod: 0.5
 --- !u!1 &1448598807
 GameObject:
@@ -19045,7 +19067,6 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 57858569}
-  - {fileID: 1759591835}
   m_Father: {fileID: 420713075}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -19795,41 +19816,6 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
---- !u!1 &1663454666
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1663454667}
-  m_Layer: 0
-  m_Name: HighlightLayer
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!224 &1663454667
-RectTransform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1663454666}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1759591835}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
-  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1667075422
 GameObject:
   m_ObjectHideFlags: 0
@@ -20567,8 +20553,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 490, y: 490}
-  m_SizeDelta: {x: 200, y: 50}
+  m_AnchoredPosition: {x: 513.4807, y: 402}
+  m_SizeDelta: {x: 300, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1720620201
 MonoBehaviour:
@@ -20590,7 +20576,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: New Text
+  m_text: 'Hydra HP: 1000/1000'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -20617,13 +20603,13 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 36
-  m_fontSizeBase: 36
+  m_fontSize: 26
+  m_fontSizeBase: 26
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 0
+  m_fontStyle: 1
   m_HorizontalAlignment: 1
   m_VerticalAlignment: 256
   m_textAlignment: 65535
@@ -21201,51 +21187,6 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0e1a91caf3ae973418e92fcd07ec80d6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
---- !u!1 &1759591834
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1759591835}
-  - component: {fileID: 1759591836}
-  m_Layer: 0
-  m_Name: HUD Highlighter
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1759591835
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1759591834}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 645.3582, y: -217.7739, z: -2.344894}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1663454667}
-  m_Father: {fileID: 1599118673}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1759591836
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1759591834}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8a6bf6c571db10c46af6719c57e62c0f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!1 &1770465584
@@ -22002,7 +21943,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 100, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1824956432
@@ -22059,8 +22000,8 @@ MonoBehaviour:
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 1
-  m_HorizontalAlignment: 1
-  m_VerticalAlignment: 256
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_wordSpacing: 0
@@ -22375,6 +22316,81 @@ CanvasRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1839910130}
+  m_CullTransparentMesh: 1
+--- !u!1 &1868956155
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1868956156}
+  - component: {fileID: 1868956158}
+  - component: {fileID: 1868956157}
+  m_Layer: 5
+  m_Name: BossImage
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1868956156
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1868956155}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 420713075}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 513.48, y: 175}
+  m_SizeDelta: {x: 300, y: 300}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1868956157
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1868956155}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 0}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &1868956158
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1868956155}
   m_CullTransparentMesh: 1
 --- !u!1 &1877182403
 GameObject:
@@ -26216,6 +26232,10 @@ PrefabInstance:
     - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
       propertyPath: cardsFolder_Test
       value: Card_Test
+      objectReference: {fileID: 0}
+    - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
+      propertyPath: slots.Array.size
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8622597145991708261, guid: 51ed0836b73a2e74ab9e277ab626b14e, type: 3}
       propertyPath: useTestInThisScene

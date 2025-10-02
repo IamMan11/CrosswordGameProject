@@ -227,7 +227,7 @@ public class LevelManager : MonoBehaviour
             level2_triangleComplete = Level2Controller.Instance.IsTriangleComplete();
             if (prev != level2_triangleLinkedCount) LevelTaskUI.I?.Refresh();
         }
-                // ===== Level 3 tick =====
+        // ===== Level 3 tick =====
         if (currentLevelConfig?.levelIndex == 3 && level3 != null)
             level3.Tick(Time.unscaledDeltaTime);
 
@@ -430,14 +430,19 @@ public class LevelManager : MonoBehaviour
             SceneTransitioner.LoadScene(shopSceneName); // <- เดิมเคยใช้ SceneManager.LoadScene
         });
     }
-
-
     private bool CheckWinConditions(LevelConfig cfg)
     {
         if (isGameOver || TurnManager.Instance == null || cfg == null) return false;
 
+        // ✅ ด่าน 3: ชนะเมื่อบอสตาย
+        if (cfg.levelIndex == 3 && Level3Controller.Instance != null &&
+            Level3Controller.Instance.level3_enableBoss)
+        {
+            return Level3Controller.Instance.IsBossDefeated();
+        }
+
         int score = TurnManager.Instance.Score;
-        int words = TurnManager.Instance.UniqueWordsThisLevel; // <-- เปลี่ยนมาใช้ตัวนี้
+        int words = TurnManager.Instance.UniqueWordsThisLevel;
 
         bool baseOK = score >= cfg.requiredScore && words >= cfg.requiredWords;
         if (!baseOK) return false;
@@ -451,6 +456,7 @@ public class LevelManager : MonoBehaviour
 
         return true;
     }
+
     public (int linked, int total) GetTriangleLinkProgress()
     {
         var c = Level2Controller.Instance;
@@ -614,7 +620,7 @@ public class LevelManager : MonoBehaviour
         if (bm.grid[b.x, b.y] == null || !bm.grid[b.x, b.y].HasLetterTile()) return false;
 
         q.Enqueue(a); vis[a.x, a.y] = true;
-        int[] dr = {-1,1,0,0}; int[] dc = {0,0,-1,1};
+        int[] dr = { -1, 1, 0, 0 }; int[] dc = { 0, 0, -1, 1 };
 
         while (q.Count > 0)
         {
@@ -623,7 +629,7 @@ public class LevelManager : MonoBehaviour
             {
                 int nr = cur.x + dr[k], nc = cur.y + dc[k];
                 if (nr < 0 || nr >= bm.rows || nc < 0 || nc >= bm.cols) continue;
-                if (vis[nr,nc]) continue;
+                if (vis[nr, nc]) continue;
                 var s = bm.grid[nr, nc];
                 if (s == null || !s.HasLetterTile()) continue;
 
@@ -642,7 +648,7 @@ public class LevelManager : MonoBehaviour
         for (int r = 0; r < bm.rows; r++)
             for (int c = 0; c < bm.cols; c++)
             {
-                var s = bm.grid[r,c];
+                var s = bm.grid[r, c];
                 if (s != null && s.HasLetterTile())
                 {
                     var t = s.GetLetterTile();
@@ -679,11 +685,11 @@ public class LevelManager : MonoBehaviour
 
         // โชว์ป๊อปอัปแพ้ใต้ Canvas หลัก (เหมือน StageClear)
         var panel = StageFailPanel.Instance
-        #if UNITY_2023_1_OR_NEWER
+#if UNITY_2023_1_OR_NEWER
             ?? UnityEngine.Object.FindFirstObjectByType<StageFailPanel>(FindObjectsInactive.Include);
-        #else
+#else
             ?? FindObjectOfType<StageFailPanel>(true);
-        #endif
+#endif
         if (panel) panel.Show("Stage Fail", "กลับสู่เมนูหลัก?");
         else
         {
@@ -691,4 +697,31 @@ public class LevelManager : MonoBehaviour
             PauseManager.I?.Btn_ReturnToMainMenu();
         }
     }
+    // LevelManager.cs (ภายในคลาส)
+    public void TriggerStageClearNow()
+    {
+        if (isGameOver) return;
+
+        // ถ้ากำลังเล่นอนิเมชันคิดคะแนนอยู่ ให้รอจบก่อน
+        if (TurnManager.Instance != null && TurnManager.Instance.IsScoringAnimation)
+        {
+            StartCoroutine(WaitScoreThenClear());
+            return;
+        }
+
+        ShowStageClearAndShop(currentLevelConfig);
+    }
+
+    private IEnumerator WaitScoreThenClear()
+    {
+        // กันค้างนิรันดร์ด้วย timeout เบาๆ
+        float t = 0f, timeout = 5f;
+        while ((TurnManager.Instance?.IsScoringAnimation ?? false) && t < timeout)
+        {
+            t += Time.unscaledDeltaTime;
+            yield return null;
+        }
+        ShowStageClearAndShop(currentLevelConfig);
+    }
+
 }
