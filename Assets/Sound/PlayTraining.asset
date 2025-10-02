@@ -1,0 +1,92 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2e9ec7c099938440979fb7de0db4129, type: 3}
+  m_Name: PlayTraining
+  m_EditorClassIdentifier: 
+  sceneName: PlayTraining
+  bgmBase: {fileID: 8300000, guid: 49b90459eae1ec54c86afa026c85c60f, type: 3}
+  bgmMid: {fileID: 8300000, guid: 1ca1f645f0755b84db60b61e0b9c7c22, type: 3}
+  bgmHigh: {fileID: 8300000, guid: 8af02e3592ce4384e886d647c782fce7, type: 3}
+  bgmLocalGain: 1
+  sfxBank:
+  - id: 0
+    clips:
+    - {fileID: 8300000, guid: 10de02119870dc441975378c55f214c2, type: 3}
+    volume: 1
+    pitch: {x: 0.98, y: 1.1}
+    cooldown: 0
+  - id: 1
+    clips:
+    - {fileID: 8300000, guid: ac3a4c116b984994db651d3ee5e0876c, type: 3}
+    volume: 1
+    pitch: {x: 0.98, y: 1.1}
+    cooldown: 0
+  - id: 2
+    clips:
+    - {fileID: 8300000, guid: 10de02119870dc441975378c55f214c2, type: 3}
+    volume: 1
+    pitch: {x: 0.98, y: 1.1}
+    cooldown: 0
+  - id: 3
+    clips:
+    - {fileID: 8300000, guid: 1871c2c0bbcc4e94ebbaae2d452318f5, type: 3}
+    volume: 1
+    pitch: {x: 0.98, y: 1.1}
+    cooldown: 0
+  - id: 4
+    clips:
+    - {fileID: 8300000, guid: 51cb60f64cbfa5e48863d7a524c58cb2, type: 3}
+    volume: 1
+    pitch: {x: 1, y: 1}
+    cooldown: 0
+  - id: 5
+    clips:
+    - {fileID: 8300000, guid: e0cdc680c2ff93e44bbd7a7d732283ae, type: 3}
+    volume: 1
+    pitch: {x: 1, y: 1}
+    cooldown: 0
+  - id: 6
+    clips:
+    - {fileID: 8300000, guid: 117e288f256221346845f3bfa5685118, type: 3}
+    volume: 2
+    pitch: {x: 1, y: 1}
+    cooldown: 0
+  - id: 7
+    clips:
+    - {fileID: 8300000, guid: 5742b115cae335a4f8ff9067d643e035, type: 3}
+    volume: 1
+    pitch: {x: 1, y: 1}
+    cooldown: 0
+  - id: 8
+    clips:
+    - {fileID: 8300000, guid: 6229300f1c86f1246ab241d177ae348d, type: 3}
+    volume: 1
+    pitch: {x: 0.98, y: 1.1}
+    cooldown: 0
+  - id: 9
+    clips:
+    - {fileID: 8300000, guid: 5742b115cae335a4f8ff9067d643e035, type: 3}
+    volume: 2
+    pitch: {x: 0.98, y: 1.1}
+    cooldown: 0
+  - id: 10
+    clips:
+    - {fileID: 8300000, guid: ec45ea99d90f4394c87ad4e83863d4e4, type: 3}
+    volume: 1
+    pitch: {x: 1, y: 1}
+    cooldown: 0
+  - id: 11
+    clips:
+    - {fileID: 8300000, guid: 468a164073e293c48bb33fb42304a4d0, type: 3}
+    volume: 1
+    pitch: {x: 1, y: 1}
+    cooldown: 0

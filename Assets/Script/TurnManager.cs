@@ -848,6 +848,8 @@ public class TurnManager : MonoBehaviour
             EndScoreSequence();
             UiGuard.Push();
             guardPushed = true;
+            // ก่อนเติมเบนช์
+            BenchManager.Instance?.PrepareForcedRefillFromWord(LastConfirmedWord);
             BenchManager.Instance.RefillEmptySlots();
 
             // เปลี่ยนชื่อกันชนกับข้อ 1

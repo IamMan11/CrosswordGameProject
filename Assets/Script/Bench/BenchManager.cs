@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using System.Linq;
 
 public class BenchManager : MonoBehaviour
 {
@@ -50,6 +52,16 @@ public class BenchManager : MonoBehaviour
 
     [Tooltip("ระยะยกสูงจาก anchor (พิกัด local Y)")]
     public float spawnHoverHeight = 80f;
+    [Header("Training Refill")]
+    [SerializeField] private bool enableTrainingRefillInThisScene = false;  // เปิดใช้ในซีน Training เท่านั้น
+    [SerializeField] private bool shuffleTrainingOrder = true;              // อยากให้สลับลำดับตัวอักษรไหม
+    private readonly Queue<LetterData> _forcedRefillQueue = new();
+    [Header("Training Refill Options")]
+    [SerializeField] private bool trainingRefillFromDictionary = true;
+    [SerializeField] private Vector2Int trainingWordLength = new Vector2Int(3, 7); // ความยาวคำที่จะสุ่ม
+    public string CurrentTrainingWord { get; private set; } = null;
+    public event System.Action<string> OnTrainingWordChanged;
+
 
     // -------------------- Runtime State --------------------
     private readonly Dictionary<LetterTile, Coroutine> _moving = new();
@@ -75,6 +87,7 @@ public class BenchManager : MonoBehaviour
 
     private void Start()
     {
+        if (IsTrainingScene()) SeedTrainingWordIfNeeded();
         RefillEmptySlots(); // ตัวแรกๆ ตอนเริ่มเกม
     }
 
@@ -111,6 +124,142 @@ public class BenchManager : MonoBehaviour
     {
         draggingTile = tile;
         emptyIndex = fromIndex;
+    }
+    // เรียกก่อนเติม: ใส่คิวตัวอักษรของคำล่าสุด
+    public void PrepareForcedRefillFromWord(string word)
+    {
+        CurrentTrainingWord = string.IsNullOrWhiteSpace(word) ? null : word.Trim();
+        OnTrainingWordChanged?.Invoke(CurrentTrainingWord);
+        _forcedRefillQueue.Clear();
+        if (!IsTrainingScene()) return;
+        if (string.IsNullOrWhiteSpace(word)) return;
+
+        var chars = word.Trim().ToLower().ToCharArray().ToList();
+        if (shuffleTrainingOrder)
+            chars = chars.OrderBy(_ => Random.value).ToList();
+
+        foreach (var ch in chars)
+        {
+            var ld = ResolveLetterData(ch);
+            if (ld != null) _forcedRefillQueue.Enqueue(ld);
+        }
+    }
+
+    // ใช้แทนตอนจะหยิบไทล์มาเติมแต่ละช่อง
+    private LetterData NextTileForRefill()
+    {
+        if (IsTrainingScene())
+        {
+            // ใช้ตัวอักษรจากคิวคำ “แค่จำนวนความยาวคำ” เท่านั้น
+            if (_forcedRefillQueue.Count > 0)
+                return CloneLetterData(_forcedRefillQueue.Dequeue());
+
+            // ✅ คิวหมดแล้วในโหมด Training → หยุดเติม (คืน null ให้ refill break)
+            return null;
+        }
+
+        // โหมดปกติ เติมจากถุงตามเดิม
+        return TileBag.Instance?.DrawRandomTile();
+    }
+
+    // ตรวจว่าอยู่ใน PlayTraining หรือเปิด flag ไว้
+    private bool IsTrainingScene()
+    {
+        if (enableTrainingRefillInThisScene) return true;
+        var sn = SceneManager.GetActiveScene().name;
+        return string.Equals(sn, "PlayTraining", System.StringComparison.OrdinalIgnoreCase);
+    }
+
+    // แปลง char → LetterData (พยายามดึงจากฐานข้อมูลก่อน ถ้าไม่ได้ ค่อยหา template จากถุง)
+    private LetterData ResolveLetterData(char c)
+    {
+        char lowerC = char.ToLowerInvariant(c);
+
+        // 1) จาก LetterDatabaseLoader (มี sprite/score ตามฐานข้อมูล)
+        var db = LetterDatabaseLoader.Instance;
+        if (db != null && db.allLetters != null && db.allLetters.Count > 0)
+        {
+            // ใช้ ToString() เสมอ แล้วหยิบตัวแรกเพื่อรองรับทั้ง char และ string
+            var hit = db.allLetters.FirstOrDefault(x =>
+            {
+                var s = x.letter?.ToString();             // ปลอดภัยทั้งกรณี char/string
+                return !string.IsNullOrEmpty(s) && char.ToLowerInvariant(s[0]) == lowerC;
+            });
+            if (hit != null) return CloneLetterData(hit);
+        }
+
+        // 2) จาก template ในถุง
+        var tb = TileBag.Instance;
+        if (tb != null && tb.initialLetters != null)
+        {
+            var t = tb.initialLetters.FirstOrDefault(x =>
+            {
+                if (x == null || x.data == null) return false;
+                var s = x.data.letter?.ToString();
+                return !string.IsNullOrEmpty(s) && char.ToLowerInvariant(s[0]) == lowerC;
+            })?.data;
+
+            if (t != null) return CloneLetterData(t);
+        }
+
+        Debug.LogWarning($"[TrainingRefill] Cannot resolve LetterData for '{c}'");
+        return null;
+    }
+
+    private LetterData CloneLetterData(LetterData src)
+    {
+        if (src == null) return null;
+        return new LetterData
+        {
+            letter = src.letter,
+            sprite = src.sprite,
+            score = src.score,
+            isSpecial = false
+        };
+    }
+    // เรียกเมื่ออยู่ใน Training และคิวว่าง → ใส่คำจากดิกชันนารี 1 คำเข้าคิว
+    private void SeedTrainingWordIfNeeded()
+    {
+        if (!IsTrainingScene()) return;
+        if (_forcedRefillQueue.Count > 0) return;
+        if (!trainingRefillFromDictionary) return;
+
+        string w = GetRandomWordFromDictionary(trainingWordLength.x, trainingWordLength.y);
+        if (!string.IsNullOrEmpty(w))
+            PrepareForcedRefillFromWord(w);
+        else
+            Debug.LogWarning("[TrainingRefill] No word found in dictionary to seed.");
+    }
+
+    // พยายามดึงคำแบบสุ่มจาก WordChecker
+    private string GetRandomWordFromDictionary(int minLen, int maxLen)
+    {
+        var wc = WordChecker.Instance;
+        if (wc == null) return null;
+
+        // รองรับได้หลายชื่อเมธอด (เลือกอันที่มีอยู่จริงในโปรเจ็กต์คุณ)
+        // 1) ถ้ามีเมธอด GetRandomValidWord(min,max)
+        try {
+            return wc.GetRandomValidWord(minLen, maxLen);
+        } catch {}
+
+        // 2) หรือถ้ามี List<string> words ให้เราเลือกเอง
+        try {
+            var wordsField = wc.GetType().GetField("allWords");
+            if (wordsField != null)
+            {
+                var list = wordsField.GetValue(wc) as System.Collections.Generic.List<string>;
+                if (list != null)
+                {
+                    var pool = list.Where(s => !string.IsNullOrEmpty(s) &&
+                                            s.Length >= minLen && s.Length <= maxLen).ToList();
+                    if (pool.Count > 0)
+                        return pool[UnityEngine.Random.Range(0, pool.Count)];
+                }
+            }
+        } catch {}
+
+        return null;
     }
 
     public void EnsureEmptyAt(Transform targetSlot)
@@ -285,6 +434,8 @@ public class BenchManager : MonoBehaviour
     {
         if (!CanAutoRefill()) return;
 
+        if (IsTrainingScene()) SeedTrainingWordIfNeeded();
+
         int missing = MissingToCapacity();
         if (missing <= 0) return; // มือเต็มแล้ว ไม่ต้องเติม
 
@@ -324,7 +475,7 @@ public class BenchManager : MonoBehaviour
             if (slot == null) continue;
             if (slot.childCount > 0) continue;
 
-            var data = TileBag.Instance.DrawRandomTile();
+            var data = NextTileForRefill();
             if (data == null) break;
 
             CreateTileInSlot(slot, data);
@@ -398,7 +549,7 @@ public class BenchManager : MonoBehaviour
                 if (!CanAutoRefill()) { _refillCo = null; yield break; }
                 if (filled >= missing) break;
 
-                var data = TileBag.Instance.DrawRandomTile();
+                var data = NextTileForRefill();
                 if (data == null) break;
 
                 // (โค้ดสร้าง go/tile + hover + FlyTo เดิมตามที่มีอยู่)
@@ -453,6 +604,7 @@ public class BenchManager : MonoBehaviour
     {
         if (!CanAutoRefill()) return;
 
+        if (IsTrainingScene()) SeedTrainingWordIfNeeded();
         // มือเต็มแล้ว → นับเครดิตคืนถุงแทน (ใช้สำหรับเคสจากการ์ด)
         if (MissingToCapacity() <= 0)
         {
@@ -482,7 +634,7 @@ public class BenchManager : MonoBehaviour
         if (wantAnim) StartCoroutine(RefillOneAnimated(slotT));
         else
         {
-            var data = TileBag.Instance.DrawRandomTile();
+            var data = NextTileForRefill();
             if (data == null) return;
             CreateTileInSlot(slotT, data);
         }
@@ -516,7 +668,7 @@ public class BenchManager : MonoBehaviour
 
         if (tileBagAnimator) tileBagAnimator.SetTrigger("Refill");
 
-        var data = TileBag.Instance.DrawRandomTile();
+        var data = NextTileForRefill();
         if (data == null) yield break;
 
         var go = Instantiate(letterTilePrefab, tileSpawnAnchor, false);

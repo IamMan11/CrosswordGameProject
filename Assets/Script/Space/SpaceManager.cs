@@ -50,6 +50,32 @@ public class SpaceManager : MonoBehaviour
     [Tooltip("ชื่อ Trigger บน Animator ของไทล์")]
     public string triggerKick = "Kick";
     public string triggerDiscard = "Discard";
+    [Header("Wordle Colors (PlayTraining)")]
+    [Tooltip("คำเป้าหมายสำหรับตรวจ (UPPERCASE) — จะถูกตั้งจาก refill ทุกครั้ง")]
+    public string trainingTarget = "";
+
+    [Tooltip("สี เขียว/เหลือง/แดง สำหรับ Wordle")]
+    public Color wordleGreen  = new Color(0f, 1f, 0f, 0.35f);
+    public Color wordleYellow = new Color(1f, 0.92f, 0.016f, 0.35f);
+    public Color wordleRed    = new Color(1f, 0f, 0f, 0.35f);
+    public Color wordleNone   = new Color(1f, 1f, 1f, 0f); // โปร่งใส
+
+    /// <summary>ฝั่ง refill เรียกทุกครั้งที่เติม "คำฝึก" ใหม่</summary>
+    public void SetTrainingTarget(string target)
+    {
+        trainingTarget = string.IsNullOrWhiteSpace(target) ? "" : target.Trim().ToUpperInvariant();
+        RefreshWordleColorsRealtime();
+    }
+    [Header("Auto Target (PlayTraining)")]
+    [Tooltip("ให้ระบบเดาเป้าหมายจากตัวที่เติม (Bench) อัตโนมัติ")]
+    public bool autoDetectTarget = true;
+
+    [Tooltip("ขั้นต่ำของความยาวคำที่จะยอมรับเป็น target (กันเคสเติม 1 ตัว)")]
+    public int minTargetLength = 2;
+
+    // เก็บลายเซ็นล่าสุดเพื่อรู้ว่า Bench/Space เปลี่ยนจริงไหม
+    private string _lastBenchSig = "";
+    private string _lastSpaceSig = "";
     Animator GetTileAnimator(LetterTile t)
     {
         if (!t) return null;
@@ -91,6 +117,63 @@ public class SpaceManager : MonoBehaviour
         foreach (var t in slotTransforms)
             if (t != null && t.childCount == 0) return t;
         return null;
+    }
+    private void LateUpdate()
+    {
+        if (autoDetectTarget)
+            TryAutoDetectTrainingTarget();
+    }
+    /// <summary>
+    /// เดา target จาก Bench (ก่อน) ถ้า Bench ไม่มีอะไรให้ fallback จาก Space
+    /// - เอาตัวอักษรจากซ้าย→ขวา ข้ามช่องว่าง
+    /// - จะยอมรับคำใหม่เมื่อแตกต่างจากครั้งก่อนและยาวพอ
+    /// </summary>
+    public void TryAutoDetectTrainingTarget()
+    {
+        // 1) จาก Bench ก่อน
+        string benchWord = BuildWordFromSlots(benchSlots);
+        if (!string.Equals(benchWord, _lastBenchSig, System.StringComparison.Ordinal))
+        {
+            _lastBenchSig = benchWord;
+            if (!string.IsNullOrEmpty(benchWord) && benchWord.Length >= minTargetLength)
+            {
+                SetTrainingTarget(benchWord);          // ✅ เซ็ต target จาก Bench
+                return;                                // จบเลย (Bench มีความสำคัญกว่า)
+            }
+        }
+
+        // 2) ถ้า Bench ไม่ได้คำที่ใช้ได้ ลอง Space แทน
+        string spaceWord = BuildWordFromSlots(slotTransforms);
+        if (!string.Equals(spaceWord, _lastSpaceSig, System.StringComparison.Ordinal))
+        {
+            _lastSpaceSig = spaceWord;
+            if (!string.IsNullOrEmpty(spaceWord) && spaceWord.Length >= minTargetLength)
+            {
+                SetTrainingTarget(spaceWord);          // ✅ เซ็ต target จาก Space (fallback)
+            }
+        }
+    }
+
+    /// <summary>ต่อคำจากรายการช่องซ้าย→ขวา (ข้ามช่องว่าง)</summary>
+    private string BuildWordFromSlots(List<Transform> slots)
+    {
+        if (slots == null) return "";
+        System.Text.StringBuilder sb = new System.Text.StringBuilder(32);
+
+        for (int i = 0; i < slots.Count; i++)
+        {
+            var slot = slots[i];
+            if (slot == null || slot.childCount == 0) continue;
+
+            var t = slot.GetChild(0).GetComponent<LetterTile>();
+            if (!t) continue;
+
+            var s = t.CurrentLetter; // ใช้ property ที่คุณมีอยู่แล้ว
+            if (!string.IsNullOrEmpty(s))
+                sb.Append(char.ToUpperInvariant(s[0]));
+        }
+
+        return sb.ToString();
     }
 
     /// <summary>คืน Transform ของช่องว่างปัจจุบัน (emptyIndex)</summary>
@@ -273,7 +356,7 @@ public class SpaceManager : MonoBehaviour
                 tile.transform.localPosition = Vector3.zero;
                 tile.AdjustSizeToParent();
                 tile.IsInSpace = true;
-
+                RefreshWordleColorsRealtime();
                 UpdateDiscardButton();
                 return true;
             }
@@ -300,8 +383,139 @@ public class SpaceManager : MonoBehaviour
 
         if (debug && tile.GetData() != null)
             Debug.Log($"[Space] return '{tile.GetData().letter}' to Bench");
-
+        RefreshWordleColorsRealtime();
         UpdateDiscardButton();
+    }
+    /// <summary>รีเซ็ตสีทั้งหมดของช่อง</summary>
+    void ClearAllSlotColors()
+    {
+        foreach (var slot in slotTransforms)
+        {
+            if (!slot) continue;
+            var ss = slot.GetComponent<SpaceSlot>();
+            if (ss) ss.ClearStateColor();
+        }
+    }
+
+    /// <summary>
+    /// คำนวณสี Wordle ให้ "แต่ละช่อง Space" แบบเรียลไทม์
+    /// - ถ้ามีการลากอยู่: จะพรีวิวว่าตัวที่ลากจะไปอยู่ที่ emptyIndex (ตำแหน่งช่องว่างปัจจุบัน)
+    /// - สีลงที่ SpaceSlot (Image) ไม่ยุ่งกับ LetterTile
+    /// </summary>
+    public void RefreshWordleColorsRealtime()
+    {
+        // ยังไม่กำหนดคำเป้าหมาย → ลบสีทั้งหมด
+        if (string.IsNullOrEmpty(trainingTarget))
+        {
+            ClearAllSlotColors();
+            return;
+        }
+
+        var target = trainingTarget.ToCharArray();
+        int T = target.Length;
+
+        int N = slotTransforms.Count;
+        var letters = new char[N]; // ตัวอักษรใน Space ต่อช่อง
+        for (int i = 0; i < N; i++)
+            letters[i] = '\0';
+
+        // อ่านตัวอักษรจากแต่ละช่อง (ถ้ามีไทล์)
+        for (int i = 0; i < N; i++)
+        {
+            var slot = slotTransforms[i];
+            if (slot && slot.childCount > 0)
+            {
+                var t = slot.GetChild(0).GetComponent<LetterTile>();
+                var s = t ? t.CurrentLetter : "";
+                letters[i] = string.IsNullOrEmpty(s) ? '\0' : char.ToUpperInvariant(s[0]);
+            }
+        }
+
+        // ถ้ากำลังลากอยู่ → พรีวิวว่า tile จะไปลงที่ emptyIndex
+        if (draggingTile != null && emptyIndex >= 0 && emptyIndex < N)
+        {
+            var s = draggingTile.CurrentLetter;
+            char ch = string.IsNullOrEmpty(s) ? '\0' : char.ToUpperInvariant(s[0]);
+            letters[emptyIndex] = ch; // ✅ สมมุติชั่วคราวเพื่อพรีวิวสี
+        }
+
+        // เตรียมความถี่ของ target
+        var remain = new System.Collections.Generic.Dictionary<char, int>();
+        for (int i = 0; i < T; i++)
+        {
+            char ch = target[i];
+            if (!remain.ContainsKey(ch)) remain[ch] = 0;
+            remain[ch]++;
+        }
+
+        // Pass 1: เขียวก่อน
+        var state = new int[N]; // 0=none, 1=green, 2=yellow, 3=red
+        for (int i = 0; i < N; i++)
+        {
+            char ch = letters[i];
+            if (ch == '\0') { state[i] = 0; continue; }
+
+            if (i < T && ch == target[i])
+            {
+                state[i] = 1;
+                remain[ch] = Mathf.Max(0, remain[ch] - 1);
+            }
+        }
+
+        // Pass 2: เหลือง/แดง
+        for (int i = 0; i < N; i++)
+        {
+            if (state[i] == 1) continue; // เขียวแล้ว
+
+            char ch = letters[i];
+            if (ch == '\0')
+            {
+                ApplySlotColor(i, wordleNone);
+                continue;
+            }
+
+            if (i >= T)
+            {
+                ApplySlotColor(i, wordleRed);
+                state[i] = 3;
+                continue;
+            }
+
+            if (remain.TryGetValue(ch, out int left) && left > 0)
+            {
+                ApplySlotColor(i, wordleYellow);
+                remain[ch] = left - 1;
+                state[i] = 2;
+            }
+            else
+            {
+                ApplySlotColor(i, wordleRed);
+                state[i] = 3;
+            }
+        }
+
+        // ช่องที่เป็นเขียวใน pass 1 → ลงสีตอนท้าย (กันโดนทับ)
+        for (int i = 0; i < N; i++)
+        {
+            if (state[i] == 1) ApplySlotColor(i, wordleGreen);
+            else if (state[i] == 0) ApplySlotColor(i, wordleNone);
+        }
+    }
+
+    void ApplySlotColor(int index, Color c)
+    {
+        if (index < 0 || index >= slotTransforms.Count) return;
+        var slot = slotTransforms[index];
+        if (!slot) return;
+
+        var ss = slot.GetComponent<SpaceSlot>();
+        if (ss) ss.SetStateColor(c);
+        // ถ้าไม่ได้ใส่ SpaceSlot ไว้ทุกตัว: รองรับกรณีมี Image อยู่บน slot ตรง ๆ
+        else
+        {
+            var img = slot.GetComponent<Image>();
+            if (img) img.color = c;
+        }
     }
 
     /* ===================== Query tiles ===================== */

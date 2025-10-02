@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 /// <summary>
 /// SpaceSlot
@@ -9,12 +10,27 @@ using UnityEngine.EventSystems;
 [DisallowMultipleComponent]
 public class SpaceSlot : MonoBehaviour, IDropHandler, IPointerEnterHandler
 {
+    [Header("BG Color")]
+    [SerializeField] private Image bg;                    // ✅ ใส่ Image ของพื้นช่อง
+    [SerializeField] private Color defaultBg = new(1,1,1,0f);
     /// <summary>เมื่อเมาส์โฮเวอร์ระหว่างลาก ให้ SpaceManager จำตำแหน่งช่องเพื่อขยับ</summary>
+    public void SetStateColor(Color c)
+    {
+        if (bg) bg.color = c;
+    }
+
+    public void ClearStateColor()
+    {
+        if (bg) bg.color = defaultBg;
+    }
     public void OnPointerEnter(PointerEventData eventData)
     {
         var sm = SpaceManager.Instance;
         if (sm != null && sm.draggingTile != null)
+        {
             sm.OnHoverSlot(transform);
+            sm.RefreshWordleColorsRealtime();   // ✅ เรียกเมื่อกำลังลากจริงเท่านั้น
+        }
     }
 
     /// <summary>เมื่อปล่อยไทล์ลงช่องนี้</summary>
@@ -47,5 +63,6 @@ public class SpaceSlot : MonoBehaviour, IDropHandler, IPointerEnterHandler
 
         // 4) อัปเดตปุ่ม Discard ให้ตรงสภาพ
         sm?.UpdateDiscardButton();
+        sm?.RefreshWordleColorsRealtime(); 
     }
 }
