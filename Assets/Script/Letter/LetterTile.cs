@@ -135,7 +135,13 @@ public class LetterTile : MonoBehaviour,
         // 2) หา Canvas ใน "ซีนเดียวกัน" ที่ไม่ใช่ SceneTransitioner
         Canvas best = null;
         var myScene = gameObject.scene;
-        foreach (var ca in FindObjectsOfType<Canvas>(false))
+        #if UNITY_2023_1_OR_NEWER
+        var canvasesSameScene = UnityEngine.Object.FindObjectsByType<Canvas>(
+            FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        #else
+        var canvasesSameScene = FindObjectsOfType<Canvas>(false);
+        #endif
+        foreach (var ca in canvasesSameScene)
         {
             if (IsTransitionerCanvas(ca)) continue;
             if (ca.gameObject.scene != myScene) continue;
@@ -144,7 +150,13 @@ public class LetterTile : MonoBehaviour,
         if (best) return best.rootCanvas;
 
         // 3) เผื่อกรณีสุดท้าย: เอา Canvas ไหนก็ได้ที่ไม่ใช่ SceneTransitioner
-        foreach (var ca in FindObjectsOfType<Canvas>(false))
+        #if UNITY_2023_1_OR_NEWER
+        var canvasesAny = UnityEngine.Object.FindObjectsByType<Canvas>(
+            FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        #else
+        var canvasesAny = FindObjectsOfType<Canvas>(false);
+        #endif
+        foreach (var ca in canvasesAny)
             if (!IsTransitionerCanvas(ca)) return ca.rootCanvas;
 
         return null;

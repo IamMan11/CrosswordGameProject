@@ -148,11 +148,15 @@ public class SceneTransitioner : MonoBehaviour
         if (autoRaiseOrder)
         {
             int maxOrder = 0;
+            #if UNITY_2023_1_OR_NEWER
+            var canvases = UnityEngine.Object.FindObjectsByType<Canvas>(
+                FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            #else
             var canvases = FindObjectsOfType<Canvas>(false);
+            #endif
             for (int i = 0; i < canvases.Length; i++)
                 if (canvases[i] != _canvas)
                     maxOrder = Mathf.Max(maxOrder, canvases[i].sortingOrder);
-
             _canvas.sortingOrder = Mathf.Clamp(maxOrder + 1, -32760, 32760);
         }
         else

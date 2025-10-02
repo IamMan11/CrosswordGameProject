@@ -58,7 +58,8 @@ public class LevelTaskUI : MonoBehaviour
         }
         if (triangleText)
         {
-            bool active = lm != null && cfg != null && cfg.levelIndex == 2 && lm.level2_useTriangleObjective;
+            bool active = lm != null && cfg != null && cfg.levelIndex == 2 &&
+                        (Level2Controller.Instance?.L2_useTriangleObjective ?? false);
             triangleText.gameObject.SetActive(active);
             if (active)
             {

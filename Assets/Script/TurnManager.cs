@@ -850,9 +850,9 @@ public class TurnManager : MonoBehaviour
             // >>> NEW: สุ่ม Bench Issue สำหรับเทิร์นถัดไป (หลังเติม Bench เสร็จแล้ว)
             if (LevelManager.Instance != null &&
                 LevelManager.Instance.GetCurrentLevelIndex() == 2 &&
-                LevelManager.Instance.level2_enableBenchIssue)
+                (Level2Controller.Instance?.L2_enableBenchIssue ?? false))
             {
-                LevelManager.Instance.TriggerBenchIssueAfterRefill();
+                Level2Controller.Instance.TriggerBenchIssueAfterRefill();
             }
         }
         finally

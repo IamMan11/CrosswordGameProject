@@ -531,12 +531,17 @@ public class CardManager : MonoBehaviour
     {
         // หา CardSlotUI เพื่อเล่นคลิป Use/Hide ให้หายสวย ๆ
         CardSlotUI slotUI = null;
-        #if UNITY_2023_1_OR_NEWER
-        foreach (var s in Object.FindObjectsByType<CardSlotUI>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        #if UNITY_6000_0_OR_NEWER || UNITY_2023_1_OR_NEWER
+        foreach (var s in UnityEngine.Object.FindObjectsByType<CardSlotUI>(
+            FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
             if (s.slotIndex == index) { slotUI = s; break; }
+        }
         #else
         foreach (var s in GameObject.FindObjectsOfType<CardSlotUI>(true))
+        {
             if (s.slotIndex == index) { slotUI = s; break; }
+        }
         #endif
 
         if (slotUI != null)
@@ -559,13 +564,18 @@ public class CardManager : MonoBehaviour
     private IEnumerator UseCardAfterAnim(int index, CardData card)
     {
         CardSlotUI slotUI = null;
-#if UNITY_2023_1_OR_NEWER
-        foreach (var s in Object.FindObjectsByType<CardSlotUI>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        #if UNITY_6000_0_OR_NEWER || UNITY_2023_1_OR_NEWER
+        foreach (var s in UnityEngine.Object.FindObjectsByType<CardSlotUI>(
+            FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
             if (s.slotIndex == index) { slotUI = s; break; }
-#else
+        }
+        #else
         foreach (var s in GameObject.FindObjectsOfType<CardSlotUI>(true))
+        {
             if (s.slotIndex == index) { slotUI = s; break; }
-#endif
+        }
+        #endif
 
         if (slotUI != null)
             yield return slotUI.PlayUseThen(null); // เล่นคลิปหดจนหาย
@@ -595,7 +605,14 @@ public class CardManager : MonoBehaviour
         try
         {
             // เก็บ LetterTile ทั้งหมด แล้วเลือกเฉพาะที่อยู่บนกระดาน (มี BoardSlot เป็นพาเรนต์)
-            var tiles = GameObject.FindObjectsOfType<LetterTile>(includeInactive: false);
+            #if UNITY_6000_0_OR_NEWER || UNITY_2023_1_OR_NEWER
+            var tiles = UnityEngine.Object.FindObjectsByType<LetterTile>(
+                FindObjectsInactive.Exclude,        // ถ้าต้องการรวม inactive เปลี่ยนเป็น Include
+                FindObjectsSortMode.None            // ไม่ต้องการการ sort → เร็วกว่า
+            );
+            #else
+            var tiles = GameObject.FindObjectsOfType<LetterTile>(false);
+            #endif
             int cleared = 0;
 
             foreach (var t in tiles)

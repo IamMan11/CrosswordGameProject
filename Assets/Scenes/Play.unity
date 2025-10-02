@@ -3527,6 +3527,14 @@ MonoBehaviour:
   itProgressText: {fileID: 0}
   stageClearPanel: {fileID: 1914259710}
   shopSceneName: Shop
+  phase: 0
+  currentLevel: 0
+  isGameOver: 0
+  levelTimeLimit: 0
+  levelTimeElapsed: 0
+  levelTimerRunning: 0
+  timerStarted: 0
+  timerPaused: 0
   panicTimeThresholdSec: 180
   itWordsTargetLevel1: 3
   itKeywordsLevel1:
@@ -3544,66 +3552,8 @@ MonoBehaviour:
   - docker
   - backend
   - tester
-  level2_triangleTargets:
-  - {x: 2, y: 2}
-  - {x: 2, y: 12}
-  - {x: 12, y: 7}
-  level2_enableLockedBoard: 1
-  level2_lockedCount: 3
-  level2_requiredLenRange: {x: 3, y: 7}
-  level2_enableBenchIssue: 1
-  level2_benchIssueIntervalSec: 60
-  level2_benchIssueDurationSec: 60
-  level2_benchZeroPerMove: 0
-  level2_benchPenaltyPerMove: 0
-  level2_applyThemeOnStart: 1
-  level2_grantWinRewards: 1
-  level2_winCogCoin: 1
-  level2_nextFloorClue: "\u0E40\u0E25\u0E02\u0E0A\u0E31\u0E49\u0E19\u0E16\u0E31\u0E14\u0E44\u0E1B"
-  level2_useTriangleObjective: 1
-  level2_triangleNodeSize: 1
-  level2_triangleMinManhattanGap: 6
-  level2_triangleCheckPeriod: 0.5
-  level2_triangleIdleColor: {r: 0.7830189, g: 0.040628344, b: 0.040628344, a: 1}
-  level2_triangleLinkedColor: {r: 0.11764706, g: 0.7058824, b: 0.23529412, a: 1}
-  level2_enablePeriodicX2Zones: 1
-  level2_x2IntervalSec: 30
-  level2_x2ZonesPerWave: 2
-  level2_zoneMinCenterCheby: 4
-  level2_x2ZoneDurationSec: 30
-  level2_multiplierSlotType: 4
-  level2_zoneOverlayColor: {r: 0.2, g: 0.9, b: 0.2, a: 0.20392157}
-  level2_benchIssueCount: 2
-  level2_benchIssueOverlayColor: {r: 0, g: 0, b: 0, a: 0.55}
-  level2_enableLockedSegments: 1
-  level2_lockedSegmentLength: 4
-  level2_lockedSegmentCount: 6
-  level2_lockedOverlayColor: {r: 0, g: 0, b: 0, a: 1}
-  level3_enableBoss: 1
-  level3_bossMaxHP: 1200
-  level3_criticalLength: 6
-  level3_criticalBonus: 0.5
-  level3_conveyorIntervalSec: 10
-  level3_conveyorShift: 1
-  level3_lockWaveIntervalSec: 10
-  level3_lockCountPerWave: 6
-  level3_lockDurationSec: 25
-  level3_fieldEffectIntervalSec: 10
-  level3_fieldEffectDurationSec: 10
-  level3_zoneSize: 4
-  level3_zonesPerType: 1
-  level3_deleteActionIntervalSec: 10
-  level3_deleteBoardCount: 2
-  level3_deleteBenchCount: 2
-  level3_deleteLettersCooldownSec: 20
-  level3_deleteCardsCooldownSec: 35
-  level3_cardSlotLockDurationSec: 20
-  level3_phaseChangeHPPercent: 0.5
-  level3_phaseTimeBonusSec: 450
-  level3_sprintHPPercent: 0.25
-  level3_sprintRemainingSec: 180
-  bossHpText: {fileID: 1720620201}
-  level3_puzzleCheckPeriod: 0.5
+  level2: {fileID: 769547978}
+  level3: {fileID: 1446108602}
 --- !u!4 &260603165
 Transform:
   m_ObjectHideFlags: 0
@@ -3619,6 +3569,7 @@ Transform:
   m_Children:
   - {fileID: 1639265747}
   - {fileID: 769547977}
+  - {fileID: 1446108601}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &272039406
@@ -6119,6 +6070,7 @@ RectTransform:
   - {fileID: 2014620742}
   - {fileID: 880912803}
   - {fileID: 117497058}
+  - {fileID: 1720620200}
   - {fileID: 232375}
   - {fileID: 297668890}
   - {fileID: 98078149}
@@ -6140,7 +6092,6 @@ RectTransform:
   - {fileID: 1914259708}
   - {fileID: 1645984076}
   - {fileID: 1363637684}
-  - {fileID: 1720620200}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -9421,6 +9372,39 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 00b4fc91c277e4e4e9ce566947c1fb93, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  L2_useTriangleObjective: 1
+  L2_triangleNodeSize: 1
+  L2_triangleMinManhattan: 6
+  L2_triangleCheckPeriod: 0.5
+  L2_triangleIdleColor: {r: 1, g: 0, b: 0, a: 1}
+  L2_triangleLinkedColor: {r: 0, g: 1, b: 0, a: 1}
+  L2_enableLockedBoard: 1
+  L2_lockedCount: 3
+  L2_requiredLenRange: {x: 3, y: 7}
+  L2_enableBenchIssue: 1
+  L2_benchIssueCount: 2
+  L2_benchIssueIntervalSec: 60
+  L2_benchIssueDurationSec: 60
+  L2_benchIssueOverlaySec: 2
+  L2_benchZeroPerMove: 0
+  L2_benchPenaltyPerWord: 0
+  L2_benchIssueOverlayColor: {r: 0, g: 0, b: 0, a: 0.55}
+  L2_applyThemeOnStart: 1
+  L2_grantWinRewards: 1
+  L2_winCogCoin: 1
+  L2_nextFloorClue: "\u2014"
+  L2_enablePeriodicX2Zones: 1
+  L2_x2IntervalSec: 30
+  L2_x2ZonesPerWave: 2
+  L2_zoneDurationSec: 30
+  L2_zoneMinCenterCheby: 4
+  L2_multiplierSlotType: 4
+  L2_zoneOverlayColor: {r: 0.2, g: 0.8, b: 0.2, a: 0.8}
+  L2_enableLockedSegments: 1
+  L2_lockedSegmentLength: 4
+  L2_lockedSegmentCount: 6
+  L2_lockedOverlayColor: {r: 0, g: 0, b: 0, a: 0.55}
+  objectiveText: {fileID: 0}
 --- !u!1 &769700902
 GameObject:
   m_ObjectHideFlags: 0
@@ -17026,6 +17010,75 @@ RectTransform:
   m_AnchoredPosition: {x: 15.6852, y: -5.2672}
   m_SizeDelta: {x: 833, y: 126}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &1446108600
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1446108601}
+  - component: {fileID: 1446108602}
+  m_Layer: 0
+  m_Name: Level3Controller
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1446108601
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1446108600}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 260603165}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1446108602
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1446108600}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 833e88bc6fbde694f9f4e48d5562d7b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  level3_enableBoss: 1
+  level3_bossMaxHP: 300
+  level3_criticalLength: 7
+  level3_criticalBonus: 0.5
+  level3_conveyorIntervalSec: 65
+  level3_conveyorShift: 1
+  level3_lockWaveIntervalSec: 90
+  level3_lockCountPerWave: 6
+  level3_lockDurationSec: 25
+  level3_fieldEffectIntervalSec: 75
+  level3_fieldEffectDurationSec: 30
+  level3_zoneSize: 4
+  level3_zonesPerType: 1
+  level3_deleteActionIntervalSec: 50
+  level3_deleteBoardCount: 2
+  level3_deleteBenchCount: 2
+  level3_deleteLettersCooldownSec: 20
+  level3_deleteCardsCooldownSec: 35
+  level3_cardSlotLockDurationSec: 20
+  level3_phaseChangeHPPercent: 0.5
+  level3_phaseTimeBonusSec: 450
+  level3_sprintHPPercent: 0.25
+  level3_sprintRemainingSec: 180
+  bossHpText: {fileID: 1720620201}
+  puzzleCheckPeriod: 0.5
 --- !u!1 &1448598807
 GameObject:
   m_ObjectHideFlags: 0
@@ -20514,7 +20567,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 553.8, y: 327}
+  m_AnchoredPosition: {x: 490, y: 490}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1720620201
@@ -21195,15 +21248,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8a6bf6c571db10c46af6719c57e62c0f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  canvas: {fileID: 420713074}
-  layer: {fileID: 1599118673}
-  boxSprite: {fileID: 0}
-  letterMulColor: {r: 0.15, g: 0.7, b: 1, a: 0.35}
-  wordMulColor: {r: 1, g: 0.55, b: 0.1, a: 0.35}
-  specialColor: {r: 0.3, g: 1, b: 0.4, a: 0.35}
-  cardSlotColor: {r: 1, g: 0.95, b: 0.1, a: 0.6}
-  pulseScale: 0.07
-  pulseSpeed: 2.2
 --- !u!1 &1770465584
 GameObject:
   m_ObjectHideFlags: 0

@@ -103,7 +103,12 @@ public class SfxPlayer : MonoBehaviour
         if (source) source.Stop();
 
         // หยุดแหล่งเสียงชั่วคราวที่อาจถูกสร้าง (เช่น PlayForDuration)
+        #if UNITY_2023_1_OR_NEWER
+        var all = UnityEngine.Object.FindObjectsByType<AudioSource>(
+            FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        #else
         var all = GameObject.FindObjectsOfType<AudioSource>();
+        #endif
         foreach (var s in all)
         {
             if (s == source) continue;
