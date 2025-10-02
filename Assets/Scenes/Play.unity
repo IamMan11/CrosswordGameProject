@@ -3670,16 +3670,16 @@ MonoBehaviour:
   level3_bossMaxHP: 1200
   level3_criticalLength: 6
   level3_criticalBonus: 0.5
-  level3_conveyorIntervalSec: 120
+  level3_conveyorIntervalSec: 10
   level3_conveyorShift: 1
-  level3_lockWaveIntervalSec: 90
+  level3_lockWaveIntervalSec: 10
   level3_lockCountPerWave: 6
   level3_lockDurationSec: 25
-  level3_fieldEffectIntervalSec: 75
-  level3_fieldEffectDurationSec: 30
+  level3_fieldEffectIntervalSec: 10
+  level3_fieldEffectDurationSec: 10
   level3_zoneSize: 4
   level3_zonesPerType: 1
-  level3_deleteActionIntervalSec: 50
+  level3_deleteActionIntervalSec: 10
   level3_deleteBoardCount: 2
   level3_deleteBenchCount: 2
   level3_deleteLettersCooldownSec: 20
@@ -13242,7 +13242,6 @@ MonoBehaviour:
     manaGain: 3
     sprite: {fileID: -4080982987432193030, guid: d7186693200e9e74cbc36f84f320c60a, type: 3}
   centerSlotSprite: {fileID: 3980168229369012863, guid: 9f53eab0fe030f040843ebb0b9fcc8e8, type: 3}
-  highlighter: {fileID: 1354832238}
   manaGain: 0
   targetedFluxRemaining: 0
 --- !u!4 &1062467451
