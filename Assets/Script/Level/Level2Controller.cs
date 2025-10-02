@@ -9,55 +9,55 @@ public class Level2Controller : MonoBehaviour
     public static Level2Controller Instance { get; private set; }
     // ================== Inspector – Level 2 Settings ==================
     [Header("Level 2 – Triangle")]
-    [SerializeField] public bool  L2_useTriangleObjective = true;
+    [SerializeField] public bool L2_useTriangleObjective = true;
     [SerializeField][Min(1)] public int L2_triangleNodeSize = 1;
     [SerializeField][Min(2)] public int L2_triangleMinManhattan = 6;
     [SerializeField] public float L2_triangleCheckPeriod = 0.5f;
-    [SerializeField] public Color L2_triangleIdleColor = new Color32(40,40,40,200);
-    [SerializeField] public Color L2_triangleLinkedColor = new Color32(30,180,60,200);
+    [SerializeField] public Color L2_triangleIdleColor = new Color32(40, 40, 40, 200);
+    [SerializeField] public Color L2_triangleLinkedColor = new Color32(30, 180, 60, 200);
 
     [Header("Level 2 – Locked Board")]
-    [SerializeField] public bool  L2_enableLockedBoard = true;
-    [SerializeField] public int   L2_lockedCount = 3;
+    [SerializeField] public bool L2_enableLockedBoard = true;
+    [SerializeField] public int L2_lockedCount = 3;
     [SerializeField] public Vector2Int L2_requiredLenRange = new Vector2Int(3, 7);
 
     [Header("Level 2 – Bench Issue")]
-    [SerializeField] public bool  L2_enableBenchIssue = true;
-    [SerializeField][Min(0)] public int   L2_benchIssueCount = 2;
+    [SerializeField] public bool L2_enableBenchIssue = true;
+    [SerializeField][Min(0)] public int L2_benchIssueCount = 2;
     [SerializeField] public float L2_benchIssueIntervalSec = 60f;
     [SerializeField] public float L2_benchIssueDurationSec = 60f;
     [SerializeField] public float L2_benchIssueOverlaySec = 2f;
-    [SerializeField] public int   L2_benchZeroPerMove = 2;
-    [SerializeField] public int   L2_benchPenaltyPerWord = 0;
-    [SerializeField] public Color L2_benchIssueOverlayColor = new Color(0f,0f,0f,0.55f);
+    [SerializeField] public int L2_benchZeroPerMove = 2;
+    [SerializeField] public int L2_benchPenaltyPerWord = 0;
+    [SerializeField] public Color L2_benchIssueOverlayColor = new Color(0f, 0f, 0f, 0.55f);
 
     [Header("Level 2 – Theme & Rewards")]
-    [SerializeField] public bool  L2_applyThemeOnStart = true;
-    [SerializeField] public bool  L2_grantWinRewards = true;
-    [SerializeField] public int   L2_winCogCoin = 1;
+    [SerializeField] public bool L2_applyThemeOnStart = true;
+    [SerializeField] public bool L2_grantWinRewards = true;
+    [SerializeField] public int L2_winCogCoin = 1;
     [SerializeField] public string L2_nextFloorClue = "—";
 
     [Header("Level 2 – Periodic 2x2 Zones (3x3 board groups)")]
-    [SerializeField] public bool  L2_enablePeriodicX2Zones = true;
+    [SerializeField] public bool L2_enablePeriodicX2Zones = true;
     [SerializeField] public float L2_x2IntervalSec = 180f;
-    [SerializeField] public int   L2_x2ZonesPerWave = 2;
+    [SerializeField] public int L2_x2ZonesPerWave = 2;
     [SerializeField] public float L2_zoneDurationSec = 30f;
     [SerializeField][Min(3)] public int L2_zoneMinCenterCheby = 4;
     [SerializeField] public SlotType L2_multiplierSlotType = SlotType.TripleWord;
-    [SerializeField] public Color L2_zoneOverlayColor = new Color(0.2f,0.9f,0.2f,0.28f);
+    [SerializeField] public Color L2_zoneOverlayColor = new Color(0.2f, 0.9f, 0.2f, 0.28f);
     public enum MultiplierSlotType { None, DoubleLetter, TripleLetter, DoubleWord, TripleWord }
 
     [Header("Level 2 – Locked Segments")]
-    [SerializeField] public bool  L2_enableLockedSegments = true;
-    [SerializeField][Min(1)] public int   L2_lockedSegmentLength = 4;
-    [SerializeField][Min(1)] public int   L2_lockedSegmentCount = 3;
-    [SerializeField] public Color L2_lockedOverlayColor = new Color(0f,0f,0f,0.55f);
+    [SerializeField] public bool L2_enableLockedSegments = true;
+    [SerializeField][Min(1)] public int L2_lockedSegmentLength = 4;
+    [SerializeField][Min(1)] public int L2_lockedSegmentCount = 3;
+    [SerializeField] public Color L2_lockedOverlayColor = new Color(0f, 0f, 0f, 0.55f);
 
     // ======== (ถ้ามี) อ้างอิง UI/ระบบอื่น ๆ ========
     [Header("UI (Optional)")]
     [SerializeField] public TMP_Text objectiveText;
     // ==== Internals ====
-    private readonly Dictionary<BoardSlot,int> _lockedSlotsByLen = new();  // Locked Board
+    private readonly Dictionary<BoardSlot, int> _lockedSlotsByLen = new();  // Locked Board
     private bool _benchIssueActive;                   // Bench Issue (interval)
     private float _benchIssueEndTime;
     private Coroutine _benchIssueRoutine;
@@ -111,7 +111,7 @@ public class Level2Controller : MonoBehaviour
 
         // Periodic x2 zones: โชว์ wave แรกไว้เลย (ยังไม่เริ่มนับหมดเวลา จนกว่า timer start)
         if (L2_enablePeriodicX2Zones)
-            ApplyX2ZonesOnce(L2_x2ZonesPerWave, L2_zoneDurationSec, scheduleRevert:false);
+            ApplyX2ZonesOnce(L2_x2ZonesPerWave, L2_zoneDurationSec, scheduleRevert: false);
 
         // Locked Board (seed ช่องที่จะปลดด้วยความยาวคำ)
         if (L2_enableLockedBoard)
@@ -146,24 +146,24 @@ public class Level2Controller : MonoBehaviour
         var bm = BoardManager.Instance; if (bm?.grid == null) return;
 
         var pool = new List<BoardSlot>();
-        for (int r=0;r<bm.rows;r++)
-        for (int c=0;c<bm.cols;c++)
-        {
-            var s = bm.grid[r,c];
-            if (s == null || s.HasLetterTile() || s.IsLocked) continue;
-            pool.Add(s);
-        }
+        for (int r = 0; r < bm.rows; r++)
+            for (int c = 0; c < bm.cols; c++)
+            {
+                var s = bm.grid[r, c];
+                if (s == null || s.HasLetterTile() || s.IsLocked) continue;
+                pool.Add(s);
+            }
         int want = Mathf.Clamp(L2_lockedCount, 0, pool.Count);
         _lockedSlotsByLen.Clear();
 
-        for (int i=0;i<want;i++)
+        for (int i = 0; i < want; i++)
         {
             int idx = Random.Range(0, pool.Count);
             var slot = pool[idx]; pool.RemoveAt(idx);
 
             int reqLen = Random.Range(L2_requiredLenRange.x, L2_requiredLenRange.y + 1);
             slot.IsLocked = true;
-            slot.bg.color = new Color32(120,120,120,255);
+            slot.bg.color = new Color32(120, 120, 120, 255);
             _lockedSlotsByLen[slot] = reqLen;
         }
 
@@ -241,7 +241,7 @@ public class Level2Controller : MonoBehaviour
         int pick = Mathf.Clamp(L2_benchIssueCount, 0, pool.Count);
 
         var chosen = new List<LetterTile>();
-        for (int i=0;i<pick && pool.Count>0;i++)
+        for (int i = 0; i < pick && pool.Count > 0; i++)
         {
             int idx = Random.Range(0, pool.Count);
             chosen.Add(pool[idx]); pool.RemoveAt(idx);
@@ -270,7 +270,7 @@ public class Level2Controller : MonoBehaviour
     }
 
     public bool IsBenchIssueActive() => _benchIssueActive;
-    public int  SelectZeroCount(int placedCount)
+    public int SelectZeroCount(int placedCount)
     {
         if (!L2_enableBenchIssue || !_benchIssueActive) return 0;
         return Mathf.Clamp(L2_benchZeroPerMove, 0, Mathf.Max(0, placedCount));
@@ -289,12 +289,12 @@ public class Level2Controller : MonoBehaviour
                 yield return null;
             }
             while (IsZoneTimerFrozen()) yield return null;
-            ApplyX2ZonesOnce(zonesPerWave, zoneDurationSec, scheduleRevert:true);
+            ApplyX2ZonesOnce(zonesPerWave, zoneDurationSec, scheduleRevert: true);
         }
         _zoneRoutine = null;
     }
 
-    void ApplyX2ZonesOnce(int zones, float duration, bool scheduleRevert=true)
+    void ApplyX2ZonesOnce(int zones, float duration, bool scheduleRevert = true)
     {
         var bm = BoardManager.Instance; if (bm?.grid == null) return;
         if (bm.rows < 3 || bm.cols < 3) return;
@@ -305,37 +305,37 @@ public class Level2Controller : MonoBehaviour
         int requiredCheby = Mathf.Max(3, L2_zoneMinCenterCheby);
 
         var centers = new List<Vector2Int>();
-        for (int pass=0; pass<3 && centers.Count<zones; pass++)
+        for (int pass = 0; pass < 3 && centers.Count < zones; pass++)
         {
-            int attempts=0, maxAttempts=400;
+            int attempts = 0, maxAttempts = 400;
             while (centers.Count < zones && attempts++ < maxAttempts)
             {
-                int r = Random.Range(1, rows-1);
-                int c = Random.Range(1, cols-1);
-                bool tooClose = centers.Any(cc => Mathf.Max(Mathf.Abs(cc.x-r), Mathf.Abs(cc.y-c)) < requiredCheby);
+                int r = Random.Range(1, rows - 1);
+                int c = Random.Range(1, cols - 1);
+                bool tooClose = centers.Any(cc => Mathf.Max(Mathf.Abs(cc.x - r), Mathf.Abs(cc.y - c)) < requiredCheby);
                 if (tooClose) continue;
-                centers.Add(new Vector2Int(r,c));
+                centers.Add(new Vector2Int(r, c));
             }
-            requiredCheby = Mathf.Max(3, requiredCheby-1);
+            requiredCheby = Mathf.Max(3, requiredCheby - 1);
         }
         if (centers.Count == 0) return;
 
-        int wordMul   = ScoreManager.EffectiveWordMulFor(L2_multiplierSlotType);
+        int wordMul = ScoreManager.EffectiveWordMulFor(L2_multiplierSlotType);
         int letterMul = ScoreManager.EffectiveLetterMulFor(L2_multiplierSlotType);
 
         foreach (var center in centers)
         {
-            for (int dr=-1; dr<=1; dr++)
-            for (int dc=-1; dc<=1; dc++)
-            {
-                int rr = center.x + dr, cc = center.y + dc;
-                if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue;
-                var slot = bm.grid[rr,cc]; if (!slot) continue;
+            for (int dr = -1; dr <= 1; dr++)
+                for (int dc = -1; dc <= 1; dc++)
+                {
+                    int rr = center.x + dr, cc = center.y + dc;
+                    if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue;
+                    var slot = bm.grid[rr, cc]; if (!slot) continue;
 
-                _zoneBackups.Add((new Vector2Int(rr,cc), slot.type, slot.manaGain));
-                slot.SetTempMultipliers(letterMul, wordMul);
-                slot.SetZoneOverlayTop(L2_zoneOverlayColor);
-            }
+                    _zoneBackups.Add((new Vector2Int(rr, cc), slot.type, slot.manaGain));
+                    slot.SetTempMultipliers(letterMul, wordMul);
+                    slot.SetZoneOverlayTop(L2_zoneOverlayColor);
+                }
         }
 
         UIManager.Instance?.ShowMessage("x2 Zones appeared!", 2f);
@@ -374,12 +374,12 @@ public class Level2Controller : MonoBehaviour
     }
 
     public static void SetZoneTimerFreeze(bool on)
-    { _zoneFreezeDepth = on ? _zoneFreezeDepth+1 : Mathf.Max(0,_zoneFreezeDepth-1); }
+    { _zoneFreezeDepth = on ? _zoneFreezeDepth + 1 : Mathf.Max(0, _zoneFreezeDepth - 1); }
     public static bool IsZoneTimerFrozen()
     {
         if (_zoneFreezeDepth > 0) return true;
         if (TurnManager.Instance?.IsScoringAnimation ?? false) return true;
-        if (Time.timeScale==0f) return true;
+        if (Time.timeScale == 0f) return true;
         return false;
     }
 
@@ -402,12 +402,12 @@ public class Level2Controller : MonoBehaviour
         if (!L2_enableLockedSegments) return;
 
         var bm = BoardManager.Instance; if (bm?.grid == null) return;
-        int rows=bm.rows, cols=bm.cols;
+        int rows = bm.rows, cols = bm.cols;
         int segLen = Mathf.Max(1, L2_lockedSegmentLength);
         int segCount = Mathf.Max(0, L2_lockedSegmentCount);
 
-        int centerR = rows/2, centerC = cols/2;
-        bool InCenter3x3(int r,int c)=> Mathf.Abs(r-centerR)<=1 && Mathf.Abs(c-centerC)<=1;
+        int centerR = rows / 2, centerC = cols / 2;
+        bool InCenter3x3(int r, int c) => Mathf.Abs(r - centerR) <= 1 && Mathf.Abs(c - centerC) <= 1;
 
         Vector2Int[] ADJ8 = {
             new Vector2Int(-1,0), new Vector2Int(1,0),
@@ -415,52 +415,52 @@ public class Level2Controller : MonoBehaviour
             new Vector2Int(-1,-1), new Vector2Int(-1,1),
             new Vector2Int(1,-1),  new Vector2Int(1,1),
         };
-        bool NearTriangle8(int r,int c)
+        bool NearTriangle8(int r, int c)
         {
-            if (IsTriangleCell(r,c)) return true;
-            for (int i=0;i<ADJ8.Length;i++)
+            if (IsTriangleCell(r, c)) return true;
+            for (int i = 0; i < ADJ8.Length; i++)
             {
-                int nr=r+ADJ8[i].x, nc=c+ADJ8[i].y;
-                if (nr<0||nr>=rows||nc<0||nc>=cols) continue;
-                if (IsTriangleCell(nr,nc)) return true;
+                int nr = r + ADJ8[i].x, nc = c + ADJ8[i].y;
+                if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+                if (IsTriangleCell(nr, nc)) return true;
             }
             return false;
         }
-        bool HasLockedNeighbor8(int r,int c)
+        bool HasLockedNeighbor8(int r, int c)
         {
-            for (int i=0;i<ADJ8.Length;i++)
+            for (int i = 0; i < ADJ8.Length; i++)
             {
-                int nr=r+ADJ8[i].x, nc=c+ADJ8[i].y;
-                if (nr<0||nr>=rows||nc<0||nc>=cols) continue;
-                var ns=bm.grid[nr,nc];
-                if (ns!=null && ns.IsLocked) return true;
+                int nr = r + ADJ8[i].x, nc = c + ADJ8[i].y;
+                if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+                var ns = bm.grid[nr, nc];
+                if (ns != null && ns.IsLocked) return true;
             }
             return false;
         }
 
         int attemptsPerSeg = 200;
-        for (int seg=0; seg<segCount; seg++)
+        for (int seg = 0; seg < segCount; seg++)
         {
-            bool placed=false;
-            for (int attempt=0; attempt<attemptsPerSeg && !placed; attempt++)
+            bool placed = false;
+            for (int attempt = 0; attempt < attemptsPerSeg && !placed; attempt++)
             {
-                bool vertical = Random.value<0.5f;
-                int startR = vertical ? Random.Range(0, rows-segLen+1) : Random.Range(0, rows);
-                int startC = vertical ? Random.Range(0, cols) : Random.Range(0, cols-segLen+1);
+                bool vertical = Random.value < 0.5f;
+                int startR = vertical ? Random.Range(0, rows - segLen + 1) : Random.Range(0, rows);
+                int startC = vertical ? Random.Range(0, cols) : Random.Range(0, cols - segLen + 1);
 
                 var cand = new List<BoardSlot>();
-                for (int k=0;k<segLen;k++)
+                for (int k = 0; k < segLen; k++)
                 {
-                    int r = startR + (vertical? k:0);
-                    int c = startC + (vertical? 0:k);
-                    var s = bm.grid[r,c];
-                    if (!s || InCenter3x3(r,c) || s.IsLocked || s.HasLetterTile()
-                        || HasLockedNeighbor8(r,c) || NearTriangle8(r,c))
+                    int r = startR + (vertical ? k : 0);
+                    int c = startC + (vertical ? 0 : k);
+                    var s = bm.grid[r, c];
+                    if (!s || InCenter3x3(r, c) || s.IsLocked || s.HasLetterTile()
+                        || HasLockedNeighbor8(r, c) || NearTriangle8(r, c))
                     { cand.Clear(); break; }
                     cand.Add(s);
                 }
 
-                if (cand.Count==segLen)
+                if (cand.Count == segLen)
                 {
                     foreach (var s in cand)
                     {
@@ -492,17 +492,25 @@ public class Level2Controller : MonoBehaviour
     {
         var bm = BoardManager.Instance; if (bm?.grid == null) return false;
 
+        // 8 ทิศ (รวมแนวเฉียง)
+        Vector2Int[] ADJ8 = new Vector2Int[] {
+            new Vector2Int(-1, 0), new Vector2Int(1, 0),
+            new Vector2Int(0, -1), new Vector2Int(0, 1),
+            new Vector2Int(-1,-1), new Vector2Int(-1, 1),
+            new Vector2Int( 1,-1), new Vector2Int( 1, 1),
+        };
+
         foreach (var p in node)
         {
-            // ในบล็อกเอง
-            var inSlot = bm.grid[p.x, p.y];
-            var inTile = inSlot ? inSlot.GetLetterTile() : null;
-            if (inTile && inTile.isLocked) return true;
+            // ถ้าจุดในโหนดมีตัวล็อกอยู่เอง ก็นับว่าถูกแตะ
+            var self = bm.grid[p.x, p.y];
+            var selfTile = self ? self.GetLetterTile() : null;
+            if (selfTile && selfTile.isLocked) return true;
 
-            // รอบบล็อก 1 ช่อง
-            for (int k = 0; k < ORTHO.Length; k++)
+            // มองออกไป 8 ทิศ แค่ "ทิศใดทิศหนึ่ง" มีตัวล็อก ก็ถือว่าแตะแล้ว
+            for (int i = 0; i < ADJ8.Length; i++)
             {
-                int nr = p.x + ORTHO[k].x, nc = p.y + ORTHO[k].y;
+                int nr = p.x + ADJ8[i].x, nc = p.y + ADJ8[i].y;
                 if (nr < 0 || nr >= bm.rows || nc < 0 || nc >= bm.cols) continue;
 
                 var s = bm.grid[nr, nc];
@@ -534,7 +542,7 @@ public class Level2Controller : MonoBehaviour
         triAllCells.Clear();
 
         var chosen = new List<Vector2Int>();   // top-left ของแต่ละก้อน
-        var taken  = new HashSet<Vector2Int>(); // เซลล์ที่ถูกใช้แล้ว (กันทับ/กันแตะ)
+        var taken = new HashSet<Vector2Int>(); // เซลล์ที่ถูกใช้แล้ว (กันทับ/กันแตะ)
 
         // กันแตะ 8 ทิศ
         Vector2Int[] ADJ8 = new Vector2Int[] {
@@ -551,24 +559,24 @@ public class Level2Controller : MonoBehaviour
         bool BlockOk(int topR, int leftC)
         {
             for (int dr = 0; dr < size; dr++)
-            for (int dc = 0; dc < size; dc++)
-            {
-                int rr = topR + dr, cc = leftC + dc;
-                if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) return false;
-                if (InCenter3x3(rr, cc)) return false;
-
-                var s = bm.grid[rr, cc];
-                if (s == null || s.IsLocked) return false;      // ห้ามลงบนท่อนล็อก
-
-                // ห้าม “ติด” ท่อนล็อก 8 ทิศ
-                for (int i = 0; i < ADJ8.Length; i++)
+                for (int dc = 0; dc < size; dc++)
                 {
-                    int nr = rr + ADJ8[i].x, nc = cc + ADJ8[i].y;
-                    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
-                    var ns = bm.grid[nr, nc];
-                    if (ns != null && ns.IsLocked) return false;
+                    int rr = topR + dr, cc = leftC + dc;
+                    if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) return false;
+                    if (InCenter3x3(rr, cc)) return false;
+
+                    var s = bm.grid[rr, cc];
+                    if (s == null || s.IsLocked) return false;      // ห้ามลงบนท่อนล็อก
+
+                    // ห้าม “ติด” ท่อนล็อก 8 ทิศ
+                    for (int i = 0; i < ADJ8.Length; i++)
+                    {
+                        int nr = rr + ADJ8[i].x, nc = cc + ADJ8[i].y;
+                        if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+                        var ns = bm.grid[nr, nc];
+                        if (ns != null && ns.IsLocked) return false;
+                    }
                 }
-            }
             return true;
         }
 
@@ -576,14 +584,14 @@ public class Level2Controller : MonoBehaviour
         bool NoOverlapOrTouch(int topR, int leftC)
         {
             for (int dr = 0; dr < size; dr++)
-            for (int dc = 0; dc < size; dc++)
-            {
-                var v = new Vector2Int(topR + dr, leftC + dc);
-                if (taken.Contains(v)) return false; // ทับ
+                for (int dc = 0; dc < size; dc++)
+                {
+                    var v = new Vector2Int(topR + dr, leftC + dc);
+                    if (taken.Contains(v)) return false; // ทับ
 
-                for (int i = 0; i < ADJ8.Length; i++)           // แตะ 8 ทิศ
-                    if (taken.Contains(v + ADJ8[i])) return false;
-            }
+                    for (int i = 0; i < ADJ8.Length; i++)           // แตะ 8 ทิศ
+                        if (taken.Contains(v + ADJ8[i])) return false;
+                }
             return true;
         }
 
@@ -634,7 +642,7 @@ public class Level2Controller : MonoBehaviour
         }
     }
 
-    void PaintTriangleNodesIdle(Color idleColor)
+    public void PaintTriangleNodesIdle(Color idleColor)
     {
         var bm = BoardManager.Instance; if (bm?.grid == null) return;
         foreach (var cell in triAllCells)
@@ -644,7 +652,7 @@ public class Level2Controller : MonoBehaviour
         }
     }
 
-    void UpdateTriangleColors(Color idleColor, Color linkedColor)
+    public void UpdateTriangleColors(Color idleColor, Color linkedColor)
     {
         var bm = BoardManager.Instance; if (bm?.grid == null) return;
 
@@ -772,4 +780,59 @@ public class Level2Controller : MonoBehaviour
     }
 
     public bool IsTriangleComplete() => triangleComplete;
+    // ====== External hooks for Level 3 (Triangle during vanish) ======
+    public void GenerateTriangleNodesForExternalUse(int nodeSize, int minManhattan, System.Func<int,int,bool> filter)
+    {
+        // ล้างของเก่า
+        ClearAllOverlays();
+        triNodes.Clear();
+        triAllCells.Clear();
+
+        // สร้าง 3 โหนด โดย “สุ่มจุดศูนย์กลาง” ที่ผ่าน filter และมีระยะห่างกัน >= minManhattan
+        var bm = BoardManager.Instance; if (bm?.grid == null) return;
+        int rows = bm.rows, cols = bm.cols;
+
+        List<Vector2Int> centers = new();
+        int attempts = 0, maxAttempts = 500;
+
+        while (centers.Count < 3 && attempts++ < maxAttempts)
+        {
+            int r = Random.Range(0, rows);
+            int c = Random.Range(0, cols);
+            if (filter != null && !filter(r,c)) continue;
+
+            bool farEnough = centers.All(cc => Mathf.Abs(cc.x - r) + Mathf.Abs(cc.y - c) >= minManhattan);
+            if (!farEnough) continue;
+
+            centers.Add(new Vector2Int(r,c));
+        }
+        if (centers.Count < 3) return;
+
+        foreach (var cc in centers)
+        {
+            var set = new HashSet<Vector2Int>();
+            for (int dr=-(nodeSize-1); dr<=nodeSize-1; dr++)
+            for (int dc=-(nodeSize-1); dc<=nodeSize-1; dc++)
+            {
+                int rr = cc.x + dr, cc2 = cc.y + dc;
+                if (rr<0||rr>=rows||cc2<0||cc2>=cols) continue;
+                var s = bm.grid[rr,cc2]; if (!s || s.IsLocked) continue; // โหนดห้ามทับล็อก
+                set.Add(new Vector2Int(rr,cc2));
+            }
+            triNodes.Add(set);
+            foreach (var v in set) triAllCells.Add(v);
+        }
+
+        PaintTriangleNodesIdle(L2_triangleIdleColor);
+        UpdateTriangleColors(L2_triangleIdleColor, L2_triangleLinkedColor);
+    }
+
+    public void ClearTriangleForExternalUse()
+    {
+        ClearAllOverlays();
+        triNodes.Clear();
+        triAllCells.Clear();
+        triangleComplete = false;
+    }
+
 }

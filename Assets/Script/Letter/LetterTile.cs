@@ -70,7 +70,6 @@ public class LetterTile : MonoBehaviour,
     private CanvasGroup canvasGroup; // ปิด Raycast ระหว่างลาก
     private RectTransform rectTf;    // RectTransform ของไทล์เอง
     private RectTransform rootCanvasRect; // RectTransform ของ Root Canvas
-
     // ===== Unity lifecycle =====
     private void Awake()
     {

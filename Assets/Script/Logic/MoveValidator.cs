@@ -59,6 +59,47 @@ public static class MoveValidator
             if (s.HasLetterTile() && s.GetLetterTile() != t)
             { error = "cannot overwrite tile"; return false; }
         }
+        if (Level3Controller.Instance != null && Level3Controller.Instance.IsFreePlacementPhase())
+        {
+            foreach (var (t, s) in placed)
+            {
+                if (s == null) { error = "invalid target"; return false; }
+                if (TryGetCoords(s, out int rr, out int cc) && Level2Controller.IsTriangleCell(rr, cc))
+                {
+                    error = "cannot place on triangle point";
+                    return false;
+                }
+            }
+        }
+        // ===== Free-placement (สำหรับ L3 vanish) =====
+        // ระหว่างบอสเฟส vanish (HP ≤ 50%): อนุญาตวางกระจัดกระจาย ไม่บังคับแนว/ต่อเนื่อง/คร่อมศูนย์/ติดกับของเก่า
+        // แต่ยังคง "อ่านคำ" แนวนอน+แนวตั้ง รอบตำแหน่งที่วางใหม่ และส่งไปเช็กถูก/ผิด/คำซ้ำตามปกติ
+        if (Level3Controller.Instance != null && Level3Controller.Instance.IsFreePlacementPhase())
+        {
+            // เก็บคำที่เกิดขึ้นจากทุกตัวที่วางใหม่ (อ่าน H+V ทุกจุด)
+            var temp = new List<WordInfo>(8);
+            foreach (var (_, s) in placed)
+            {
+                if (s == null) { error = "invalid target"; return false; }
+                CollectWord(s, Orient.Horizontal, temp);
+                CollectWord(s, Orient.Vertical,   temp);
+            }
+
+            // กรองซ้ำด้วย key ตำแหน่งหัว-ท้าย (ปลายทางกำหนดแนวอยู่แล้ว)
+            var uniqKeys = new HashSet<string>();
+            words = new List<WordInfo>(temp.Count);
+            foreach (var w in temp)
+            {
+                string key = $"{w.r0}|{w.c0}|{w.r1}|{w.c1}";
+                if (uniqKeys.Add(key)) words.Add(w);
+            }
+
+            if (words.Count == 0)
+            { error = "no word formed"; return false; }
+
+            // ข้ามกฎ C, D, E ไปเลยในโหมดนี้ แล้วให้ระบบเดิมไปเช็กคำถูก/ผิด/คำซ้ำต่อ
+            return true;
+        }
 
         // ---------- C. ต้องเรียงแนวเดียว & ต่อเนื่อง ----------
         bool oneTile = placed.Count == 1;
@@ -150,7 +191,15 @@ public static class MoveValidator
         // (จงใจไม่ Distinct: บางดีไซน์ต้องการเก็บคำซ้ำ)
         return true;
     }
-
+    static bool TryGetCoords(BoardSlot s, out int r, out int c)
+    {
+        r = c = -1;
+        var bm = BoardManager.Instance; if (bm?.grid == null || s == null) return false;
+        for (int i = 0; i < bm.rows; i++)
+            for (int j = 0; j < bm.cols; j++)
+                if (bm.grid[i, j] == s) { r = i; c = j; return true; }
+        return false;
+    }
     // ==================== Helpers ====================
 
     /// <summary>มีเพื่อนบ้านที่ “ล็อกแล้ว” ติดอยู่หรือไม่ (4 ทิศ)</summary>

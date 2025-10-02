@@ -158,18 +158,11 @@ public class PlacementManager : MonoBehaviour
     {
         if (_isRefreshing) return;
         _isRefreshing = true;
-        bool IsTriangleBlocked(int rr, int cc)
-        {
-            // ข้ามเฉพาะถ้าเล่นด่าน 2 และมีระบบ triangle ทำงาน
-            var lm = LevelManager.Instance;
-            if (lm?.currentLevelConfig?.levelIndex != 2) return false;
-            return Level2Controller.IsTriangleCell(rr, cc);
-        }
+
         try
         {
             ClearPreview();
             previewIsValid = true;
-
             if (startSlot == null) return;
 
             var spaceMgr = SpaceManager.Instance;
@@ -177,8 +170,6 @@ public class PlacementManager : MonoBehaviour
             if (spaceMgr == null || boardMgr == null || boardMgr.grid == null) { previewIsValid = false; return; }
 
             var tiles = spaceMgr.GetPreparedTiles();
-
-            // ถ้ามี Blank ที่ยังไม่เลือก -> เปิด AlphabetPicker และยกเลิกการวางรอบนี้
             var unresolved = tiles.FirstOrDefault(t => t && t.IsBlank && !t.IsBlankResolved);
             if (unresolved)
             {
@@ -193,27 +184,53 @@ public class PlacementManager : MonoBehaviour
             int minNewTiles = (WordChecker.Instance != null)
                 ? Mathf.Max(2, WordChecker.Instance.minWordLength)
                 : 2;
-
-            if (need < minNewTiles)
-                previewIsValid = false; // ให้เห็นตำแหน่ง แต่อย่าวางจริง
+            if (need < minNewTiles) previewIsValid = false;
 
             int r = startSlot.row;
             int c = startSlot.col;
             int dr = (orient == Orient.Vertical) ? 1 : 0;
             int dc = (orient == Orient.Horizontal) ? 1 : 0;
 
-            int placed = 0, steps = 0;
-            int maxSteps = boardMgr.rows * boardMgr.cols + 5; // กันลูปผิดพลาด
+            // ---------- helpers ----------
+            bool InBoundsLocal(int rr, int cc)
+            {
+                return rr >= 0 && rr < boardMgr.rows && cc >= 0 && cc < boardMgr.cols;
+            }
+            bool IsBlockedCell(int rr, int cc)
+            {
+                if (!InBoundsLocal(rr, cc)) return true;
+                var s0 = boardMgr.GetSlot(rr, cc);
+                if (s0 == null) return true;
+                if (s0.IsLocked) return true;
+                if (Level2Controller.IsTriangleCell(rr, cc)) return true; // ← บล็อกจุด triangle ทุกเลเวล
+                return false;
+            }
+            // --------------------------------
 
+            // ✅ ขยับ “จุดเริ่ม” ถ้าชี้โดนจุด triangle (ทำก่อนสร้างพรีวิว)
+            if (Level2Controller.IsTriangleCell(r, c))
+            {
+                int fr = r + dr, fc = c + dc; // เดินหน้า
+                int br = r - dr, bc = c - dc; // ถอยหลัง
+                if (!IsBlockedCell(fr, fc)) { r = fr; c = fc; }
+                else if (!IsBlockedCell(br, bc)) { r = br; c = bc; }
+                else
+                {
+                    // ไปไม่ได้ทั้งคู่ → ทำพรีวิวเป็น invalid
+                    previewIsValid = false;
+                }
+            }
+
+            // สร้างพรีวิวตั้งแต่ r,c (ที่ถูกขยับแล้ว)
+            int placed = 0, steps = 0;
+            int maxSteps = boardMgr.rows * boardMgr.cols + 5;
             while (placed < need && steps < maxSteps)
             {
-                if (!InBounds(r, c)) { previewIsValid = false; break; }
-
+                if (!InBoundsLocal(r, c)) { previewIsValid = false; break; }
                 var s = boardMgr.GetSlot(r, c);
                 if (s == null) { previewIsValid = false; break; }
 
-                // ไฮไลต์เฉพาะช่องว่างและไม่ถูกล็อก
-                if (!s.HasLetterTile() && !s.IsLocked && !IsTriangleBlocked(r, c))
+                if (!s.HasLetterTile() && !s.IsLocked && !Level2Controller.IsTriangleCell(r, c))
                 {
                     currentPreview.Add(s);
                     placed++;
@@ -221,7 +238,6 @@ public class PlacementManager : MonoBehaviour
 
                 r += dr; c += dc; steps++;
             }
-
             if (placed < need) previewIsValid = false;
 
             var col = previewIsValid ? validColor : invalidColor;
@@ -229,6 +245,7 @@ public class PlacementManager : MonoBehaviour
         }
         finally { _isRefreshing = false; }
     }
+
 
     /// <summary>ล้างไฮไลต์พรีวิวทั้งหมด</summary>
     public void ClearPreview()
