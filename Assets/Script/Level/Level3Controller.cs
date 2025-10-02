@@ -154,6 +154,8 @@ public class Level3Controller : MonoBehaviour
     {
         if (Instance && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
+
+        SetBossUIVisible(false);
     }
 
     // ---------------------------------------------------------
@@ -254,6 +256,14 @@ public class Level3Controller : MonoBehaviour
             return;
         }
 
+    }
+    public void SetBossUIVisible(bool on)
+    {
+        if (bossImage)
+            bossImage.gameObject.SetActive(on && bossImage.sprite != null);
+
+        if (bossHpText)
+            bossHpText.gameObject.SetActive(on);
     }
     public int GetBossHP() => Mathf.Max(0, hp);
     public bool IsBossDefeated() => level3_enableBoss && GetBossHP() <= 0;
@@ -828,7 +838,8 @@ public class Level3Controller : MonoBehaviour
 
     private void UpdateBossUI()
     {
-        if (bossHpText) bossHpText.text = $"Hydra HP: {Mathf.Max(0, hp)}/{level3_bossMaxHP}";
+        if (bossHpText)
+        bossHpText.text = $"Hydra HP: {Mathf.Max(0, hp)}/{level3_bossMaxHP}";
     }
 
     private IEnumerator StartPhaseChange()
