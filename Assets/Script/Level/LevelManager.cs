@@ -361,13 +361,10 @@ public class LevelManager : MonoBehaviour
             Level2Controller.Instance?.Setup();   // ← สร้าง Triangle ก่อน
         }
         // ด่าน 3: Boss
-        if (currentLevelConfig?.levelIndex == 3)
-        {
-            level3?.Setup();
-        }
+        SetBossActive(currentLevelConfig?.levelIndex == 3);
 
         Debug.Log($"▶ เริ่มด่าน {currentLevelConfig.levelIndex} | Time: {currentLevelConfig.timeLimit}s | Score target: {currentLevelConfig.requiredScore}");
-        LevelTaskUI.I?.Refresh();    // <-- เพิ่ม
+        LevelTaskUI.I?.Refresh();
         phase = GamePhase.Ready;
     }
     void SetupLevel_Level2Hook()
@@ -722,6 +719,27 @@ public class LevelManager : MonoBehaviour
             yield return null;
         }
         ShowStageClearAndShop(currentLevelConfig);
+    }
+    private void SetBossActive(bool on)
+    {
+        if (level3 == null) return;
+
+        // จัดการ UI ก่อน เพื่อเลี่ยงภาพกะพริบ
+        level3.SetBossUIVisible(on);
+
+        if (on)
+        {
+            if (!level3.gameObject.activeSelf)
+                level3.gameObject.SetActive(true);
+
+            level3.Setup();   // รีเซ็ต HP/สถานะ และจะอัปเดต UI ข้างในอีกชั้น
+        }
+        else
+        {
+            level3.StopAllLoops();
+            if (level3.gameObject.activeSelf)
+                level3.gameObject.SetActive(false);
+        }
     }
 
 }

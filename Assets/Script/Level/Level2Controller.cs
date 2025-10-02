@@ -162,14 +162,16 @@ public class Level2Controller : MonoBehaviour
             var slot = pool[idx]; pool.RemoveAt(idx);
 
             int reqLen = Random.Range(L2_requiredLenRange.x, L2_requiredLenRange.y + 1);
-            slot.IsLocked = true;
-            slot.bg.color = new Color32(120, 120, 120, 255);
+
+            // เปลี่ยนจากแค่เซ็ตสีพื้น → โชว์โอเวอร์เลย์ล็อกให้เห็นชัด
+            slot.SetLockedVisual(true, L2_lockedOverlayColor);
             _lockedSlotsByLen[slot] = reqLen;
         }
 
         if (_lockedSlotsByLen.Count > 0)
             UIManager.Instance?.ShowMessage($"Board bugged: {_lockedSlotsByLen.Count} slots locked (unlock by word length)", 2f);
     }
+
 
     public void TryUnlockByWordLength()
     {
@@ -188,8 +190,7 @@ public class Level2Controller : MonoBehaviour
         foreach (var s in toUnlock)
         {
             if (!s) continue;
-            s.IsLocked = false;
-            s.ApplyVisual();
+            s.SetLockedVisual(false);   // <- เดิมใช้ s.IsLocked=false; s.ApplyVisual();
             s.Flash(Color.green, 2, 0.08f);
             _lockedSlotsByLen.Remove(s);
         }

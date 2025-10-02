@@ -3397,15 +3397,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   wordRequestTargetLevel1: 20
   levels:
-  - levelIndex: 3
-    requiredScore: 1
-    requiredWords: 20
+  - levelIndex: 1
+    requiredScore: 10
+    requiredWords: 3
     timeLimit: 900
-    level1_enableGarbledIT: 0
+    level1_enableGarbledIT: 1
     level1_garbledCount: 3
     level1_minGapBetweenSets: 2
     level1_placeMaxRetries: 200
-    level1_reserveCenterBox: 0
+    level1_reserveCenterBox: 1
     level1_centerBoxHalfExtent: 1
     level1_itWords:
     - code
@@ -3425,11 +3425,11 @@ MonoBehaviour:
     level1_garbledSlotBg: {r: 0, g: 0, b: 0, a: 1}
     level1_outlineDefaultColor: {r: 1, g: 0, b: 0, a: 1}
     level1_outlineTouchedColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-    requireThemedWords: 0
+    requireThemedWords: 1
     requiredThemeTag: IT
-    requiredThemeCount: 20
+    requiredThemeCount: 3
     manualThemeWords: []
-    baseCoins: 500
+    baseCoins: 5000
     targetTimeSec: 900
     maxWordsForScore: 50
     coefTimeScore: 0.2
@@ -3442,7 +3442,7 @@ MonoBehaviour:
     coefTurnMoney: -10
     coefTilesLeftMoney: 1
   - levelIndex: 2
-    requiredScore: 850
+    requiredScore: 100
     requiredWords: 0
     timeLimit: 900
     level1_enableGarbledIT: 0
@@ -3473,7 +3473,51 @@ MonoBehaviour:
     requiredThemeTag: IT
     requiredThemeCount: 20
     manualThemeWords: []
-    baseCoins: 50
+    baseCoins: 500
+    targetTimeSec: 900
+    maxWordsForScore: 10
+    coefTimeScore: 0.2
+    coefWordScore: 50
+    coefTurnScore: -10
+    coefTilesLeftScore: 2
+    maxWordsForMoney: 10
+    coefTimeMoney: 0.05
+    coefWordMoney: 2
+    coefTurnMoney: -1
+    coefTilesLeftMoney: 1
+  - levelIndex: 3
+    requiredScore: 100
+    requiredWords: 0
+    timeLimit: 900
+    level1_enableGarbledIT: 0
+    level1_garbledCount: 3
+    level1_minGapBetweenSets: 2
+    level1_placeMaxRetries: 200
+    level1_reserveCenterBox: 0
+    level1_centerBoxHalfExtent: 1
+    level1_itWords:
+    - code
+    - dev
+    - server
+    - client
+    - api
+    - cloud
+    - sql
+    - python
+    - java
+    - unity
+    - debug
+    - kernel
+    - socket
+    - router
+    level1_garbledSlotBg: {r: 0, g: 0, b: 0, a: 1}
+    level1_outlineDefaultColor: {r: 0, g: 0, b: 0, a: 1}
+    level1_outlineTouchedColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    requireThemedWords: 0
+    requiredThemeTag: IT
+    requiredThemeCount: 20
+    manualThemeWords: []
+    baseCoins: 5000
     targetTimeSec: 900
     maxWordsForScore: 10
     coefTimeScore: 0.2
@@ -3544,7 +3588,7 @@ MonoBehaviour:
   timerStarted: 0
   timerPaused: 0
   panicTimeThresholdSec: 180
-  itWordsTargetLevel1: 3
+  itWordsTargetLevel1: 2
   itKeywordsLevel1:
   - code
   - dev
@@ -3560,6 +3604,9 @@ MonoBehaviour:
   - docker
   - backend
   - tester
+  - ai
+  - computer
+  - scum
   level2: {fileID: 769547978}
   level3: {fileID: 1446108602}
 --- !u!4 &260603165
@@ -9398,7 +9445,7 @@ MonoBehaviour:
   L2_benchIssueCount: 2
   L2_benchIssueIntervalSec: 60
   L2_benchIssueDurationSec: 60
-  L2_benchIssueOverlaySec: 2
+  L2_benchIssueOverlaySec: 30
   L2_benchZeroPerMove: 0
   L2_benchPenaltyPerWord: 0
   L2_benchIssueOverlayColor: {r: 0, g: 0, b: 0, a: 0.55}
@@ -17081,7 +17128,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   level3_enableBoss: 1
-  level3_bossMaxHP: 1000
+  level3_bossMaxHP: 100
   level3_criticalLength: 7
   level3_criticalBonus: 0.5
   level3_conveyorIntervalSec: 30

@@ -72,6 +72,10 @@ public class SimpleTutorialManager : MonoBehaviour
     (sequence != null)
     ? $"{sequence.seenPlayerPrefKey}@{SceneManager.GetActiveScene().name}"
     : $"SIMPLE_TUTORIAL_SCENE_SEEN@{SceneManager.GetActiveScene().name}";
+    string GlobalSeenKey =>
+    (sequence != null)
+    ? sequence.seenPlayerPrefKey
+    : "SIMPLE_TUTORIAL_SEEN_V1";
 
     float _blockInputUntil;       // ใช้กันเหตุสเต็ปแรกข้าม
     float _cooldownUntil;         // ใช้กันกดทะลุไปสเต็ปถัด
@@ -87,12 +91,18 @@ public class SimpleTutorialManager : MonoBehaviour
 
         if (sessionWant)
         {
+            // ผู้เล่นกด “Yes” ที่ MainMenu → บังคับให้รันในรอบนี้
             StartSequence();
         }
         else
         {
-            // เดิม: PlayerPrefs.GetInt(sequence.seenPlayerPrefKey, 0)
-            if (!sequence.runOnFirstLaunch || PlayerPrefs.GetInt(SceneSeenKey, 0) == 0)
+            int globalSeen = PlayerPrefs.GetInt(GlobalSeenKey, 0);  // ✅ กด “No” ที่ MainMenu จะเซ็ตเป็น 1
+            int sceneSeen  = PlayerPrefs.GetInt(SceneSeenKey, 0);
+
+            // เงื่อนไข auto-run: ถ้า global ยังไม่เคยดู “และ” (ตั้งให้รันครั้งแรก หรือ ซีนนี้ยังไม่เคยดู)
+            bool shouldAutoRun = (globalSeen == 0) && (!sequence.runOnFirstLaunch || sceneSeen == 0);
+
+            if (shouldAutoRun)
                 StartSequence();
         }
     }
@@ -115,13 +125,8 @@ public class SimpleTutorialManager : MonoBehaviour
         // เปิดปุ่ม Skip — ปิดเฉพาะซีนนี้ ไม่แตะ PlayerPrefs และไม่ปิด session key
         ui.SetSkip(() =>
         {
-            // ข้ามทั้งทิวทอเรียลของซีนนี้ และบันทึกว่า "เคยดูแล้ว" เพื่อไม่ให้ขึ้นอีกในครั้งถัดไป
+            // ปิดทิวทอเรียลเฉพาะซีนนี้ และ markSeen รายซีนตามปกติ
             EndSequence(markSeen: true);
-
-            // ถ้าซีนนี้ถูกบังคับรันเพราะ session (กด Yes จากหน้าก่อนเข้าเกม)
-            // ให้ปิดคีย์ session ทิ้งด้วย เพื่อไม่กลับมาเปิดซ้ำภายในรอบเล่นนี้
-            PlayerPrefs.SetInt(TUT_SESSION_KEY, 0);
-            PlayerPrefs.Save();
         }, true);
 
         Next();
@@ -135,9 +140,8 @@ public class SimpleTutorialManager : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.Escape))
         {
+            // ปิดเฉพาะซีนนี้
             EndSequence(markSeen: true);
-            PlayerPrefs.SetInt(TUT_SESSION_KEY, 0);
-            PlayerPrefs.Save();
             return;
         }
         // กันอินพุตค้างจากก่อนเข้า/ก่อนขึ้นสเต็ป
