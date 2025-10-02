@@ -9,6 +9,7 @@ public class MainMenuManager : MonoBehaviour
 
     [Header("Scene Names")]
     [SerializeField] private string startSceneName = "Shop"; // ซีนเริ่มเกม
+    [SerializeField] private string trainingSceneName = "PlayTraining";   // ← เพิ่มบรรทัดนี้
     // ถ้าไม่มี last scene จะ fallback มาซีนนี้
     // ===== NEW: NewPlay Tutorial Popup =====
     [Header("NewPlay Tutorial Popup")]
@@ -63,6 +64,14 @@ public class MainMenuManager : MonoBehaviour
             // ถ้าไม่ได้ตั้ง popup ไว้ ให้ fallback เป็นเริ่มแบบไม่มี tutorial
             OnConfirmNewPlay(false);
         }
+    }
+    public void OnTrainingButtonClicked()
+    {
+        // ใช้ตัวเปลี่ยนซีนแบบ fade ถ้ามี
+        if (SceneTransitioner.I != null)
+            SceneTransitioner.LoadScene(trainingSceneName);
+        else
+            SceneManager.LoadScene(trainingSceneName);
     }
 
     // ===== Continue: ไปซีนล่าสุดที่เคยอยู่ พร้อม progress เดิม =====

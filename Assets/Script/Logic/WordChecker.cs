@@ -429,6 +429,40 @@ public class WordChecker : MonoBehaviour
 
         return false;
     }
+    public string GetRandomValidWord(int minLen, int maxLen)
+    {
+        try
+        {
+            // 1) ใช้ in-memory cache ก่อน (อุ่น cache ถ้ายัง)
+            WarmUpCacheIfNeeded();
+            if (dict != null && dict.Count > 0)
+            {
+                // dict เก็บเป็น UPPER ทั้งหมด → คืนเป็น lower/ต้นฉบับก็ได้ตามที่ต้องการ
+                var pool = dict.Where(w => w.Length >= minLen && w.Length <= maxLen).ToList();
+                if (pool.Count > 0)
+                {
+                    var pick = pool[UnityEngine.Random.Range(0, pool.Count)];
+                    return pick; // ถ้าต้องการ lower: return pick.ToLowerInvariant();
+                }
+            }
+
+            // 2) ถ้า cache ไม่พอ ใช้ DB โดยตรง (SQLite)
+            if (!IsReady()) return null;
+
+            string sql = hasColLen
+                ? $"SELECT Word AS w FROM {Q(tableName)} WHERE len BETWEEN ? AND ? ORDER BY RANDOM() LIMIT 1;"
+                : $"SELECT Word AS w FROM {Q(tableName)} WHERE length(Word) BETWEEN ? AND ? ORDER BY RANDOM() LIMIT 1;";
+
+            var row = conn.Query<Row>(sql, minLen, maxLen).FirstOrDefault();
+            return row?.w; // อาจได้เคส null ถ้าไม่มีคำตามช่วงความยาว
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError("[WordChecker] GetRandomValidWord error: " + ex.Message);
+            return null;
+        }
+    }
+
 
     /// <summary>
     /// อุ่น cache ในหน่วยความจำ (โหลดคอลัมน์ Word ทั้งหมดครั้งเดียว)
