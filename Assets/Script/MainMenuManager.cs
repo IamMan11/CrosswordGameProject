@@ -4,7 +4,6 @@ using UnityEngine.UI;
 
 public class MainMenuManager : MonoBehaviour
 {
-    [SerializeField] string playSceneName = "Play"; // ชื่อซีนเล่น
     [Header("Options Panel")]
     public GameObject optionsPanel;
 

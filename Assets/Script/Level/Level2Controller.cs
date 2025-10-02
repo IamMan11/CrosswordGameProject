@@ -3,14 +3,72 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-
+using TMPro;
 public class Level2Controller : MonoBehaviour
 {
     public static Level2Controller Instance { get; private set; }
+    // ================== Inspector – Level 2 Settings ==================
+    [Header("Level 2 – Triangle")]
+    [SerializeField] public bool  L2_useTriangleObjective = true;
+    [SerializeField][Min(1)] public int L2_triangleNodeSize = 1;
+    [SerializeField][Min(2)] public int L2_triangleMinManhattan = 6;
+    [SerializeField] public float L2_triangleCheckPeriod = 0.5f;
+    [SerializeField] public Color L2_triangleIdleColor = new Color32(40,40,40,200);
+    [SerializeField] public Color L2_triangleLinkedColor = new Color32(30,180,60,200);
+
+    [Header("Level 2 – Locked Board")]
+    [SerializeField] public bool  L2_enableLockedBoard = true;
+    [SerializeField] public int   L2_lockedCount = 3;
+    [SerializeField] public Vector2Int L2_requiredLenRange = new Vector2Int(3, 7);
+
+    [Header("Level 2 – Bench Issue")]
+    [SerializeField] public bool  L2_enableBenchIssue = true;
+    [SerializeField][Min(0)] public int   L2_benchIssueCount = 2;
+    [SerializeField] public float L2_benchIssueIntervalSec = 60f;
+    [SerializeField] public float L2_benchIssueDurationSec = 60f;
+    [SerializeField] public float L2_benchIssueOverlaySec = 2f;
+    [SerializeField] public int   L2_benchZeroPerMove = 2;
+    [SerializeField] public int   L2_benchPenaltyPerWord = 0;
+    [SerializeField] public Color L2_benchIssueOverlayColor = new Color(0f,0f,0f,0.55f);
+
+    [Header("Level 2 – Theme & Rewards")]
+    [SerializeField] public bool  L2_applyThemeOnStart = true;
+    [SerializeField] public bool  L2_grantWinRewards = true;
+    [SerializeField] public int   L2_winCogCoin = 1;
+    [SerializeField] public string L2_nextFloorClue = "—";
+
+    [Header("Level 2 – Periodic 2x2 Zones (3x3 board groups)")]
+    [SerializeField] public bool  L2_enablePeriodicX2Zones = true;
+    [SerializeField] public float L2_x2IntervalSec = 180f;
+    [SerializeField] public int   L2_x2ZonesPerWave = 2;
+    [SerializeField] public float L2_zoneDurationSec = 30f;
+    [SerializeField][Min(3)] public int L2_zoneMinCenterCheby = 4;
+    [SerializeField] public SlotType L2_multiplierSlotType = SlotType.TripleWord;
+    [SerializeField] public Color L2_zoneOverlayColor = new Color(0.2f,0.9f,0.2f,0.28f);
+    public enum MultiplierSlotType { None, DoubleLetter, TripleLetter, DoubleWord, TripleWord }
+
+    [Header("Level 2 – Locked Segments")]
+    [SerializeField] public bool  L2_enableLockedSegments = true;
+    [SerializeField][Min(1)] public int   L2_lockedSegmentLength = 4;
+    [SerializeField][Min(1)] public int   L2_lockedSegmentCount = 3;
+    [SerializeField] public Color L2_lockedOverlayColor = new Color(0f,0f,0f,0.55f);
+
+    // ======== (ถ้ามี) อ้างอิง UI/ระบบอื่น ๆ ========
+    [Header("UI (Optional)")]
+    [SerializeField] public TMP_Text objectiveText;
+    // ==== Internals ====
+    private readonly Dictionary<BoardSlot,int> _lockedSlotsByLen = new();  // Locked Board
+    private bool _benchIssueActive;                   // Bench Issue (interval)
+    private float _benchIssueEndTime;
+    private Coroutine _benchIssueRoutine;
+    private Coroutine _zoneRoutine;
+    private readonly List<(Vector2Int pos, SlotType prevType, int prevMana)> _zoneBackups = new();
+    private readonly List<BoardSlot> _lockedSegmentSlots = new();
+    private string _lastPenalizedWord = "";
+    private static int _zoneFreezeDepth = 0;
 
     private bool triangleComplete;
     private float triangleCheckTimer;
-    private static int _zoneFreezeDepth = 0;
 
     private readonly List<HashSet<Vector2Int>> triNodes = new();  // โหนด (size×size) จำนวน 3 ชุด
     private readonly HashSet<Vector2Int> triAllCells = new();
@@ -23,74 +81,408 @@ public class Level2Controller : MonoBehaviour
         new Vector2Int(0, -1), new Vector2Int(0, 1)
     };
 
-
     void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
     }
-
+    public (int min, int max) GetRequiredLenRange() => (L2_requiredLenRange.x, L2_requiredLenRange.y);
     public void Setup()
     {
-        triangleComplete = false;
-        triangleCheckTimer = 0f;
-
+        // ล้างของเก่า
+        StopAllEffects();
         ClearAllOverlays();
-        triNodes.Clear(); triAllCells.Clear();
+        _lockedSlotsByLen.Clear();
+        _lockedSegmentSlots.Clear();
+        _benchIssueActive = false;
+        _lastPenalizedWord = "";
 
-        var lm = LevelManager.Instance;
-        if (lm?.currentLevelConfig?.levelIndex != 2) return;
-
-        if (lm.level2_useTriangleObjective)
+        // Triangle
+        if (L2_useTriangleObjective)
         {
-            GenerateTriangleNodes(lm.level2_triangleNodeSize, lm.level2_triangleMinManhattanGap);
-            PaintTriangleNodesIdle(lm.level2_triangleIdleColor);
-            UpdateTriangleColors(lm.level2_triangleIdleColor, lm.level2_triangleLinkedColor);
+            GenerateTriangleNodes(L2_triangleNodeSize, L2_triangleMinManhattan);
+            PaintTriangleNodesIdle(L2_triangleIdleColor);
+            UpdateTriangleColors(L2_triangleIdleColor, L2_triangleLinkedColor);
         }
 
-        // reset routine/zone เก่า
-        if (zoneRoutine != null) { StopCoroutine(zoneRoutine); zoneRoutine = null; }
-        RevertAllZones();
+        // Locked Segments (spawn ตอนเริ่มด่าน)
+        if (L2_enableLockedSegments)
+            SpawnLockedSegments();
 
-        // ✅ โชว์ x2 โซนตั้งแต่ก่อนเริ่มจับเวลา (แต่ยังไม่ start นับหมดเวลา)
-        if (lm.level2_enablePeriodicX2Zones)
-            ApplyX2ZonesOnce(lm.level2_x2ZonesPerWave, lm.level2_x2ZoneDurationSec, scheduleRevert:false);
+        // Periodic x2 zones: โชว์ wave แรกไว้เลย (ยังไม่เริ่มนับหมดเวลา จนกว่า timer start)
+        if (L2_enablePeriodicX2Zones)
+            ApplyX2ZonesOnce(L2_x2ZonesPerWave, L2_zoneDurationSec, scheduleRevert:false);
+
+        // Locked Board (seed ช่องที่จะปลดด้วยความยาวคำ)
+        if (L2_enableLockedBoard)
+            SeedLockedSlots();
     }
-
 
     public void OnTimerStart()
     {
-        var lm = LevelManager.Instance;
-        if (lm?.currentLevelConfig?.levelIndex != 2) return;
-
-        if (lm.level2_enablePeriodicX2Zones && zoneRoutine == null)
+        // เริ่มนับหมดเวลาให้ wave แรก ถ้ามี
+        if (L2_enablePeriodicX2Zones)
         {
-            // ✅ เริ่ม “นับหมดเวลา” ให้ wave แรกที่โชว์ไว้ตั้งแต่ Setup
-            if (zoneBackups.Count > 0)
-                StartCoroutine(RevertZonesAfter(lm.level2_x2ZoneDurationSec));
+            if (_zoneBackups.Count > 0) StartCoroutine(RevertZonesAfter(L2_zoneDurationSec));
+            if (_zoneRoutine == null)
+                _zoneRoutine = StartCoroutine(PeriodicX2Zones(L2_x2ZonesPerWave, L2_zoneDurationSec, L2_x2IntervalSec));
+        }
 
-            // ✅ เริ่มลูป แต่ "รอ interval ก่อน" ค่อยสุ่ม wave ถัดไป
-            zoneRoutine = StartCoroutine(PeriodicX2Zones(
-                lm.level2_x2ZonesPerWave,
-                lm.level2_x2ZoneDurationSec,
-                lm.level2_x2IntervalSec
-            ));
+        // เริ่ม loop Bench Issue (interval)
+        if (L2_enableBenchIssue && _benchIssueRoutine == null)
+            _benchIssueRoutine = StartCoroutine(BenchIssueLoop());
+    }
+    public void StopAllEffects()
+    {
+        if (_zoneRoutine != null) { StopCoroutine(_zoneRoutine); _zoneRoutine = null; }
+        if (_benchIssueRoutine != null) { StopCoroutine(_benchIssueRoutine); _benchIssueRoutine = null; }
+        RevertAllZones();
+        ClearLockedSegments();
+    }
+
+    // ==== Locked Board ====
+    void SeedLockedSlots()
+    {
+        var bm = BoardManager.Instance; if (bm?.grid == null) return;
+
+        var pool = new List<BoardSlot>();
+        for (int r=0;r<bm.rows;r++)
+        for (int c=0;c<bm.cols;c++)
+        {
+            var s = bm.grid[r,c];
+            if (s == null || s.HasLetterTile() || s.IsLocked) continue;
+            pool.Add(s);
+        }
+        int want = Mathf.Clamp(L2_lockedCount, 0, pool.Count);
+        _lockedSlotsByLen.Clear();
+
+        for (int i=0;i<want;i++)
+        {
+            int idx = Random.Range(0, pool.Count);
+            var slot = pool[idx]; pool.RemoveAt(idx);
+
+            int reqLen = Random.Range(L2_requiredLenRange.x, L2_requiredLenRange.y + 1);
+            slot.IsLocked = true;
+            slot.bg.color = new Color32(120,120,120,255);
+            _lockedSlotsByLen[slot] = reqLen;
+        }
+
+        if (_lockedSlotsByLen.Count > 0)
+            UIManager.Instance?.ShowMessage($"Board bugged: {_lockedSlotsByLen.Count} slots locked (unlock by word length)", 2f);
+    }
+
+    public void TryUnlockByWordLength()
+    {
+        if (!L2_enableLockedBoard || _lockedSlotsByLen.Count == 0) return;
+
+        string main = TurnManager.Instance?.LastConfirmedWord ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(main)) return;
+
+        int len = main.Trim().Length;
+        if (len <= 0) return;
+
+        var toUnlock = new List<BoardSlot>();
+        foreach (var kv in _lockedSlotsByLen)
+            if (kv.Value == len) toUnlock.Add(kv.Key);
+
+        foreach (var s in toUnlock)
+        {
+            if (!s) continue;
+            s.IsLocked = false;
+            s.ApplyVisual();
+            s.Flash(Color.green, 2, 0.08f);
+            _lockedSlotsByLen.Remove(s);
+        }
+        if (toUnlock.Count > 0)
+            UIManager.Instance?.ShowMessage($"Unlocked {toUnlock.Count} bugged slot(s) by length {len}", 2f);
+    }
+
+    // ==== Bench Issue (interval + per-confirm) ====
+    IEnumerator BenchIssueLoop()
+    {
+        while (LevelManager.Instance?.GetCurrentLevelIndex() == 2 && !LevelManager.Instance.IsGameOver())
+        {
+            yield return new WaitForSecondsRealtime(Mathf.Max(5f, L2_benchIssueIntervalSec));
+
+            _benchIssueActive = true;
+            _benchIssueEndTime = Time.unscaledTime + Mathf.Max(3f, L2_benchIssueDurationSec);
+            _lastPenalizedWord = "";
+            UIManager.Instance?.ShowMessage("Bench bug active: some bench letters give 0 score!", L2_benchIssueDurationSec);
+
+            while (Time.unscaledTime < _benchIssueEndTime && !LevelManager.Instance.IsGameOver())
+                yield return null;
+
+            _benchIssueActive = false;
+            UIManager.Instance?.ShowMessage("Bench bug ended.", 1.2f);
+        }
+        _benchIssueRoutine = null;
+    }
+
+    // per-confirm: ทำให้บางตัวที่เติมลง Bench “คะแนน = 0” หนึ่งเทิร์น
+    public void TriggerBenchIssueAfterRefill()
+    {
+        if (!L2_enableBenchIssue) return;
+        StartCoroutine(BenchIssueAfterRefillCo());
+    }
+
+    IEnumerator BenchIssueAfterRefillCo()
+    {
+        var bm = BenchManager.Instance;
+        if (bm == null) yield break;
+
+        while (bm.IsRefilling()) yield return null;
+        yield return null;
+
+        ScoreManager.ClearZeroScoreTiles();
+        foreach (var t in bm.GetAllBenchTiles())
+            t.SetBenchIssueOverlay(false);
+
+        var pool = new List<LetterTile>(bm.GetAllBenchTiles());
+        int pick = Mathf.Clamp(L2_benchIssueCount, 0, pool.Count);
+
+        var chosen = new List<LetterTile>();
+        for (int i=0;i<pick && pool.Count>0;i++)
+        {
+            int idx = Random.Range(0, pool.Count);
+            chosen.Add(pool[idx]); pool.RemoveAt(idx);
+        }
+
+        if (chosen.Count > 0)
+        {
+            ScoreManager.MarkZeroScoreTiles(chosen);
+            foreach (var t in chosen)
+                t.SetBenchIssueOverlay(true, L2_benchIssueOverlayColor);
+            UIManager.Instance?.ShowFloatingToast($"Bench issue: {chosen.Count} tile(s) score 0 next turn", Color.gray, 2f);
         }
     }
 
+    public void TryApplyBenchPenalty()
+    {
+        if (!L2_enableBenchIssue || !_benchIssueActive) return;
+        if (L2_benchPenaltyPerWord <= 0) return;
+
+        string main = TurnManager.Instance?.LastConfirmedWord ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(main)) return;
+        if (main.Equals(_lastPenalizedWord, System.StringComparison.OrdinalIgnoreCase)) return;
+
+        TurnManager.Instance?.AddScore(-Mathf.Abs(L2_benchPenaltyPerWord));
+        _lastPenalizedWord = main;
+    }
+
+    public bool IsBenchIssueActive() => _benchIssueActive;
+    public int  SelectZeroCount(int placedCount)
+    {
+        if (!L2_enableBenchIssue || !_benchIssueActive) return 0;
+        return Mathf.Clamp(L2_benchZeroPerMove, 0, Mathf.Max(0, placedCount));
+    }
+
+    // ==== Zones (3x3) ====
+    IEnumerator PeriodicX2Zones(int zonesPerWave, float zoneDurationSec, float intervalSec)
+    {
+        while (LevelManager.Instance?.GetCurrentLevelIndex() == 2 && !LevelManager.Instance.IsGameOver())
+        {
+            float remain = Mathf.Max(1f, intervalSec);
+            while (remain > 0f)
+            {
+                while (PauseManager.IsPaused) yield return null;
+                if (!IsZoneTimerFrozen()) remain -= Time.unscaledDeltaTime;
+                yield return null;
+            }
+            while (IsZoneTimerFrozen()) yield return null;
+            ApplyX2ZonesOnce(zonesPerWave, zoneDurationSec, scheduleRevert:true);
+        }
+        _zoneRoutine = null;
+    }
+
+    void ApplyX2ZonesOnce(int zones, float duration, bool scheduleRevert=true)
+    {
+        var bm = BoardManager.Instance; if (bm?.grid == null) return;
+        if (bm.rows < 3 || bm.cols < 3) return;
+
+        RevertAllZones();
+
+        int rows = bm.rows, cols = bm.cols;
+        int requiredCheby = Mathf.Max(3, L2_zoneMinCenterCheby);
+
+        var centers = new List<Vector2Int>();
+        for (int pass=0; pass<3 && centers.Count<zones; pass++)
+        {
+            int attempts=0, maxAttempts=400;
+            while (centers.Count < zones && attempts++ < maxAttempts)
+            {
+                int r = Random.Range(1, rows-1);
+                int c = Random.Range(1, cols-1);
+                bool tooClose = centers.Any(cc => Mathf.Max(Mathf.Abs(cc.x-r), Mathf.Abs(cc.y-c)) < requiredCheby);
+                if (tooClose) continue;
+                centers.Add(new Vector2Int(r,c));
+            }
+            requiredCheby = Mathf.Max(3, requiredCheby-1);
+        }
+        if (centers.Count == 0) return;
+
+        int wordMul   = ScoreManager.EffectiveWordMulFor(L2_multiplierSlotType);
+        int letterMul = ScoreManager.EffectiveLetterMulFor(L2_multiplierSlotType);
+
+        foreach (var center in centers)
+        {
+            for (int dr=-1; dr<=1; dr++)
+            for (int dc=-1; dc<=1; dc++)
+            {
+                int rr = center.x + dr, cc = center.y + dc;
+                if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue;
+                var slot = bm.grid[rr,cc]; if (!slot) continue;
+
+                _zoneBackups.Add((new Vector2Int(rr,cc), slot.type, slot.manaGain));
+                slot.SetTempMultipliers(letterMul, wordMul);
+                slot.SetZoneOverlayTop(L2_zoneOverlayColor);
+            }
+        }
+
+        UIManager.Instance?.ShowMessage("x2 Zones appeared!", 2f);
+        if (scheduleRevert) StartCoroutine(RevertZonesAfter(duration));
+    }
+
+    IEnumerator RevertZonesAfter(float duration)
+    {
+        float remain = Mathf.Max(0f, duration);
+        while (remain > 0f)
+        {
+            if (!IsZoneTimerFrozen()) remain -= Time.unscaledDeltaTime;
+            yield return null;
+        }
+        RevertAllZones();
+        UIManager.Instance?.ShowMessage("x2 Zones ended", 1.5f);
+    }
+
+    void RevertAllZones()
+    {
+        if (_zoneBackups.Count == 0) { RedrawTriangleOverlays(); return; }
+        var bm = BoardManager.Instance; if (bm?.grid == null) { _zoneBackups.Clear(); return; }
+
+        foreach (var it in _zoneBackups)
+        {
+            var v = it.pos;
+            var s = bm.grid[v.x, v.y]; if (!s) continue;
+            s.type = it.prevType;
+            s.manaGain = it.prevMana;
+            s.ClearTempMultipliers();
+            s.ApplyVisual();
+        }
+        _zoneBackups.Clear();
+        ClearAllOverlays();
+        RedrawTriangleOverlays();
+    }
+
+    public static void SetZoneTimerFreeze(bool on)
+    { _zoneFreezeDepth = on ? _zoneFreezeDepth+1 : Mathf.Max(0,_zoneFreezeDepth-1); }
+    public static bool IsZoneTimerFrozen()
+    {
+        if (_zoneFreezeDepth > 0) return true;
+        if (TurnManager.Instance?.IsScoringAnimation ?? false) return true;
+        if (Time.timeScale==0f) return true;
+        return false;
+    }
+
+    // ==== Locked Segments ====
+    public void ClearLockedSegments()
+    {
+        if (_lockedSegmentSlots.Count == 0) return;
+        foreach (var s in _lockedSegmentSlots)
+            if (s)
+            {
+                s.IsLocked = false;
+                s.SetLockedVisual(false);
+                s.ApplyVisual();
+            }
+        _lockedSegmentSlots.Clear();
+    }
+
+    public void SpawnLockedSegments()
+    {
+        if (!L2_enableLockedSegments) return;
+
+        var bm = BoardManager.Instance; if (bm?.grid == null) return;
+        int rows=bm.rows, cols=bm.cols;
+        int segLen = Mathf.Max(1, L2_lockedSegmentLength);
+        int segCount = Mathf.Max(0, L2_lockedSegmentCount);
+
+        int centerR = rows/2, centerC = cols/2;
+        bool InCenter3x3(int r,int c)=> Mathf.Abs(r-centerR)<=1 && Mathf.Abs(c-centerC)<=1;
+
+        Vector2Int[] ADJ8 = {
+            new Vector2Int(-1,0), new Vector2Int(1,0),
+            new Vector2Int(0,-1), new Vector2Int(0,1),
+            new Vector2Int(-1,-1), new Vector2Int(-1,1),
+            new Vector2Int(1,-1),  new Vector2Int(1,1),
+        };
+        bool NearTriangle8(int r,int c)
+        {
+            if (IsTriangleCell(r,c)) return true;
+            for (int i=0;i<ADJ8.Length;i++)
+            {
+                int nr=r+ADJ8[i].x, nc=c+ADJ8[i].y;
+                if (nr<0||nr>=rows||nc<0||nc>=cols) continue;
+                if (IsTriangleCell(nr,nc)) return true;
+            }
+            return false;
+        }
+        bool HasLockedNeighbor8(int r,int c)
+        {
+            for (int i=0;i<ADJ8.Length;i++)
+            {
+                int nr=r+ADJ8[i].x, nc=c+ADJ8[i].y;
+                if (nr<0||nr>=rows||nc<0||nc>=cols) continue;
+                var ns=bm.grid[nr,nc];
+                if (ns!=null && ns.IsLocked) return true;
+            }
+            return false;
+        }
+
+        int attemptsPerSeg = 200;
+        for (int seg=0; seg<segCount; seg++)
+        {
+            bool placed=false;
+            for (int attempt=0; attempt<attemptsPerSeg && !placed; attempt++)
+            {
+                bool vertical = Random.value<0.5f;
+                int startR = vertical ? Random.Range(0, rows-segLen+1) : Random.Range(0, rows);
+                int startC = vertical ? Random.Range(0, cols) : Random.Range(0, cols-segLen+1);
+
+                var cand = new List<BoardSlot>();
+                for (int k=0;k<segLen;k++)
+                {
+                    int r = startR + (vertical? k:0);
+                    int c = startC + (vertical? 0:k);
+                    var s = bm.grid[r,c];
+                    if (!s || InCenter3x3(r,c) || s.IsLocked || s.HasLetterTile()
+                        || HasLockedNeighbor8(r,c) || NearTriangle8(r,c))
+                    { cand.Clear(); break; }
+                    cand.Add(s);
+                }
+
+                if (cand.Count==segLen)
+                {
+                    foreach (var s in cand)
+                    {
+                        s.IsLocked = true;
+                        s.SetLockedVisual(true, L2_lockedOverlayColor);
+                        _lockedSegmentSlots.Add(s);
+                    }
+                    placed = true;
+                }
+            }
+        }
+    }
     public void Tick(float dt)
     {
-        var lm = LevelManager.Instance;
-        if (lm?.currentLevelConfig?.levelIndex != 2) return;
-
-        if (lm.level2_useTriangleObjective)
+        if (L2_useTriangleObjective)
         {
             triangleCheckTimer += dt;
-            if (triangleCheckTimer >= Mathf.Max(0.1f, lm.level2_triangleCheckPeriod))
+            if (triangleCheckTimer >= Mathf.Max(0.1f, L2_triangleCheckPeriod))
             {
                 triangleCheckTimer = 0f;
                 triangleComplete = CheckTriangleComplete();
-                UpdateTriangleColors(lm.level2_triangleIdleColor, lm.level2_triangleLinkedColor);
+                UpdateTriangleColors(L2_triangleIdleColor, L2_triangleLinkedColor);
                 UIManager.Instance?.UpdateTriangleHint(triangleComplete);
             }
         }
@@ -281,11 +673,11 @@ public class Level2Controller : MonoBehaviour
     {
         var lm = LevelManager.Instance;
         if (lm?.currentLevelConfig?.levelIndex != 2) return;
-        if (!lm.level2_useTriangleObjective) return;
+        if (!L2_useTriangleObjective) return;
 
-        UpdateTriangleColors(lm.level2_triangleIdleColor, lm.level2_triangleLinkedColor);
+        UpdateTriangleColors(L2_triangleIdleColor, L2_triangleLinkedColor);
         var ok = CheckTriangleComplete();
-        triangleComplete = ok;                     // <<< เพิ่มบรรทัดนี้
+        triangleComplete = ok;
         UIManager.Instance?.UpdateTriangleHint(ok);
     }
 
@@ -358,155 +750,17 @@ public class Level2Controller : MonoBehaviour
         }
         return anchors;
     }
-    IEnumerator PeriodicX2Zones(int zonesPerWave, float zoneDurationSec, float intervalSec)
-    {
-        while (LevelManager.Instance?.currentLevelConfig?.levelIndex == 2)
-        {
-            // นับเองแบบ per-frame และ "หักเวลาเฉพาะตอนที่ไม่ถูกแช่"
-            float remain = Mathf.Max(1f, intervalSec);
-            while (remain > 0f)
-            {
-                while (PauseManager.IsPaused) yield return null;
-                if (!IsZoneTimerFrozen())
-                    remain -= Time.unscaledDeltaTime;  // หยุดเดินเมื่อกำลังคิดคะแนน/ถูก freeze
-                yield return null;
-            }
-
-            // เผื่อเข้า freeze ตอนนับเหลือ 0 พอดี → รอให้พ้นก่อนค่อยสปอว์น
-            while (IsZoneTimerFrozen()) yield return null;
-
-            ApplyX2ZonesOnce(zonesPerWave, zoneDurationSec, scheduleRevert:true);
-        }
-        zoneRoutine = null;
-    }
-    void ApplyX2ZonesOnce(int zones, float duration, bool scheduleRevert = true)
-    {
-        var lm = LevelManager.Instance;
-        var bm = BoardManager.Instance; if (bm?.grid == null || lm == null) return;
-        if (bm.rows < 3 || bm.cols < 3) return;
-
-        RevertAllZones();
-
-        int rows = bm.rows, cols = bm.cols;
-        int requiredCheby = Mathf.Max(3, lm.level2_zoneMinCenterCheby);
-
-        var centers = new List<Vector2Int>();
-        for (int pass = 0; pass < 3 && centers.Count < zones; pass++)
-        {
-            int attempts = 0, maxAttempts = 400;
-            while (centers.Count < zones && attempts++ < maxAttempts)
-            {
-                int r = Random.Range(1, rows - 1);
-                int c = Random.Range(1, cols - 1);
-
-                // ✅ กัน “ติด/แตะกัน” ด้วย Chebyshev distance
-                bool tooClose = centers.Any(cc => Mathf.Max(Mathf.Abs(cc.x - r), Mathf.Abs(cc.y - c)) < requiredCheby);
-                if (tooClose) continue;
-
-                centers.Add(new Vector2Int(r, c));
-            }
-
-            // ถ้าหาที่ว่างไม่พอ ให้ผ่อนระยะลงทีละ 1 (แต่ไม่ต่ำกว่า 3)
-            requiredCheby = Mathf.Max(3, requiredCheby - 1);
-        }
-
-        if (centers.Count == 0) return;
-
-        int zoneWordMul   = ScoreManager.EffectiveWordMulFor(lm.level2_multiplierSlotType);
-        int zoneLetterMul = ScoreManager.EffectiveLetterMulFor(lm.level2_multiplierSlotType);
-
-        foreach (var center in centers)
-        {
-            for (int dr = -1; dr <= 1; dr++)
-            for (int dc = -1; dc <= 1; dc++)
-            {
-                int rr = center.x + dr, cc = center.y + dc;
-                if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue;
-                var slot = bm.grid[rr, cc]; if (!slot) continue;
-
-                // backup ไว้เผื่อคืน (type ไม่ถูกแก้อยู่แล้ว แต่เก็บไว้ไม่เสียหาย)
-                zoneBackups.Add((new Vector2Int(rr, cc), slot.type, slot.manaGain));
-
-                // ❌ ไม่เปลี่ยนชนิดช่อง ไม่ใส่ไอคอน Wx2/Wx3 เพิ่ม
-                // ✅ ใส่ตัวคูณ “ชั่วคราว” จากโซนเท่านั้น
-                slot.SetTempMultipliers(zoneLetterMul, zoneWordMul);
-
-                // ✅ ลงโอเวอร์เลย์ให้เห็นโซน
-                slot.SetZoneOverlayTop(lm.level2_zoneOverlayColor);
-            }
-        }
-
-        UIManager.Instance?.ShowMessage("x2 Zones appeared!", 2f);
-
-        // เริ่มนับหมดเวลาหรือไม่ (ตอน Setup = false)
-        if (scheduleRevert)
-            StartCoroutine(RevertZonesAfter(duration));
-    }
     public static bool IsTriangleCell(int r, int c)
     {
         var inst = Instance;
         if (inst == null) return false;
         return inst.triAllCells.Contains(new Vector2Int(r, c));
     }
-    // เรียกจากที่อื่นเพื่อสั่ง "แช่แข็ง/คลาย" ตัวจับเวลาโซน
-    public static void SetZoneTimerFreeze(bool on)
-    {
-        _zoneFreezeDepth = on ? _zoneFreezeDepth + 1 : Mathf.Max(0, _zoneFreezeDepth - 1);
-    }
-
-    // เช็กแบบกันพลาด: ถ้า freeze ไว้, หรือกำลัง Scoring, หรือ timeScale==0 → ถือว่า "ต้องหยุดนับ"
-    public static bool IsZoneTimerFrozen()
-    {
-        if (_zoneFreezeDepth > 0) return true;
-        if (TurnManager.Instance?.IsScoringAnimation ?? false) return true;
-        if (Time.timeScale == 0f) return true;
-        return false;
-    }
-
-
-    IEnumerator RevertZonesAfter(float duration)
-    {
-        float remain = Mathf.Max(0f, duration);
-        while (remain > 0f)
-        {
-            if (!IsZoneTimerFrozen())
-                remain -= Time.unscaledDeltaTime;   // หักเฉพาะตอนที่ไม่ถูกแช่ไว้
-
-            yield return null;
-        }
-
-        RevertAllZones();
-        UIManager.Instance?.ShowMessage("x2 Zones ended", 1.5f);
-    }
-
-    void RevertAllZones()
-    {
-        if (zoneBackups.Count == 0) { RedrawTriangleOverlays(); return; }
-
-        var bm = BoardManager.Instance; if (bm?.grid == null) { zoneBackups.Clear(); return; }
-
-        foreach (var it in zoneBackups)
-        {
-            var v = it.pos;
-            if (v.x < 0 || v.y < 0 || v.x >= bm.rows || v.y >= bm.cols) continue;
-            var s = bm.grid[v.x, v.y]; if (s == null) continue;
-
-            s.type = it.prevType; 
-            s.manaGain = it.prevMana;
-            s.ClearTempMultipliers();              // ✅ ล้างตัวคูณจากโซน
-            s.ApplyVisual();
-        }
-        zoneBackups.Clear();
-
-        ClearAllOverlays();
-        RedrawTriangleOverlays();
-    }
 
     void RedrawTriangleOverlays()
     {
-        var lm = LevelManager.Instance; if (lm == null) return;
-        if (!lm.level2_useTriangleObjective) return;
-        UpdateTriangleColors(lm.level2_triangleIdleColor, lm.level2_triangleLinkedColor);
+        if (!L2_useTriangleObjective) return;
+        UpdateTriangleColors(L2_triangleIdleColor, L2_triangleLinkedColor);
     }
 
     void ClearAllOverlays()
