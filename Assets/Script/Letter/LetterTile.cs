@@ -556,6 +556,7 @@ public class LetterTile : MonoBehaviour,
             AdjustSizeToParent();
             PlaySettle();
             SpaceManager.Instance?.UpdateDiscardButton();
+            SpaceManager.Instance?.RefreshWordleColorsRealtime();
         }
         finally
         {

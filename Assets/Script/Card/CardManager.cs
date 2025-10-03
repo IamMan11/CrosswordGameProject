@@ -161,14 +161,15 @@ public class CardManager : MonoBehaviour
 
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        // หา UICardSelect ในซีนใหม่ (รวม inactive)
-#if UNITY_2023_1_OR_NEWER
+    #if UNITY_2023_1_OR_NEWER
         uiSelect = FindFirstObjectByType<UICardSelect>(FindObjectsInactive.Include);
-#else
+    #else
         uiSelect = FindObjectOfType<UICardSelect>(true);
-#endif
-    }
+    #endif
 
+        // ⭐ รีเซ็ตการ์ดค้างมือ/สถานะคิวเมื่อเข้าซีนใหม่
+        ClearAllHeldCards(true);
+    }
     #endregion
     // =======================================================================
 
@@ -639,7 +640,24 @@ public class CardManager : MonoBehaviour
         yield break;
     }
 
+    public void ClearAllHeldCards(bool alsoClearQueues = true)
+    {
+        EnsureHeldSize();
+        for (int i = 0; i < heldCards.Count; i++)
+            heldCards[i] = null;
 
+        if (alsoClearQueues)
+        {
+            optionsQueue.Clear();
+            pendingReplacementCard = null;
+            isReplaceMode = false;
+            lastOptions = null;
+            _uiHoldCount = 0;
+        }
+
+        // อัปเดต UI ให้ช่องว่างทั้งหมด
+        UIManager.Instance?.UpdateCardSlots(heldCards);
+    }
     /// <summary>ลองฟิวชันการ์ดจากช่อง A → B; ถ้าสำเร็จจะเขียนผลทับช่อง B และลบ A</summary>
     public bool TryFuseByIndex(int fromIndex, int toIndex)
     {

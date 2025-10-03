@@ -3397,7 +3397,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   wordRequestTargetLevel1: 20
   levels:
-  - levelIndex: 1
+  - levelIndex: 2
     requiredScore: 10
     requiredWords: 3
     timeLimit: 900
@@ -9438,8 +9438,8 @@ MonoBehaviour:
   L2_triangleCheckPeriod: 0.5
   L2_triangleIdleColor: {r: 1, g: 0, b: 0, a: 1}
   L2_triangleLinkedColor: {r: 0, g: 1, b: 0, a: 1}
-  L2_enableLockedBoard: 1
-  L2_lockedCount: 3
+  L2_enableLockedBoard: 0
+  L2_lockedCount: 0
   L2_requiredLenRange: {x: 3, y: 7}
   L2_enableBenchIssue: 1
   L2_benchIssueCount: 2
@@ -9462,8 +9462,8 @@ MonoBehaviour:
   L2_zoneOverlayColor: {r: 0.2, g: 0.8, b: 0.2, a: 0.8}
   L2_enableLockedSegments: 1
   L2_lockedSegmentLength: 4
-  L2_lockedSegmentCount: 6
-  L2_lockedOverlayColor: {r: 0, g: 0, b: 0, a: 0.55}
+  L2_lockedSegmentCount: 4
+  L2_lockedOverlayColor: {r: 0, g: 0, b: 0, a: 1}
   objectiveText: {fileID: 0}
 --- !u!1 &769700902
 GameObject:
@@ -9953,7 +9953,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 770, y: 402}
+  m_AnchoredPosition: {x: 710, y: 402}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &799081709
