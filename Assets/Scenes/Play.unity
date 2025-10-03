@@ -3442,7 +3442,7 @@ MonoBehaviour:
     coefTurnMoney: -10
     coefTilesLeftMoney: 1
   - levelIndex: 2
-    requiredScore: 100
+    requiredScore: 20
     requiredWords: 0
     timeLimit: 900
     level1_enableGarbledIT: 0
@@ -17128,7 +17128,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   level3_enableBoss: 1
-  level3_bossMaxHP: 100
+  level3_bossMaxHP: 150
   level3_criticalLength: 7
   level3_criticalBonus: 0.5
   level3_conveyorIntervalSec: 30
