@@ -3397,7 +3397,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   wordRequestTargetLevel1: 20
   levels:
-  - levelIndex: 2
+  - levelIndex: 1
     requiredScore: 10
     requiredWords: 3
     timeLimit: 900

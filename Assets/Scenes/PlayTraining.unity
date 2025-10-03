@@ -1384,9 +1384,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   bg: {fileID: 498569831}
   defaultBg: {r: 1, g: 1, b: 1, a: 0.5882353}
-  background: {fileID: 498569831}
-  emptyColor: {r: 1, g: 1, b: 1, a: 1}
-  filledColor: {r: 1, g: 0.86, b: 0.55, a: 1}
 --- !u!1 &287685800
 GameObject:
   m_ObjectHideFlags: 0
@@ -1477,9 +1474,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   bg: {fileID: 951406973}
   defaultBg: {r: 1, g: 1, b: 1, a: 0.5882353}
-  background: {fileID: 951406973}
-  emptyColor: {r: 1, g: 1, b: 1, a: 1}
-  filledColor: {r: 1, g: 0.86, b: 0.55, a: 1}
 --- !u!1 &296736525
 GameObject:
   m_ObjectHideFlags: 0
@@ -3020,7 +3014,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bcf8fca18cb609b4ab828eb7b874f394, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  databaseFileName: data.db
+  databaseFileName: training.db
   preloadAllOnStart: 0
   alwaysOverwriteDbAtLaunch: 1
   minWordLength: 2
@@ -3623,9 +3617,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   bg: {fileID: 296736527}
   defaultBg: {r: 1, g: 1, b: 1, a: 0.5882353}
-  background: {fileID: 296736527}
-  emptyColor: {r: 1, g: 1, b: 1, a: 1}
-  filledColor: {r: 1, g: 0.86, b: 0.55, a: 1}
 --- !u!1 &791051079
 GameObject:
   m_ObjectHideFlags: 0
@@ -4880,9 +4871,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   bg: {fileID: 1235546785}
   defaultBg: {r: 1, g: 1, b: 1, a: 0.5882353}
-  background: {fileID: 1235546785}
-  emptyColor: {r: 1, g: 1, b: 1, a: 1}
-  filledColor: {r: 1, g: 0.86, b: 0.55, a: 1}
 --- !u!1 &1097054028
 GameObject:
   m_ObjectHideFlags: 0
@@ -5116,9 +5104,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   bg: {fileID: 1755411830}
   defaultBg: {r: 1, g: 1, b: 1, a: 0.5882353}
-  background: {fileID: 1755411830}
-  emptyColor: {r: 1, g: 1, b: 1, a: 1}
-  filledColor: {r: 1, g: 0.86, b: 0.55, a: 1}
 --- !u!1 &1128510238
 GameObject:
   m_ObjectHideFlags: 0
@@ -5450,9 +5435,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   bg: {fileID: 142410136}
   defaultBg: {r: 1, g: 1, b: 1, a: 0.5882353}
-  background: {fileID: 142410136}
-  emptyColor: {r: 1, g: 1, b: 1, a: 1}
-  filledColor: {r: 1, g: 0.86, b: 0.55, a: 1}
 --- !u!1 &1192320633
 GameObject:
   m_ObjectHideFlags: 0
@@ -8598,9 +8580,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   bg: {fileID: 622523160}
   defaultBg: {r: 1, g: 1, b: 1, a: 0.5882353}
-  background: {fileID: 622523160}
-  emptyColor: {r: 1, g: 1, b: 1, a: 1}
-  filledColor: {r: 1, g: 0.86, b: 0.55, a: 1}
 --- !u!1 &1839910130
 GameObject:
   m_ObjectHideFlags: 0
@@ -8963,9 +8942,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   bg: {fileID: 1721969166}
   defaultBg: {r: 1, g: 1, b: 1, a: 0.5882353}
-  background: {fileID: 1721969166}
-  emptyColor: {r: 1, g: 1, b: 1, a: 1}
-  filledColor: {r: 1, g: 0.86, b: 0.55, a: 1}
 --- !u!1 &1906547465
 GameObject:
   m_ObjectHideFlags: 0
@@ -10331,9 +10307,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   bg: {fileID: 88799611}
   defaultBg: {r: 1, g: 1, b: 1, a: 0.5882353}
-  background: {fileID: 88799611}
-  emptyColor: {r: 1, g: 1, b: 1, a: 1}
-  filledColor: {r: 1, g: 0.86, b: 0.55, a: 1}
 --- !u!1 &2056118162
 GameObject:
   m_ObjectHideFlags: 0
@@ -10941,9 +10914,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   bg: {fileID: 2056118164}
   defaultBg: {r: 1, g: 1, b: 1, a: 0.5882353}
-  background: {fileID: 2056118164}
-  emptyColor: {r: 1, g: 1, b: 1, a: 1}
-  filledColor: {r: 1, g: 0.86, b: 0.55, a: 1}
 --- !u!1001 &2144795249
 PrefabInstance:
   m_ObjectHideFlags: 0
